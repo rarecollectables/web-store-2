@@ -1,5 +1,5 @@
 [build]
-  command = "npm install --legacy-peer-deps && npm run build"
+  command = "npm install && npm run build"
   publish = "dist"
   base = "/"
   functions = "netlify/functions"
@@ -15,6 +15,7 @@
 
   [functions.node_version]
     version = "18"
+    npm_version = "8.19.3"
 
   [functions.build]
     command = "npm install"
