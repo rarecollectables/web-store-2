@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "preinstall": "npx npm-force-resolutions",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
@@ -12,7 +13,7 @@
     "deploy": "node scripts/deploy.js"
   },
   "dependencies": {
-    "@react-native-masked-view/masked-view": "^0.3.2",
+    "@react-native-masked-view/masked-view": "^0.2.9",
     "expo": "~52.0.46",
     "expo-linear-gradient": "~14.0.2",
     "expo-linking": "~7.0.5",
@@ -34,7 +35,11 @@
     "expo-image": "~2.0.7"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "npm-force-resolutions": "^0.0.10"
   },
-  "private": true
+  "private": true,
+  "resolutions": {
+    "@react-native-masked-view/masked-view": "^0.2.9"
+  }
 }

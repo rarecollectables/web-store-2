@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "npm install --legacy-peer-deps && npm run build"
   publish = "dist"
   base = "/"
   functions = "netlify/functions"
@@ -12,10 +12,12 @@
   
 [functions]
   directory = "netlify/functions"
-  node_version = "18"
 
-[functions.build]
-  command = "npm install"
+  [functions.node_version]
+    version = "18"
+
+  [functions.build]
+    command = "npm install"
 
 [[redirects]]
   from = "/*"
