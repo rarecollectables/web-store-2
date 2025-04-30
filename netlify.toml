@@ -8,14 +8,13 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "webpack"
+  node_bundler = "esbuild"
 
   [functions.node_version]
     version = "18"
 
   [functions.build]
-    version = "18"
-    command = "npm install"
+    command = "npm install --legacy-peer-deps"
 
 [build.environment]
   NODE_VERSION = "18"
