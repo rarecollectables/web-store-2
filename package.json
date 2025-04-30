@@ -9,8 +9,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "pre-deploy": "node scripts/pre-deploy.js",
+    "validate-deployment": "node scripts/validate-deployment.js",
     "build": "expo export --platform web",
-    "deploy": "node scripts/deploy.js"
+    "deploy": "npm run validate-deployment && node scripts/deploy.js"
   },
   "dependencies": {
     "@react-native-masked-view/masked-view": "0.2.9",
@@ -34,12 +35,18 @@
     "zod": "3.24.3",
     "expo-image": "2.0.7"
   },
+  "peerDependencies": {
+    "react": "18.3.1",
+    "react-native": "0.76.9"
+  },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "npm-force-resolutions": "^0.0.10"
+    "npm-force-resolutions": "^0.0.10",
+    "chalk": "^5.3.0"
   },
   "private": true,
   "resolutions": {
-    "@react-native-masked-view/masked-view": "^0.2.9"
+    "@react-native-masked-view/masked-view": "0.2.9",
+    "react-native-skeleton-placeholder": "5.2.4"
   }
 }
