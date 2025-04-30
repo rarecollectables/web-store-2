@@ -1,24 +1,25 @@
 [build]
-  command = "npm ci && npm run build"
+  command = "npm install --legacy-peer-deps && npm run build"
   publish = "dist"
   base = "/"
-  functions = "netlify/functions"
 
 [dev]
   command = "expo start --web"
 
-[build.environment]
-  NODE_VERSION = "18"
-  
 [functions]
   directory = "netlify/functions"
+  node_bundler = "webpack"
 
   [functions.node_version]
     version = "18"
-    npm_version = "8.19.3"
 
   [functions.build]
+    version = "18"
     command = "npm install"
+
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_VERSION = "8.19.3"
 
 [[redirects]]
   from = "/*"

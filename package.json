@@ -40,13 +40,9 @@
     "react-native": "0.76.9"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0",
-    "npm-force-resolutions": "^0.0.10",
-    "chalk": "^5.3.0"
+    "@babel/core": "7.20.0",
+    "npm-force-resolutions": "0.0.10",
+    "chalk": "5.3.0"
   },
-  "private": true,
-  "resolutions": {
-    "@react-native-masked-view/masked-view": "0.2.9",
-    "react-native-skeleton-placeholder": "5.2.4"
-  }
+  "private": true
 }
