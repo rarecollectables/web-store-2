@@ -43,6 +43,7 @@
     "react-native-skeleton-placeholder": "5.2.4",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "0.19.13",
+    "stripe": "^18.1.0",
     "styled-components": "6.1.17",
     "zod": "3.24.3"
   },
