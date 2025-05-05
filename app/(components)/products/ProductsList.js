@@ -45,6 +45,23 @@ export default function ProductsList() {
         setLoading(true);
         setError(null);
         
+        // Log the current category being fetched
+        console.log('Fetching products with category:', category);
+        
+        // First, test the Supabase connection
+        const { data: test, error: testError } = await supabase
+          .from('products')
+          .select('id')
+          .limit(1);
+
+        if (testError) {
+          console.error('Supabase connection test failed:', testError);
+          throw new Error(`Database connection error: ${testError.message}`);
+        }
+
+        console.log('Successfully connected to database');
+
+        // Build the query
         let query = supabase
           .from('products')
           .select('id, name, price, image_url, category, description, stock')
@@ -52,55 +69,93 @@ export default function ProductsList() {
 
         if (category) {
           const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+          console.log('Applying category filter:', formattedCategory);
           query = query.eq('category', formattedCategory);
         }
 
+        // Add pagination
+        query = query.range((page - 1) * 12, page * 12 - 1);
+
+        console.log('Executing query...');
         const { data, error } = await query;
 
         if (error) {
-          console.error('Supabase query error:', error);
-          throw error;
+          console.error('Supabase query error:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          throw new Error(`Query error: ${error.message}`);
         }
 
-        // Log the raw data to check what we're getting
+        if (!data || data.length === 0) {
+          console.log('No products found');
+          setHasMore(false);
+          return;
+        }
+
         console.log('Raw products data:', data);
 
         // Validate and transform the data
         const validProducts = data.map(product => {
-          // Parse price from string format (e.g., '£50') to number
-          let price = 0;
-          if (typeof product.price === 'string') {
-            // Remove currency symbol and any whitespace, then parse as float
-            price = parseFloat(product.price.replace(/[£\s]/g, ''));
-          } else if (typeof product.price === 'number') {
-            price = product.price;
+          try {
+            // Parse price from string format (e.g., '£50') to number
+            let price = 0;
+            if (typeof product.price === 'string') {
+              // Remove currency symbol and any whitespace, then parse as float
+              price = parseFloat(product.price.replace(/[£\s]/g, ''));
+              if (isNaN(price)) {
+                console.warn(`Invalid price format for product ${product.id}: ${product.price}`);
+                price = 0;
+              }
+            } else if (typeof product.price === 'number') {
+              price = product.price;
+            }
+
+            // Ensure image_url is a string
+            const image_url = typeof product.image_url === 'string' ? product.image_url : null;
+
+            // Validate required fields
+            if (!product.id || !product.name) {
+              console.warn(`Skipping invalid product:`, product);
+              return null;
+            }
+
+            return {
+              ...product,
+              price, // Store as number
+              image_url,
+              // Map image_url to image_path for ProductCard
+              image_path: image_url
+            };
+          } catch (parseError) {
+            console.error(`Error processing product ${product.id}:`, parseError);
+            return null;
           }
-
-          // Ensure image_url is a string
-          const image_url = typeof product.image_url === 'string' ? product.image_url : null;
-
-          return {
-            ...product,
-            price, // Store as number
-            image_url,
-            // Map image_url to image_path for ProductCard
-            image_path: image_url
-          };
-        });
+        }).filter(Boolean); // Remove null products
 
         console.log('Processed products:', validProducts);
-        setProducts(validProducts);
-        setHasMore(data?.length > 0);
+        setProducts(prevProducts => {
+          // If we're on the first page, replace products
+          // If we're on subsequent pages, append products
+          return page === 1 ? validProducts : [...prevProducts, ...validProducts];
+        });
+        setHasMore(data.length === 12); // Assuming 12 products per page
       } catch (err) {
-        console.error('Error fetching products:', err);
-        setError('Failed to load products');
+        console.error('Error fetching products:', {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        });
+        setError(err.message || 'Failed to load products');
       } finally {
         setLoading(false);
       }
     }
 
     fetchProducts();
-  }, [category]);
+  }, [category, page]);
 
   const renderHeader = () => {
     if (!category) return null;
