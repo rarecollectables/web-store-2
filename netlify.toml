@@ -19,9 +19,6 @@
     [functions.build]
       command = "npm install --legacy-peer-deps"
 
-[dev]
-  command = "expo start --web"
-
 [[redirects]]
   from = "/*"
   to = "/index.html"
