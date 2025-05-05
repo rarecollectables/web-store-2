@@ -12,8 +12,12 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  node_version = "18"
-  build_command = "yarn install && yarn run build"
+
+  [functions.node_version]
+    version = "18"
+
+  [functions.build]
+    command = "yarn install && yarn run build"
 
 [[redirects]]
   from = "/*"
