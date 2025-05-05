@@ -8,6 +8,12 @@ import { useStore } from '../../context/store';
 import { Alert } from 'react-native';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme/index.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { fetchProductById } from '../../lib/supabase/fetchProductById';
+import { trackEvent } from '../../lib/trackEvent';
+
+function MemoCarouselImage({ item, style }) {
+  return <ExpoImage source={item} style={style} contentFit="cover" transition={300} />;
+}
 
 export default function ProductDetail() {
   const { id } = useLocalSearchParams();
@@ -19,27 +25,16 @@ export default function ProductDetail() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const heartScale = useRef(new Animated.Value(1)).current;
   const flatListRef = useRef(null);
-  const { addToCart, addToWishlist } = useStore();
   const addCartAnim = useRef(new Animated.Value(1));
+  const { addToCart, addToWishlist } = useStore();
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const product = PRODUCTS.find(p => p.id === id);
-  if (!product) {
-    return (
-      <View style={styles.modal}>
-        <Pressable style={styles.close} onPress={() => {
-          if (router.canGoBack()) router.back();
-          else router.replace('/');
-        }}>
-          <Text style={styles.closeText}>✕</Text>
-        </Pressable>
-        <Text style={{ margin: 20, color: colors.text }}>Product not found.</Text>
-      </View>
-    );
+  let images = [];
+  if (product) {
+    images = DATA_IMAGES[product.id] || (product.image_url ? [{ uri: product.image_url }] : (product.image ? [{ uri: product.image }] : []));
   }
-
-  const images = DATA_IMAGES[product.id] || [{ uri: product.image }];
-
-  // For manual swipe tracking
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems && viewableItems.length > 0) {
       setCurrentIndex(viewableItems[0].index);
@@ -47,7 +42,36 @@ export default function ProductDetail() {
   }).current;
   const viewabilityConfig = { viewAreaCoveragePercentThreshold: 60 };
 
-  // Auto-advance logic
+  const renderCarouselImage = useCallback(
+    ({ item }) => <MemoCarouselImage item={item} style={styles.image} />, 
+    [styles.image]
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadProduct() {
+      let found = PRODUCTS.find(p => p.id === id);
+      if (found) {
+        if (!isMounted) return;
+        setProduct(found);
+        setLoading(false);
+        return;
+      }
+      try {
+        const supaProduct = await fetchProductById(id);
+        if (!isMounted) return;
+        setProduct(supaProduct);
+        setLoading(false);
+      } catch (err) {
+        if (!isMounted) return;
+        setError('Product not found.');
+        setLoading(false);
+      }
+    }
+    loadProduct();
+    return () => { isMounted = false; };
+  }, [id]);
+
   useEffect(() => {
     if (!images || images.length < 2) return;
     const interval = setInterval(() => {
@@ -67,33 +91,55 @@ export default function ProductDetail() {
       Animated.timing(addCartAnim.current, { toValue: 1.15, duration: 120, useNativeDriver: true }),
       Animated.spring(addCartAnim.current, { toValue: 1, friction: 3, useNativeDriver: true })
     ]).start();
-    // Always add with quantity 1, numeric price, and a valid image URI
-    const imageUri = (Array.isArray(images) && images[0]?.uri) ? images[0].uri : (product.image || '');
+    const imageUri = (Array.isArray(images) && images[0]?.uri) ? images[0].uri : (product?.image_url || product?.image || '');
     addToCart({
       ...product,
       price: typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0,
       image: imageUri,
       quantity: 1,
     });
-    Alert.alert('Added to Cart', `${product.title} has been added to your cart.`);
+    trackEvent({
+      eventType: 'add_to_cart',
+      productId: product?.id,
+      quantity: 1,
+      metadata: { productName: product?.title || product?.name, price: product?.price }
+    });
+    Alert.alert('Added to Cart', `${product?.title || 'Product'} has been added to your cart.`);
   }
 
   function handleWishlist() {
     setWishAnimating(true);
     setIsWishlisted((prev) => !prev);
-    if (!isWishlisted) addToWishlist(product);
+    if (!isWishlisted && product) addToWishlist(product);
     Animated.sequence([
       Animated.timing(heartScale, { toValue: 1.3, duration: 120, useNativeDriver: true }),
       Animated.spring(heartScale, { toValue: 1, friction: 3, useNativeDriver: true })
     ]).start(() => setWishAnimating(false));
-    if (!isWishlisted) {
+    if (!isWishlisted && product) {
       Alert.alert('Added to Wishlist', `${product.title} has been added to your wishlist.`);
     }
   }
 
-  const MemoCarouselImage = memo(function CarouselImage({ item, style }) {
-    return <ExpoImage source={item} style={style} contentFit="cover" transition={300} />;
-  });
+  if (loading) {
+    return (
+      <View style={styles.modal}>
+        <Text style={{ margin: 20, color: colors.text }}>Loading...</Text>
+      </View>
+    );
+  }
+  if (error || !product) {
+    return (
+      <View style={styles.modal}>
+        <Pressable style={styles.close} onPress={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace('/');
+        }}>
+          <Text style={styles.closeText}>✕</Text>
+        </Pressable>
+        <Text style={{ margin: 20, color: colors.text }}>{error || 'Product not found.'}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.modal}>
@@ -112,9 +158,7 @@ export default function ProductDetail() {
         showsHorizontalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        renderItem={useCallback(({ item }) => (
-          <MemoCarouselImage item={item} style={styles.image} />
-        ), [styles.image])}
+        renderItem={renderCarouselImage}
         style={styles.carousel}
         initialScrollIndex={0}
         getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
@@ -132,7 +176,7 @@ export default function ProductDetail() {
           />
         ))}
       </View>
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 120 + insets.bottom }]}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 120 + insets.bottom }]}> 
         <Text style={styles.title}>{product.title}</Text>
         <View style={styles.pricePillWrapper}>
           <Text style={styles.price}>{product.price}</Text>

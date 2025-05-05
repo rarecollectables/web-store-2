@@ -4,6 +4,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { useStore } from '../../context/store';
 import { useRouter } from 'expo-router';
 import { PRODUCTS } from '../(data)/products';
+import { trackEvent } from '../../lib/trackEvent';
 
 function parsePrice(val) {
   if (typeof val === 'number') return val;
@@ -29,6 +30,11 @@ export default function CartScreen() {
   const shipping = 0.0; // Free UK shipping
   const total = subtotal + shipping;
 
+  React.useEffect(() => {
+    // Track cart view event
+    trackEvent({ eventType: 'cart_view' });
+  }, []);
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Your Cart</Text>
@@ -50,7 +56,10 @@ export default function CartScreen() {
                 <View style={styles.quantityRow}>
                   <Pressable
                     style={styles.qtyBtn}
-                    onPress={() => updateCartItem(item.id, Math.max(1, item.quantity - 1))}
+                    onPress={() => {
+                      updateCartItem(item.id, Math.max(1, item.quantity - 1));
+                      trackEvent({ eventType: 'cart_quantity_decrease', productId: item.id, quantity: item.quantity - 1 });
+                    }}
                     accessibilityLabel="Decrease quantity"
                   >
                     <Text style={styles.qtyBtnText}>-</Text>
@@ -58,7 +67,10 @@ export default function CartScreen() {
                   <Text style={styles.qtyText}>{item.quantity}</Text>
                   <Pressable
                     style={styles.qtyBtn}
-                    onPress={() => updateCartItem(item.id, item.quantity + 1)}
+                    onPress={() => {
+                      updateCartItem(item.id, item.quantity + 1);
+                      trackEvent({ eventType: 'cart_quantity_increase', productId: item.id, quantity: item.quantity + 1 });
+                    }}
                     accessibilityLabel="Increase quantity"
                   >
                     <Text style={styles.qtyBtnText}>+</Text>
@@ -66,7 +78,10 @@ export default function CartScreen() {
                 </View>
                 <Pressable
                   style={styles.removeBtn}
-                  onPress={() => removeFromCart(item.id)}
+                  onPress={() => {
+                    removeFromCart(item.id);
+                    trackEvent({ eventType: 'remove_from_cart', productId: item.id });
+                  }}
                   accessibilityLabel="Remove from cart"
                 >
                   <Text style={styles.removeBtnText}>Remove</Text>

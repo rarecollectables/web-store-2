@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useStore } from '../context/store';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../theme';
 import { z } from 'zod';
 import { storeOrder } from './components/orders-modal';
+import { trackEvent } from '../lib/trackEvent';
+import Constants from 'expo-constants';
+
+// Netlify function endpoint for Stripe Checkout
+const NETLIFY_STRIPE_FUNCTION_URL = Constants.expoConfig?.extra?.NETLIFY_STRIPE_FUNCTION_URL || 'https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session';
 
 const contactSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -16,11 +21,6 @@ const addressSchema = z.object({
   city: z.string().min(2, 'City required'),
   zip: z.string().min(3, 'ZIP required'),
 });
-const paymentSchema = z.object({
-  cardNumber: z.string().min(12, 'Card number required'),
-  expiry: z.string().regex(/^(0[1-9]|1[0-2])\/[0-9]{2}$/, 'MM/YY'),
-  cvc: z.string().min(3, 'CVC required'),
-});
 
 export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -29,9 +29,9 @@ export default function CheckoutScreen() {
   const [step, setStep] = useState(0);
   const [contact, setContact] = useState({ name: '', email: '' });
   const [address, setAddress] = useState({ line1: '', city: '', zip: '' });
-  const [payment, setPayment] = useState({ cardNumber: '', expiry: '', cvc: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   const subtotal = cart.reduce((sum, item) => sum + (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * (item.quantity || 1), 0);
   const tax = subtotal * 0.1;
@@ -49,37 +49,87 @@ export default function CheckoutScreen() {
         return;
       }
     }
-    if (step === 1) {
-      const result = paymentSchema.safeParse(payment);
-      if (!result.success) {
-        setErrors(result.error.flatten().fieldErrors);
-        return;
-      }
-    }
     setErrors({});
-    setStep(s => Math.min(s + 1, 2));
+    setStep(s => Math.min(s + 1, 1));
   }
 
-  async function handleConfirm() {
-    setLoading(true);
-    setTimeout(() => {
-      storeOrder({
-        id: Math.floor(Math.random() * 1000000),
-        date: new Date().toLocaleString(),
-        total,
-        items: cart.map(item => ({
-          id: item.id,
-          title: item.title,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        contact: { ...contact },
-        address: { ...address },
-      }, contact.email);
-      cart.forEach(item => removeFromCart(item.id));
-      setLoading(false);
-      router.replace('/confirmation');
-    }, 1200);
+  async function handleStripeCheckout() {
+    setPaying(true);
+    try {
+      console.log('Starting checkout process');
+      console.log('Cart:', cart);
+      console.log('Contact:', contact);
+      console.log('Address:', address);
+      console.log('Netlify function URL:', NETLIFY_STRIPE_FUNCTION_URL);
+
+      await trackEvent({
+        eventType: 'proceed_to_checkout',
+        metadata: {
+          cart: cart.map(item => ({
+            id: item.id,
+            title: item.title,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          contact,
+          address,
+          subtotal,
+          tax,
+          total,
+        }
+      });
+
+      console.log('Making request to Netlify function');
+      const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          cart,
+          customer_email: contact.email,
+          shipping_address: address,
+        })
+      });
+
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Response data:', data);
+
+      if (!response.ok) {
+        console.error('Error response from server:', data);
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      if (!data.url) {
+        console.error('No URL received in response:', data);
+        throw new Error('No checkout URL received from server');
+      }
+
+      console.log('Opening checkout URL:', data.url);
+      Linking.openURL(data.url)
+        .then(() => console.log('URL opened successfully'))
+        .catch(error => {
+          console.error('Error opening URL:', error);
+          throw new Error('Failed to open checkout URL');
+        });
+    } catch (error) {
+      console.error('Checkout error:', error);
+      Alert.alert(
+        'Payment Error',
+        error.message || 'Unable to start payment. Please try again.',
+        [
+          {
+            text: 'OK',
+            onPress: () => setPaying(false)
+          }
+        ]
+      );
+      Alert.alert('Payment Error', err.message || 'Unable to start payment.');
+    } finally {
+      setPaying(false);
+    }
   }
 
   const renderContactAndAddress = () => (
@@ -119,126 +169,58 @@ export default function CheckoutScreen() {
         placeholder="City"
       />
       {!!errors.city && <Text style={styles.error}>{errors.city}</Text>}
-      <Text style={styles.label}>ZIP Code</Text>
+      <Text style={styles.label}>ZIP</Text>
       <TextInput
         style={styles.input}
         value={address.zip}
         onChangeText={t => setAddress({ ...address, zip: t })}
-        placeholder="ZIP / Postal Code"
-        keyboardType="numeric"
+        placeholder="ZIP Code"
+        keyboardType="default"
       />
       {!!errors.zip && <Text style={styles.error}>{errors.zip}</Text>}
+      <Pressable
+        style={[styles.button, { marginTop: 24 }]}
+        onPress={validateAndNext}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>Proceed to Payment</Text>
+      </Pressable>
     </View>
   );
 
   const renderPayment = () => (
     <View style={styles.step}>
-      <Text style={styles.label}>Card Number</Text>
-      <TextInput
-        style={styles.input}
-        value={payment.cardNumber}
-        onChangeText={t => setPayment({ ...payment, cardNumber: t })}
-        placeholder="1234 5678 9012 3456"
-        keyboardType="numeric"
-      />
-      {!!errors.cardNumber && <Text style={styles.error}>{errors.cardNumber}</Text>}
-      <View style={styles.row}>
-        <View style={{ flex: 1, marginRight: 8 }}>
-          <Text style={styles.label}>Expiry</Text>
-          <TextInput
-            style={styles.input}
-            value={payment.expiry}
-            onChangeText={t => setPayment({ ...payment, expiry: t })}
-            placeholder="MM/YY"
-          />
-          {!!errors.expiry && <Text style={styles.error}>{errors.expiry}</Text>}
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>CVC</Text>
-          <TextInput
-            style={styles.input}
-            value={payment.cvc}
-            onChangeText={t => setPayment({ ...payment, cvc: t })}
-            placeholder="CVC"
-            keyboardType="numeric"
-          />
-          {!!errors.cvc && <Text style={styles.error}>{errors.cvc}</Text>}
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderReview = () => (
-    <View style={styles.step}>
-      <Text style={styles.reviewTitle}>Review Your Order</Text>
-      {cart.map(item => (
-        <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <Image source={{ uri: item.image }} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 12, backgroundColor: '#eee' }} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.reviewText}>{item.title}</Text>
-            <Text style={styles.reviewText}>Qty: {item.quantity || 1}</Text>
-            <Text style={styles.reviewText}>₤{((typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * (item.quantity || 1)).toFixed(2)}</Text>
-          </View>
-        </View>
-      ))}
-      <Text style={styles.reviewText}>Subtotal: ₤{subtotal.toFixed(2)}</Text>
-      <Text style={styles.reviewText}>Tax (10%): ₤{tax.toFixed(2)}</Text>
-      <Text style={styles.reviewText}>Total: ₤{total.toFixed(2)}</Text>
-      <Text style={styles.reviewText}>Name: {contact.name}</Text>
-      <Text style={styles.reviewText}>Email: {contact.email}</Text>
-      <Text style={styles.reviewText}>
-        Address: {address.line1}, {address.city}, {address.zip}
-      </Text>
+      <Text style={styles.summaryLabel}>Order Summary</Text>
+      <Text>Subtotal: £{subtotal.toFixed(2)}</Text>
+      <Text>Tax: £{tax.toFixed(2)}</Text>
+      <Text>Total: £{total.toFixed(2)}</Text>
+      <Pressable
+        style={[styles.button, { marginTop: 24, backgroundColor: '#635BFF' }]}
+        onPress={handleStripeCheckout}
+        disabled={paying}
+      >
+        {paying ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Pay with Card / Apple Pay / Google Pay</Text>}
+      </Pressable>
     </View>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>      
-      <ScrollView contentContainerStyle={styles.content}>
-        {step === 0 && renderContactAndAddress()}
-        {step === 1 && renderPayment()}
-        {step === 2 && renderReview()}
-      </ScrollView>
-      <View style={styles.footer}>
-        {step > 0 && (
-          <Pressable style={[styles.navButton, styles.backButton]} onPress={() => setStep(s => Math.max(s - 1, 0))}>
-            <Text style={styles.backText}>Back</Text>
-          </Pressable>
-        )}
-        <Pressable
-          style={[styles.navButton, styles.nextButton, loading && { opacity: 0.6 }]}
-          onPress={step < 2 ? validateAndNext : handleConfirm}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.nextText}>{step < 2 ? 'Next' : 'Confirm'}</Text>}
-        </Pressable>
-      </View>
-      <Pressable
-        style={[styles.close, { top: insets.top + 10 }]}
-        onPress={() => router.back()}
-      >
-        <Text style={styles.closeText}>✕</Text>
-      </Pressable>
-    </View>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+      <Text style={styles.header}>Checkout</Text>
+      {step === 0 && renderContactAndAddress()}
+      {step === 1 && renderPayment()}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.ivory },
-  content: { padding: spacing.md },
-  step: { marginBottom: spacing.md },
-  label: { color: colors.gold, fontWeight: '700', fontFamily, fontSize: 16, marginBottom: spacing.xs },
-  input: { backgroundColor: colors.white, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.xs, fontFamily, fontSize: 16, borderWidth: 1, borderColor: colors.softGoldBorder },
-  error: { color: colors.ruby, fontSize: 13, marginBottom: spacing.xs, fontFamily },
-  row: { flexDirection: 'row', gap: spacing.xs },
-  reviewTitle: { fontSize: 22, color: colors.gold, fontWeight: '900', fontFamily, marginBottom: spacing.md },
-  reviewText: { fontSize: 15, color: colors.black, fontFamily, marginBottom: spacing.xs },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.md, paddingTop: 0 },
-  navButton: { flex: 1, backgroundColor: colors.gold, borderRadius: borderRadius.md, paddingVertical: spacing.md, alignItems: 'center', marginLeft: spacing.xs, marginRight: spacing.xs, ...shadows.card },
-  nextButton: { backgroundColor: colors.gold },
-  backButton: { backgroundColor: colors.platinum },
-  nextText: { color: colors.white, fontWeight: '700', fontSize: 18, fontFamily },
-  backText: { color: colors.white, fontWeight: '700', fontSize: 18, fontFamily },
-  close: { position: 'absolute', right: spacing.md, zIndex: 10, backgroundColor: colors.ivory, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, ...shadows.card },
-  closeText: { fontSize: 24, color: colors.platinum },
+  header: { fontSize: 28, fontWeight: '900', color: '#BFA054', marginBottom: 18, marginTop: 16, textAlign: 'center' },
+  step: { marginBottom: spacing.md, paddingHorizontal: 12 },
+  label: { fontSize: 16, fontWeight: 'bold', marginTop: 12 },
+  input: { borderWidth: 1, borderColor: '#E5DCC3', borderRadius: 8, padding: 10, marginTop: 6, fontSize: 16, backgroundColor: '#fff' },
+  error: { color: 'red', marginTop: 4 },
+  button: { backgroundColor: '#BFA054', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 16 },
+  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  summaryLabel: { fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
 });

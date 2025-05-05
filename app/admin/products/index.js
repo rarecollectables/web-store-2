@@ -1,0 +1,190 @@
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, FlatList, Alert } from 'react-native';
+import { Appbar, Card, Button, TextInput, FAB, Portal, Dialog, Paragraph, ActivityIndicator } from 'react-native-paper';
+import { supabase } from '../../../lib/supabase/client';
+import { useRouter } from 'expo-router';
+
+export default function AdminProducts() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [form, setForm] = useState({ name: '', price: '', image_url: '', category: '', description: '', stock: '' });
+  const router = useRouter();
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  async function fetchProducts() {
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, price, image_url, category, description, stock')
+      .order('created_at', { ascending: false });
+    if (error) {
+      setError('Failed to fetch products');
+    } else {
+      setProducts(data || []);
+    }
+    setLoading(false);
+  }
+
+  function openDialog(product = null) {
+    setEditingProduct(product);
+    setForm(product ? { ...product, price: String(product.price), stock: String(product.stock) } : { name: '', price: '', image_url: '', category: '', description: '', stock: '' });
+    setShowDialog(true);
+  }
+
+  function closeDialog() {
+    setShowDialog(false);
+    setEditingProduct(null);
+    setForm({ name: '', price: '', image_url: '', category: '', description: '', stock: '' });
+  }
+
+  async function handleSave() {
+    const { name, price, image_url, category, description, stock } = form;
+    if (!name || !price) return Alert.alert('Validation', 'Name and price are required');
+    setLoading(true);
+    let result;
+    // Ensure price is a string (not a number) and stock is int or null
+    const updatePayload = {
+      name: name.trim(),
+      price: String(price).trim(),
+      image_url: image_url?.trim() || null,
+      category: category?.trim() || null,
+      description: description?.trim() || null,
+      stock: stock === '' ? null : parseInt(stock)
+    };
+    if (editingProduct) {
+      result = await supabase
+        .from('products')
+        .update(updatePayload)
+        .eq('id', editingProduct.id);
+    } else {
+      // Remove id from payload for insert (let Supabase auto-generate or handle it)
+      const { id, ...insertPayload } = updatePayload;
+      result = await supabase
+        .from('products')
+        .insert([insertPayload]);
+    }
+    if (result.error) {
+      Alert.alert('Error', result.error.message);
+    } else {
+      fetchProducts();
+      closeDialog();
+    }
+    setLoading(false);
+  }
+
+  async function handleDelete(id) {
+    Alert.alert('Delete Product', 'Are you sure you want to delete this product?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          setLoading(true);
+          const { error } = await supabase.from('products').delete().eq('id', id);
+          if (error) Alert.alert('Error', error.message);
+          else fetchProducts();
+          setLoading(false);
+        }
+      }
+    ]);
+  }
+
+  return (
+    <View style={styles.container}>
+      <Appbar.Header>
+        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.Content title="Manage Products" />
+        <Appbar.Action icon="plus" onPress={() => openDialog()} />
+      </Appbar.Header>
+      {loading ? <ActivityIndicator style={{ marginTop: 30 }} /> : (
+        <FlatList
+          data={products}
+          keyExtractor={item => item.id.toString()}
+          renderItem={({ item }) => (
+            <Card style={styles.card}>
+              <Card.Title title={item.name} subtitle={`₤${item.price} | ${item.category}`} />
+              <Card.Content>
+                <Paragraph>{item.description}</Paragraph>
+                <Paragraph>Stock: {item.stock}</Paragraph>
+              </Card.Content>
+              <Card.Actions>
+                <Button onPress={() => openDialog(item)}>Edit</Button>
+                <Button onPress={() => handleDelete(item.id)} color='red'>Delete</Button>
+              </Card.Actions>
+            </Card>
+          )}
+          contentContainerStyle={{ padding: 16 }}
+        />
+      )}
+      <Portal>
+        <Dialog visible={showDialog} onDismiss={closeDialog}>
+          <Dialog.Title>{editingProduct ? 'Edit Product' : 'Add Product'}</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Name"
+              value={form.name}
+              onChangeText={text => setForm(f => ({ ...f, name: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Price"
+              value={form.price}
+              onChangeText={text => setForm(f => ({ ...f, price: text }))}
+              keyboardType="decimal-pad"
+              style={styles.input}
+            />
+            <TextInput
+              label="Image URL"
+              value={form.image_url}
+              onChangeText={text => setForm(f => ({ ...f, image_url: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Category"
+              value={form.category}
+              onChangeText={text => setForm(f => ({ ...f, category: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Description"
+              value={form.description}
+              onChangeText={text => setForm(f => ({ ...f, description: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Stock"
+              value={form.stock}
+              onChangeText={text => setForm(f => ({ ...f, stock: text }))}
+              keyboardType="number-pad"
+              style={styles.input}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeDialog}>Cancel</Button>
+            <Button onPress={handleSave}>{editingProduct ? 'Update' : 'Add'}</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  card: {
+    marginBottom: 16,
+    elevation: 2,
+  },
+  input: {
+    marginBottom: 10,
+    backgroundColor: 'white',
+  },
+});

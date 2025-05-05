@@ -79,7 +79,10 @@ function TabBarIconWithBadge({ name, color, count, animate }) {
 }
 
 export default function TabsLayout() {
-  const { cart, wishlist, lastAddedToCart, lastAddedToWishlist } = useStore();
+  const { cart = [], wishlist = [], lastAddedToCart, lastAddedToWishlist } = useStore();
+  const cartCount = Array.isArray(cart) ? cart.length : 0;
+  const wishlistCount = Array.isArray(wishlist) ? wishlist.length : 0;
+
   return (
     <Tabs screenOptions={{ headerShown: false }}>
       <Tabs.Screen
@@ -101,7 +104,7 @@ export default function TabsLayout() {
         options={{
           title: 'Wishlist',
           tabBarIcon: ({ color }) => (
-            <TabBarIconWithBadge name="heart" color={color} count={wishlist.length} animate={!!lastAddedToWishlist} />
+            <TabBarIconWithBadge name="heart" color={color} count={wishlistCount} animate={!!lastAddedToWishlist} />
           )
         }}
       />
@@ -117,7 +120,7 @@ export default function TabsLayout() {
         options={{
           title: 'Cart',
           tabBarIcon: ({ color }) => (
-            <TabBarIconWithBadge name="shopping-cart" color={color} count={cart.length} animate={!!lastAddedToCart} />
+            <TabBarIconWithBadge name="shopping-cart" color={color} count={cartCount} animate={!!lastAddedToCart} />
           )
         }}
       />

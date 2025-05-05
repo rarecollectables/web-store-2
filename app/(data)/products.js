@@ -1,6 +1,6 @@
 // app/data/products.js
 // Product definitions and local image mappings (AVIF for web, fallback to ExpoImage for all platforms)
-export const PRODUCTS = [
+const PRODUCTS = [
   { id: '1-bracelets', title: '1CT Angel Wings Charm Diamond GRA VVs1 Moissanite S925 Sterling Silver Bracelet for Ladies', price: '£65', category: 'Bracelets', image: require('../../assets/images/products/1-1-bracelets.avif') },
   { id: '1-earrings', title: 'Fringe Earrings 0.5CT Moissanite S925 Sterling Silver Drop Earrings Dangle for Women', price: '£75', category: 'Earrings', image: require('../../assets/images/products/1-1-earrings.avif') },
   { id: '1-necklaces', title: '1Ct butterfly Pendant Diamond VVs1 Moissanite 925 Sterling Silver', price: '£70', category: 'Necklaces', image: require('../../assets/images/products/1-1-Necklace.avif') },
@@ -18,7 +18,7 @@ export const PRODUCTS = [
   { id: '4-rings', title: 'S925 Sterling Silver VVs1 Moissanite Diamond 1 Carat Ring GRA for Women', price: '£65', category: 'Rings', image: require('../../assets/images/products/4-1-ring.avif') },
 ];
 
-export const LOCAL_IMAGES = {
+const LOCAL_IMAGES = {
   '1-bracelets': [
     require('../../assets/images/products/1-1-bracelets.avif'),
     require('../../assets/images/products/1-2.avif'),
@@ -111,7 +111,18 @@ export const LOCAL_IMAGES = {
   ],
 };
 
-// Default export for route compatibility (invisible data module)
-export default function ProductsDataRoute() {
+function ProductsDataRoute() {
+  // Default export for route compatibility (invisible data module)
   return null;
 }
+
+// Export for CommonJS
+module.exports = {
+  PRODUCTS,
+  LOCAL_IMAGES,
+  ProductsDataRoute
+};
+
+// Export for ES modules
+export { PRODUCTS, LOCAL_IMAGES, ProductsDataRoute };
+export default ProductsDataRoute;

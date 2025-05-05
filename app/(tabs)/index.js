@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme/index.js';
+import ChatScreen from '../chat/index.js';
+
 
 // Category definitions for homepage
 const CATEGORIES = [
@@ -43,9 +45,8 @@ const CATEGORY_IMAGES = {
 };
 
 // Animated Category Card
-function CategoryCard({ id, title, cardSize, marginRight, onPress }) {
+function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const images = CATEGORY_IMAGES[id] || [];
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % images.length);
@@ -86,6 +87,7 @@ export default function HomeScreen() {
   const isDark = colorScheme === 'dark';
   const [searchQuery, setSearchQuery] = useState('');
   const [email, setEmail] = useState('');
+  const [isChatVisible, setIsChatVisible] = useState(false);
 
   // Responsive columns for category grid
   const columns = width > 900 ? 4 : width > 600 ? 3 : 2;
@@ -95,111 +97,147 @@ export default function HomeScreen() {
   const cardSize = (width - totalSpacing) / columns;
 
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top, backgroundColor: isDark ? colors.onyxBlack : colors.ivory }]}>  
+    <View style={styles.container}>
+      <ChatScreen isChatVisible={isChatVisible} setIsChatVisible={setIsChatVisible} />
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          alignItems: 'center',
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom + 20,
+          backgroundColor: 'transparent'
+        }}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        accessibilityRole="scrollbar"
       >
-        {/* Hero Section */}
-        <ImageBackground
-          source={require('../../assets/images/Rare Collectables hero.png')}
-          style={[styles.heroContainer, { width }]}
-          imageStyle={{ opacity: 0.8 }}
-        >
-          <View style={styles.overlay} />
-          <Text style={styles.heroText}>Rare Collectables</Text>
-          <Pressable
-            style={({ pressed }) => [styles.cta, { opacity: pressed ? 0.8 : 1 }]}
-            onPress={() => router.push('/shop')}
-            accessibilityRole="button"
-            accessibilityLabel="Shop Now"
-          >
-            <Text style={styles.ctaText}>Shop Now</Text>
-          </Pressable>
-        </ImageBackground>
-        {/* Category cards */}
-        <View style={styles.categoriesContainer}>
-          {CATEGORIES.map((cat, index) => {
-            const marginRight = (index + 1) % columns === 0 ? 0 : cardSpacing;
-            return (
-              <CategoryCard
-                key={cat.id}
-                id={cat.id}
-                title={cat.title}
-                cardSize={cardSize}
-                marginRight={marginRight}
-                onPress={() => router.push({ pathname: '/shop', params: { category: cat.id } })}
-              />
-            );
-          })}
-        </View>
-        {/* Newsletter & Social CTA */}
-        <View style={styles.newsletterSection}>
-          <Text style={styles.newsletterTitle}>Join our newsletter</Text>
-          <View style={styles.newsletterForm}>
-            <TextInput
-              style={styles.newsletterInput}
-              placeholder="Your email address"
-              placeholderTextColor={colors.platinumGrey}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-              accessibilityLabel="Email address"
-              returnKeyType="done"
-            />
-            <Pressable
-              style={({ pressed }) => [styles.newsletterButton, { opacity: pressed ? 0.8 : 1 }]}
-              onPress={() => {
-                if (email.includes('@')) {
-                  Alert.alert('Subscribed', `Thanks for subscribing, ${email}!`);
-                  setEmail('');
-                } else {
-                  Alert.alert('Invalid email', 'Please enter a valid email address.');
-                }
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Subscribe to newsletter"
+          <View style={styles.content}>
+            <ImageBackground
+              source={require('../../assets/images/Rare Collectables hero.png')}
+              style={[styles.heroContainer, { width: width }]}
+              imageStyle={{ opacity: 0.8 }}
             >
-              <Text style={styles.newsletterButtonText}>Subscribe</Text>
-            </Pressable>
+              <View style={styles.overlay} />
+              <Text style={styles.heroText}>Rare Collectables</Text>
+              <Pressable
+                style={({ pressed }) => [styles.cta, { opacity: pressed ? 0.8 : 1 }]}
+                onPress={() => router.push('/shop')}
+                accessibilityRole="button"
+                accessibilityLabel="Shop Now"
+              >
+                <Text style={styles.ctaText}>Shop Now</Text>
+              </Pressable>
+            </ImageBackground>
+            <View style={styles.categoriesContainer}>
+              {CATEGORIES.map((cat, index) => {
+                const marginRight = (index + 1) % columns === 0 ? 0 : cardSpacing;
+                const images = CATEGORY_IMAGES[cat.id] || [];
+                return (
+                  <CategoryCard
+                    key={cat.id}
+                    id={cat.id}
+                    title={cat.title}
+                    cardSize={cardSize}
+                    marginRight={marginRight}
+                    images={images}
+                    onPress={() => router.push({ pathname: '/shop', params: { category: cat.id } })}
+                  />
+                );
+              })}
+            </View>
+            <View style={styles.newsletterSection}>
+              <Text style={styles.newsletterTitle}>Join our newsletter</Text>
+              <View style={styles.newsletterForm}>
+                <TextInput
+                  style={styles.newsletterInput}
+                  placeholder="Your email address"
+                  placeholderTextColor={colors.platinumGrey}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                  accessibilityLabel="Email address"
+                  returnKeyType="done"
+                />
+                <Pressable
+                  style={({ pressed }) => [styles.newsletterButton, { opacity: pressed ? 0.8 : 1 }]}
+                  onPress={() => {
+                    if (email.includes('@')) {
+                      Alert.alert('Subscribed', `Thanks for subscribing, ${email}!`);
+                      setEmail('');
+                    } else {
+                      Alert.alert('Invalid email', 'Please enter a valid email address.');
+                    }
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Subscribe to newsletter"
+                >
+                  <Text style={styles.newsletterButtonText}>Subscribe</Text>
+                </Pressable>
+              </View>
+              <View style={styles.socialRow}>
+                <Pressable onPress={() => Linking.openURL('https://facebook.com/rarecollectables')} accessibilityRole="link" accessibilityLabel="Facebook">
+                  <FontAwesome name="facebook" size={32} color="#4267B2" />
+                </Pressable>
+                <Pressable onPress={() => Linking.openURL('https://instagram.com/rarecollectables')} style={styles.socialIcon} accessibilityRole="link" accessibilityLabel="Instagram">
+                  <FontAwesome name="instagram" size={32} color="#C13584" />
+                </Pressable>
+                <Pressable onPress={() => Linking.openURL('https://twitter.com/rarecollect')} style={styles.socialIcon} accessibilityRole="link" accessibilityLabel="Twitter">
+                  <FontAwesome name="twitter" size={32} color="#1DA1F2" />
+                </Pressable>
+              </View>
+            </View>
           </View>
-          <View style={styles.socialRow}>
-            <Pressable onPress={() => Linking.openURL('https://facebook.com/rarecollectables')} accessibilityRole="link" accessibilityLabel="Facebook">
-              <FontAwesome name="facebook" size={32} color="#4267B2" />
-            </Pressable>
-            <Pressable onPress={() => Linking.openURL('https://instagram.com/rarecollectables')} style={styles.socialIcon} accessibilityRole="link" accessibilityLabel="Instagram">
-              <FontAwesome name="instagram" size={32} color="#C13584" />
-            </Pressable>
-            <Pressable onPress={() => Linking.openURL('https://twitter.com/rarecollect')} style={styles.socialIcon} accessibilityRole="link" accessibilityLabel="Twitter">
-              <FontAwesome name="twitter" size={32} color="#1DA1F2" />
-            </Pressable>
-          </View>
-        </View>
-      </ScrollView>
-      {/* Floating chat button */}
-      <View style={[styles.fab, { bottom: insets.bottom + 20 }]}> 
-        <Pressable
-          onPress={() => router.push('/chat')}
-          style={styles.chatButton}
-          accessibilityRole="button"
-          accessibilityLabel="Chat with support"
-        >
-          <Text style={styles.chatIcon}>💬</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+        </ScrollView>
+      <ChatScreen isChatVisible={isChatVisible} setIsChatVisible={setIsChatVisible} />
+      <Pressable
+        style={styles.chatButton}
+        onPress={() => setIsChatVisible(!isChatVisible)}
+        accessibilityRole="button"
+        accessibilityLabel="Toggle chat"
+      >
+        <FontAwesome name="comment" size={24} color={colors.onyxBlack} />
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  chatButton: {
+    position: 'absolute',
+    bottom: spacing.xl,
+    right: spacing.xl,
+    backgroundColor: colors.gold,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    ...shadows.card,
+    elevation: 4,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  chatIcon: {
+    fontSize: 24,
+    color: colors.onyxBlack,
+    fontFamily,
+    fontWeight: 'bold',
+  },
+  content: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    backgroundColor: colors.ivory,
+    backgroundColor: 'transparent',
+    padding: spacing.md,
   },
   heroContainer: {
     height: 280,
@@ -234,75 +272,77 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.md,
     ...shadows.card,
+    elevation: 4,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   ctaText: {
     color: colors.onyxBlack,
     fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: fontFamily.sans,
+    textAlign: 'center',
+    fontFamily,
   },
   categoriesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.lg,
-    alignSelf: 'stretch',
   },
   categoryCard: {
     borderRadius: borderRadius.md,
     overflow: 'hidden',
-    marginBottom: spacing.md,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.softGoldBorder,
     backgroundColor: colors.white,
     ...shadows.card,
-    elevation: 3,
+    elevation: 4,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
   },
   categoryImage: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
     width: '100%',
     height: '100%',
+    borderRadius: borderRadius.md,
+    opacity: 1,
   },
   categoryOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(191, 160, 84, 0.07)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-end',
+    padding: spacing.md,
   },
   categoryTitle: {
-    fontSize: 19,
-    fontWeight: '600',
-    color: colors.onyxBlack,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.sm,
-    marginBottom: spacing.sm,
-    overflow: 'hidden',
-    fontFamily: fontFamily.sans,
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.white,
     textAlign: 'center',
-    shadowColor: colors.gold,
-    shadowOpacity: 0.14,
-    shadowRadius: 4,
-  },
-  newsletterSection: {
-    width: '100%',
+    fontFamily: fontFamily.serif,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    letterSpacing: 0.5,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginVertical: spacing.lg,
-    backgroundColor: colors.white,
+    borderRadius: borderRadius.sm,
+    overflow: 'hidden',
+  },
+  newsletterContainer: {
+    width: '100%',
+    padding: spacing.md,
     borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.softGoldBorder,
-    padding: spacing.md + 2,
-    alignItems: 'center',
+    ...shadows.card,
   },
   newsletterTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: spacing.sm + 4,
-    color: colors.gold,
-    fontFamily: fontFamily.serif,
   },
   newsletterForm: {
     flexDirection: 'row',
@@ -326,31 +366,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,
+    ...shadows.card,
   },
   newsletterButtonText: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     fontFamily: fontFamily.sans,
   },
   socialRow: {
     flexDirection: 'row',
-    marginTop: spacing.md + 2,
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginTop: spacing.sm,
   },
   socialIcon: {
-    marginLeft: spacing.md + 2,
-  },
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-  },
-  chatButton: {
-    backgroundColor: colors.amethyst,
-    padding: spacing.lg,
-    borderRadius: 32,
-  },
-  chatIcon: {
-    fontSize: 28,
-    color: colors.white,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.white,
+    ...shadows.card,
   },
 });

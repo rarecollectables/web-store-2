@@ -1,0 +1,279 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform, ImageBackground, Animated, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import { colors, spacing, borderRadius, fontFamily } from '../../../theme';
+import { useStore } from '../../../context/store';
+import { trackEvent } from '../../../lib/trackEvent';
+
+export default function ProductCard({ item, cardWidth }) {
+  const router = useRouter();
+  const { addToCart } = useStore();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+  const intervalRef = useRef(null);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Get all images for the product
+  const getProductImages = () => {
+    const images = [item.image_url];
+    
+    // Add additional images if they exist
+    if (item.additional_images) {
+      try {
+        const additionalImages = JSON.parse(item.additional_images);
+        if (Array.isArray(additionalImages)) {
+          images.push(...additionalImages);
+        }
+      } catch (error) {
+        console.error('Error parsing additional_images:', error);
+      }
+    }
+    
+    return images.filter(Boolean); // Remove any null/undefined values
+  };
+
+  const images = getProductImages();
+
+  useEffect(() => {
+    if (images.length > 1) {
+      intervalRef.current = setInterval(() => {
+        setCurrentIndex((prev) => (prev + 1) % images.length);
+      }, 3200); // Match home page timing
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [images.length]);
+
+  const handlePress = () => {
+    // Track product view event
+    trackEvent({
+      eventType: 'product_view',
+      productId: item.id,
+      metadata: { productName: item.name }
+    });
+    router.push(`/product/${item.id}`);
+  };
+
+  const handleAddToCart = () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 1.15, duration: 120, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 3, useNativeDriver: true })
+    ]).start();
+
+    const imageUri = images[0] || '';
+    const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+    // Track add to cart event
+    trackEvent({
+      eventType: 'add_to_cart',
+      productId: item.id,
+      quantity: 1,
+      metadata: { productName: item.name, price }
+    });
+    addToCart({
+      ...item,
+      price,
+      image: imageUri,
+      quantity: 1,
+    });
+    
+    Alert.alert('Added to Cart', `${item.name} has been added to your cart.`);
+  };
+
+  const formatPrice = (price) => {
+    const numericPrice = typeof price === 'number' ? price : 
+                        typeof price === 'string' ? parseFloat(price.replace(/[£\s]/g, '')) : 0;
+    
+    if (isNaN(numericPrice)) {
+      return 'Price N/A';
+    }
+    
+    return `£${numericPrice.toFixed(2)}`;
+  };
+
+  return (
+    <Pressable
+      style={[styles.container, { width: cardWidth }]}
+      onPress={handlePress}
+    >
+      <View style={styles.imageContainer}>
+        {imageLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.gold} />
+          </View>
+        )}
+        {imageError ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Image not available</Text>
+          </View>
+        ) : (
+          <ImageBackground
+            source={{ uri: images[currentIndex] }}
+            style={styles.image}
+            imageStyle={styles.imageStyle}
+            onLoadStart={() => setImageLoading(true)}
+            onLoad={() => setImageLoading(false)}
+            onError={() => {
+              setImageLoading(false);
+              setImageError(true);
+            }}
+          >
+            {images.length > 1 && (
+              <View style={styles.imageIndicators}>
+                {images.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.indicator,
+                      index === currentIndex && styles.activeIndicator
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+          </ImageBackground>
+        )}
+      </View>
+      <View style={styles.contentContainer}>
+        <View style={styles.textContainer}>
+          <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
+          <Text style={styles.price}>{formatPrice(item.price)}</Text>
+        </View>
+        <Animated.View style={[styles.buttonContainer, { transform: [{ scale: scaleAnim }] }]}>
+          <Pressable
+            style={styles.addToCartButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleAddToCart();
+            }}
+          >
+            <Text style={styles.addToCartText}>Add to Cart</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    shadowColor: colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    marginBottom: spacing.l,
+  },
+  imageContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: colors.ivory,
+    position: 'relative',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  imageStyle: {
+    resizeMode: 'cover',
+  },
+  loadingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.ivory,
+  },
+  errorContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.ivory,
+  },
+  errorText: {
+    color: colors.gray,
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+  },
+  contentContainer: {
+    padding: spacing.l,
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  textContainer: {
+    flex: 1,
+    marginBottom: spacing.m,
+  },
+  name: {
+    fontSize: 15,
+    fontFamily: fontFamily.serif,
+    color: colors.onyxBlack,
+    marginBottom: spacing.m,
+    lineHeight: 20,
+    fontWeight: '500',
+    letterSpacing: 0.1,
+  },
+  price: {
+    fontSize: 22,
+    fontFamily: fontFamily.sans,
+    color: colors.gold,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  buttonContainer: {
+    width: '100%',
+  },
+  addToCartButton: {
+    backgroundColor: colors.gold,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.l,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    width: '100%',
+    ...(Platform.OS === 'web' ? {
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+      ':hover': {
+        backgroundColor: colors.darkGold,
+      },
+    } : {}),
+  },
+  addToCartText: {
+    color: colors.white,
+    fontFamily: fontFamily.sans,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  imageIndicators: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  indicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.white,
+    opacity: 0.5,
+  },
+  activeIndicator: {
+    opacity: 1,
+    backgroundColor: colors.gold,
+  },
+});
