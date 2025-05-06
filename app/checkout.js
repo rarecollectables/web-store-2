@@ -11,10 +11,10 @@ import { trackEvent } from '../lib/trackEvent';
 import Constants from 'expo-constants';
 
 // Get Stripe keys from environment
-const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || Constants.expoConfig?.extra?.STRIPE_PUBLISHABLE_KEY;
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || Constants.expoConfig?.extra?.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
 // Netlify function endpoint for Stripe Checkout
-const NETLIFY_STRIPE_FUNCTION_URL = process.env.EXPO_PUBLIC_NETLIFY_FUNCTION_URL || Constants.expoConfig?.extra?.NETLIFY_STRIPE_FUNCTION_URL || 'https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session';
+const NETLIFY_STRIPE_FUNCTION_URL = Constants.expoConfig?.extra?.NETLIFY_STRIPE_FUNCTION_URL || 'https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session';
 
 const contactSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -122,46 +122,82 @@ function CheckoutScreen() {
         }
 
         // Confirm card payment
-        const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              name: contact.name,
-              email: contact.email,
-              address: {
-                line1: address.line1,
-                city: address.city,
-                postal_code: address.zip,
-                country: 'GB'
+        try {
+          const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: contact.name,
+                email: contact.email,
+                address: {
+                  line1: address.line1,
+                  city: address.city,
+                  postal_code: address.zip,
+                  country: 'GB'
+                }
               }
             }
-          }
-        });
+          });
 
-        if (error) {
-          // Handle different types of errors
-          if (error.type === 'card_error') {
-            throw new Error(`Card error: ${error.message}`);
-          } else if (error.type === 'validation_error') {
-            throw new Error(`Validation error: ${error.message}`);
-          } else if (error.type === 'api_error') {
-            throw new Error(`Payment processing error: ${error.message}`);
-          } else {
-            throw new Error(`Payment error: ${error.message}`);
+          if (error) {
+            // Handle different types of errors
+            if (error.type === 'card_error') {
+              throw new Error(`Card error: ${error.message}`);
+            } else if (error.type === 'validation_error') {
+              throw new Error(`Validation error: ${error.message}`);
+            } else if (error.type === 'api_error') {
+              throw new Error(`Payment processing error: ${error.message}`);
+            } else {
+              throw new Error(`Payment error: ${error.message}`);
+            }
           }
+
+          // Payment successful
+          Alert.alert('Success', 'Payment completed successfully!');
+          // Clear cart and navigate to confirmation
+          removeFromCart(cart);
+          router.push('/confirmation');
+
+          // Log successful payment
+          await trackEvent({
+            eventType: 'checkout_success',
+            metadata: {
+              paymentIntent,
+              cart,
+              contact,
+              address,
+              subtotal,
+              tax,
+              total
+            }
+          });
+
+        } catch (error) {
+          // Handle server communication errors
+          if (error instanceof SyntaxError) {
+            throw new Error('Failed to communicate with payment server. Please try again.');
+          }
+          throw error;
         }
 
-        // Payment successful
-        Alert.alert('Success', 'Payment completed successfully!');
-        // Clear cart and navigate to confirmation
-        removeFromCart(cart);
-        router.push('/confirmation');
+      } catch (error) {
+        console.error('Payment error:', {
+          error: error.message,
+          type: error.type,
+          code: error.code,
+          stack: error.stack
+        });
 
-        // Log successful payment
+        // Log to analytics for tracking
         await trackEvent({
-          eventType: 'checkout_success',
+          eventType: 'checkout_error',
           metadata: {
-            paymentIntent,
+            error: {
+              type: error.type || 'unknown',
+              message: error.message,
+              code: error.code,
+              stack: error.stack
+            },
             cart,
             contact,
             address,
@@ -171,16 +207,48 @@ function CheckoutScreen() {
           }
         });
 
-      } catch (error) {
-        // Handle server communication errors
-        if (error instanceof SyntaxError) {
-          throw new Error('Failed to communicate with payment server. Please try again.');
+        // Provide more specific error messages
+        let errorMessage = error.message || 'Failed to process payment. Please try again later.';
+        
+        if (error.type === 'card_error') {
+          errorMessage = `Card error: ${error.message}`;
+        } else if (error.type === 'validation_error') {
+          errorMessage = `Validation error: ${error.message}`;
+        } else if (error.type === 'api_error') {
+          errorMessage = `Payment processing error: ${error.message}`;
+        } else if (error.type === 'unknown') {
+          errorMessage = 'An unexpected error occurred. Please try again later.';
         }
-        throw error;
-      }
 
+        Alert.alert(
+          'Payment Error',
+          errorMessage,
+          [
+            { 
+              text: 'OK',
+              style: 'cancel'
+            },
+            { 
+              text: 'Try Again',
+              onPress: () => handleStripeCheckout()
+            }
+          ]
+        );
+      } finally {
+        setPaying(false);
+        setLoading(false);
+        console.log('Checkout process completed', {
+          success: !error,
+          timestamp: new Date().toISOString()
+        });
+      }
     } catch (error) {
-      console.error('Payment error:', error);
+      console.error('Payment error:', {
+        error: error.message,
+        type: error.type,
+        code: error.code,
+        stack: error.stack
+      });
 
       // Log to analytics for tracking
       await trackEvent({
@@ -189,7 +257,7 @@ function CheckoutScreen() {
           error: {
             type: error.type || 'unknown',
             message: error.message,
-            name: error.name,
+            code: error.code,
             stack: error.stack
           },
           cart,

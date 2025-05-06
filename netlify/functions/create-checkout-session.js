@@ -6,7 +6,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: {
-        'Access-Control-Allow-Origin': 'http://localhost:8081',
+        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Credentials': 'true',
@@ -14,19 +14,45 @@ exports.handler = async (event) => {
       body: '',
     };
   }
+  // Initialize Stripe with proper API version
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const stripe = new Stripe(stripeKey, {
+    apiVersion: '2024-02-14', // Updated to latest stable version
+    appInfo: {
+      name: 'Rare Collectables Store',
+      version: '1.0.0'
+    }
+  });
+
   try {
     // Validate Stripe API key
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) {
       console.error('Stripe secret key is not set');
       return {
         statusCode: 500,
         headers: {
           'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
         },
         body: JSON.stringify({ 
           error: 'Stripe secret key is not configured',
           details: 'Please set STRIPE_SECRET_KEY in Netlify environment variables'
+        })
+      };
+    }
+
+    // Validate Stripe key format
+    if (!stripeKey.startsWith('sk_')) {
+      console.error('Invalid Stripe key format:', stripeKey);
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify({ 
+          error: 'Invalid Stripe secret key format',
+          details: 'Stripe key must start with sk_test_ or sk_live_'
         })
       };
     }
@@ -79,8 +105,33 @@ exports.handler = async (event) => {
       console.error('Invalid cart array:', cart);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid cart array' })
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify({ 
+          error: 'Invalid cart array',
+          details: 'Cart must be a non-empty array of items'
+        })
       };
+    }
+
+    // Validate each item in cart
+    for (const item of cart) {
+      if (!item.price || !item.quantity) {
+        console.error('Invalid cart item:', item);
+        return {
+          statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+          body: JSON.stringify({ 
+            error: 'Invalid cart item',
+            details: 'Each item must have price and quantity'
+          })
+        };
+      }
     }
 
     // Map cart items to Stripe line items
@@ -133,7 +184,7 @@ exports.handler = async (event) => {
     // Log the processed line items
     console.log('Processed line items:', line_items);
 
-    // Create Payment Intent
+    // Create Payment Intent with proper validation
     const customer = await stripe.customers.create({
       email: customer_email,
       metadata: {
@@ -199,13 +250,28 @@ exports.handler = async (event) => {
       })
     };
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('Error creating checkout session:', {
+      error: error.message,
+      stack: error.stack,
+      type: error.type,
+      code: error.code
+    });
+
+    const statusCode = error.statusCode || 500;
+    const response = {
+      error: error.message || 'An unexpected error occurred',
+      code: error.code,
+      type: error.type,
+      details: error.details
+    };
+
     return {
-      statusCode: 500,
+      statusCode,
       headers: {
         'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify(response)
     };
   }
 };
