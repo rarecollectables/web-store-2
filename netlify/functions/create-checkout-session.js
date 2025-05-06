@@ -7,26 +7,40 @@ exports.handler = async (event) => {
     });
 
     const { cart, customer_email, shipping_address } = JSON.parse(event.body);
+
+    // Validate cart
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
+      console.error('Invalid cart array:', cart);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Cart is empty.' }),
+        body: JSON.stringify({ error: 'Invalid cart array' })
       };
     }
 
     // Map cart items to Stripe line items
-    const line_items = cart.map(item => ({
-      price_data: {
-        currency: 'gbp',
-        product_data: {
-          name: item.title || item.name,
-          description: item.description || '',
-          images: item.images ? [item.images[0]] : undefined,
+    const line_items = cart.map(item => {
+      // Validate each item
+      if (!item.title && !item.name || !item.price || !item.quantity) {
+        console.error('Invalid item:', item);
+        throw new Error('Invalid item format');
+      }
+
+      return {
+        price_data: {
+          currency: 'gbp',
+          product_data: {
+            name: item.title || item.name,
+            description: item.description || '',
+            images: item.images ? [item.images[0]] : undefined,
+          },
+          unit_amount: Math.round((typeof item.price === 'number' ? item.price : parseFloat(item.price)) * 100),
         },
-        unit_amount: Math.round((typeof item.price === 'number' ? item.price : parseFloat(item.price)) * 100),
-      },
-      quantity: item.quantity || 1,
-    }));
+        quantity: item.quantity || 1,
+      };
+    });
+
+    // Log line items before creating session
+    console.log('Creating checkout session with items:', line_items);
 
     // Create the Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
