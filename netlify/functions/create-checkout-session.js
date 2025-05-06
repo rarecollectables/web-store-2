@@ -1,6 +1,19 @@
 const Stripe = require('stripe');
 
 exports.handler = async (event) => {
+  // Handle CORS preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': 'http://localhost:8081',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+      body: '',
+    };
+  }
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: '2023-10-16',
@@ -18,26 +31,54 @@ exports.handler = async (event) => {
     }
 
     // Map cart items to Stripe line items
-    const line_items = cart.map(item => {
-      // Validate each item
-      if (!item.title && !item.name || !item.price || !item.quantity) {
-        console.error('Invalid item:', item);
-        throw new Error('Invalid item format');
+    const line_items = cart.map((item, index) => {
+      // Log the raw item for debugging
+      console.log(`Processing cart item ${index + 1}:`, item);
+
+      // Get the product name from either name or title
+      const productName = item.name || item.title || `Product ${index + 1}`;
+      
+      // Validate required fields
+      if (!productName || !item.price || !item.quantity) {
+        console.error('Invalid cart item:', {
+          index,
+          item,
+          missing: {
+            name: !productName,
+            price: !item.price,
+            quantity: !item.quantity
+          }
+        });
+        throw new Error(`Invalid cart item ${index + 1}: Missing required fields`);
+      }
+
+      // Convert price to number if it's a string
+      const price = typeof item.price === 'number' ? item.price : parseFloat(item.price);
+      if (isNaN(price)) {
+        console.error('Invalid price format:', {
+          index,
+          item,
+          price: item.price
+        });
+        throw new Error(`Invalid price format for item ${index + 1}`);
       }
 
       return {
         price_data: {
           currency: 'gbp',
           product_data: {
-            name: item.title || item.name,
+            name: productName,
             description: item.description || '',
-            images: item.images ? [item.images[0]] : undefined,
+            images: item.image_path ? [item.image_path] : undefined,
           },
-          unit_amount: Math.round((typeof item.price === 'number' ? item.price : parseFloat(item.price)) * 100),
+          unit_amount: Math.round(price * 100),
         },
         quantity: item.quantity || 1,
       };
     });
+
+    // Log the processed line items
+    console.log('Processed line items:', line_items);
 
     // Log line items before creating session
     console.log('Creating checkout session with items:', line_items);
