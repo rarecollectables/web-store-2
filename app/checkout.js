@@ -158,8 +158,6 @@ export default function CheckoutScreen() {
       const url = `https://checkout.stripe.com/c/pay/${sessionId}`;
       console.log('Constructed Stripe checkout URL:', url);
 
-      console.log('Redirecting to Stripe checkout');
-      const url = `https://checkout.stripe.com/c/pay/${data.id}`;
       console.log('Opening Stripe checkout URL:', {
         url,
         timestamp: new Date().toISOString()
