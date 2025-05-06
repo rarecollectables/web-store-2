@@ -134,10 +134,18 @@ exports.handler = async (event) => {
     console.log('Processed line items:', line_items);
 
     // Create Payment Intent
+    const customer = await stripe.customers.create({
+      email: customer_email,
+      metadata: {
+        shipping_address: shipping_address ? JSON.stringify(shipping_address) : null,
+        cart: JSON.stringify(cart)
+      }
+    });
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: total,
       currency: 'gbp',
-      customer_email: customer_email,
+      customer: customer.id,
       metadata: {
         customer_email,
         shipping_address: shipping_address ? JSON.stringify(shipping_address) : null,
