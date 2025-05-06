@@ -137,19 +137,44 @@ exports.handler = async (event) => {
     const customer = await stripe.customers.create({
       email: customer_email,
       metadata: {
-        shipping_address: shipping_address ? JSON.stringify(shipping_address) : null,
-        cart: JSON.stringify(cart)
+        shipping_address: shipping_address ? JSON.stringify({
+          line1: shipping_address.line1,
+          city: shipping_address.city,
+          postal_code: shipping_address.zip,
+          country: shipping_address.country || 'GB'
+        }) : null
       }
     });
 
+    // Create payment intent with simplified metadata
     const paymentIntent = await stripe.paymentIntents.create({
       amount: total,
       currency: 'gbp',
       customer: customer.id,
       metadata: {
         customer_email,
-        shipping_address: shipping_address ? JSON.stringify(shipping_address) : null,
-        cart: JSON.stringify(cart)
+        shipping_address: shipping_address ? JSON.stringify({
+          line1: shipping_address.line1,
+          city: shipping_address.city,
+          postal_code: shipping_address.zip,
+          country: shipping_address.country || 'GB'
+        }) : null
+      }
+    });
+
+    // Add additional metadata about the cart for tracking purposes
+    const cartMetadata = cart.map(item => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity
+    }));
+
+    // Add cart metadata to the payment intent after creation
+    await stripe.paymentIntents.update(paymentIntent.id, {
+      metadata: {
+        ...paymentIntent.metadata,
+        cart_items: JSON.stringify(cartMetadata)
       }
     });
 
