@@ -142,25 +142,21 @@ export default function CheckoutScreen() {
         }
       }
 
-      console.log('Response data:', {
-        id: data.id,
-        status: response.status,
-        ok: response.ok,
-        timestamp: new Date().toISOString()
-      });
-
-      if (!data.id) {
-        console.error('Invalid response format:', {
-          data,
-          timestamp: new Date().toISOString()
-        });
+      // Get the session ID from the response
+      const sessionId = data.id;
+      if (!sessionId) {
+        console.error('No session ID in response:', data);
         Alert.alert(
           'Error',
-          'Invalid response from server. Please try again later.',
+          'Failed to create checkout session. Please try again later.',
           [{ text: 'OK' }]
         );
-        throw new Error('Invalid response format');
+        throw new Error('No session ID in response');
       }
+
+      // Construct the Stripe checkout URL
+      const url = `https://checkout.stripe.com/c/pay/${sessionId}`;
+      console.log('Constructed Stripe checkout URL:', url);
 
       console.log('Redirecting to Stripe checkout');
       const url = `https://checkout.stripe.com/c/pay/${data.id}`;

@@ -148,7 +148,7 @@ exports.handler = async (event) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ url: session.url }),
+      body: JSON.stringify({ id: session.id }),
     };
   } catch (error) {
     console.error('Error creating checkout session:', error);
