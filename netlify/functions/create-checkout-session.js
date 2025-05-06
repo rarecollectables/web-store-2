@@ -91,16 +91,20 @@ exports.handler = async (event) => {
       customer_email: customer_email || undefined,
       shipping_address_collection: shipping_address ? { 
         allowed_countries: ['GB', 'US', 'CA', 'IE', 'AU', 'FR', 'DE', 'NG'],
-        shipping_rate_data: {
-          type: 'fixed_amount',
-          fixed_amount: { amount: 0, currency: 'gbp' },
-          display_name: 'Free Shipping',
-          delivery_estimate: {
-            minimum: { unit: 'business_day', value: 3 },
-            maximum: { unit: 'business_day', value: 5 },
-          },
-        },
       } : undefined,
+      shipping_options: shipping_address ? [
+        {
+          shipping_rate_data: {
+            type: 'fixed_amount',
+            fixed_amount: { amount: 0, currency: 'gbp' },
+            display_name: 'Free Shipping',
+            delivery_estimate: {
+              minimum: { unit: 'business_day', value: 3 },
+              maximum: { unit: 'business_day', value: 5 },
+            },
+          },
+        }
+      ] : undefined,
       automatic_tax: { enabled: true },
       success_url: `${process.env.SUCCESS_URL}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CANCEL_URL}`,
