@@ -180,7 +180,7 @@ exports.handler = async (event) => {
 
     // Create ephemeral key for the customer
     const ephemeralKey = await stripe.ephemeralKeys.create(
-      { customer: paymentIntent.customer },
+      { customer: customer.id },
       { stripe_version: '2022-11-15' }
     );
 
@@ -188,10 +188,13 @@ exports.handler = async (event) => {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
       },
       body: JSON.stringify({
         clientSecret: paymentIntent.client_secret,
-        customerId: paymentIntent.customer,
+        customerId: customer.id,
         ephemeralKey: ephemeralKey.secret
       })
     };
