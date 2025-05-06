@@ -34,6 +34,7 @@ function CheckoutScreen() {
   const [paying, setPaying] = useState(false);
   const [stripe, setStripe] = useState(null);
   const [cardElement, setCardElement] = useState(null);
+  const [stripeLoading, setStripeLoading] = useState(true);
 
   // Calculate cart totals
   const subtotal = cart.reduce((sum, item) => sum + (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * (item.quantity || 1), 0);
@@ -43,6 +44,7 @@ function CheckoutScreen() {
   useEffect(() => {
     const initStripe = async () => {
       try {
+        setStripeLoading(true);
         const stripe = await loadStripe(process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY);
         if (stripe) {
           setStripe(stripe);
@@ -50,22 +52,16 @@ function CheckoutScreen() {
           const card = elements.create('card');
           card.mount('#card-element');
           setCardElement(card);
+          setStripeLoading(false);
         }
       } catch (error) {
         console.error('Failed to initialize Stripe:', error);
+        setStripeLoading(false);
+        Alert.alert('Error', 'Failed to initialize payment system. Please check your internet connection and try again.');
       }
     };
     initStripe();
   }, []);
-
-  useEffect(() => {
-    if (stripe) {
-      const elements = stripe.elements();
-      const card = elements.create('card');
-      card.mount('#card-element');
-      setCardElement(card);
-    }
-  }, [stripe]);
 
   const validateForm = () => {
     const contactErrors = contactSchema.safeParse(contact).error;
@@ -95,8 +91,12 @@ function CheckoutScreen() {
         return;
       }
 
+      if (stripeLoading) {
+        throw new Error('Payment system is initializing. Please wait a moment and try again.');
+      }
+
       if (!stripe) {
-        throw new Error('Payment processing system is not ready. Please try again.');
+        throw new Error('Payment system failed to initialize. Please check your internet connection and try again.');
       }
 
       if (!cardElement) {
