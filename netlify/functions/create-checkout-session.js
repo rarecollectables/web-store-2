@@ -1,4 +1,5 @@
 const Stripe = require('stripe');
+const errorHandler = require('./utils/errorHandler');
 
 exports.handler = async (event) => {
   // Handle CORS preflight requests
@@ -14,66 +15,31 @@ exports.handler = async (event) => {
       body: '',
     };
   }
-  // Initialize Stripe with proper API version
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  const stripe = new Stripe(stripeKey, {
-    apiVersion: '2024-02-14', // Updated to latest stable version
-    appInfo: {
-      name: 'Rare Collectables Store',
-      version: '1.0.0'
-    }
-  });
 
   try {
     // Validate Stripe API key
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) {
-      console.error('Stripe secret key is not set');
-      return {
-        statusCode: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ 
-          error: 'Stripe secret key is not configured',
-          details: 'Please set STRIPE_SECRET_KEY in Netlify environment variables'
-        })
-      };
+      throw errorHandler.createErrorResponse(
+        new Error('Stripe secret key is not configured'),
+        { missingVariables: ['STRIPE_SECRET_KEY'] }
+      );
     }
 
-    // Validate Stripe key format
     if (!stripeKey.startsWith('sk_')) {
-      console.error('Invalid Stripe key format:', stripeKey);
-      return {
-        statusCode: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ 
-          error: 'Invalid Stripe secret key format',
-          details: 'Stripe key must start with sk_test_ or sk_live_'
-        })
-      };
+      throw errorHandler.createErrorResponse(
+        new Error('Invalid Stripe key format'),
+        { invalidKey: stripeKey }
+      );
     }
 
-    // Validate Stripe key format
-    if (!stripeKey.startsWith('sk_')) {
-      console.error('Invalid Stripe key format:', stripeKey);
-      return {
-        statusCode: 500,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          error: 'Invalid Stripe secret key format',
-          details: 'Stripe key must start with sk_test_ or sk_live_'
-        })
-      };
-    }
-
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2022-11-15', // Using a more stable API version
+    // Initialize Stripe with proper API version
+    const stripe = new Stripe(stripeKey, {
+      apiVersion: '2024-02-14',
+      appInfo: {
+        name: 'Rare Collectables Store',
+        version: '1.0.0'
+      }
     });
 
     const { cart, customer_email, shipping_address } = JSON.parse(event.body);
@@ -184,7 +150,7 @@ exports.handler = async (event) => {
     // Log the processed line items
     console.log('Processed line items:', line_items);
 
-    // Create Payment Intent with proper validation
+    // Create customer
     const customer = await stripe.customers.create({
       email: customer_email,
       metadata: {
@@ -195,9 +161,18 @@ exports.handler = async (event) => {
           country: shipping_address.country || 'GB'
         }) : null
       }
+    }).catch(error => {
+      throw errorHandler.createErrorResponse(
+        error,
+        {
+          operation: 'customer_creation',
+          email: customer_email,
+          hasShipping: !!shipping_address
+        }
+      );
     });
 
-    // Create payment intent with simplified metadata
+    // Create payment intent
     const paymentIntent = await stripe.paymentIntents.create({
       amount: total,
       currency: 'gbp',
@@ -211,6 +186,15 @@ exports.handler = async (event) => {
           country: shipping_address.country || 'GB'
         }) : null
       }
+    }).catch(error => {
+      throw errorHandler.createErrorResponse(
+        error,
+        {
+          operation: 'payment_intent_creation',
+          amount: total,
+          currency: 'gbp'
+        }
+      );
     });
 
     // Add additional metadata about the cart for tracking purposes
@@ -232,7 +216,7 @@ exports.handler = async (event) => {
     // Create ephemeral key for the customer
     const ephemeralKey = await stripe.ephemeralKeys.create(
       { customer: customer.id },
-      { stripe_version: '2022-11-15' }
+      { stripe_version: '2024-02-14' }
     );
 
     return {
