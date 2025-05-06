@@ -1,290 +1,112 @@
 const Stripe = require('stripe');
-const errorHandler = require('./utils/errorHandler.js');
 
 exports.handler = async (event) => {
   // Handle CORS preflight requests
+  const headers = {
+    'Access-Control-Allow-Origin': event.headers.origin || '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+    'Content-Type': 'application/json'
+  };
+
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Credentials': 'true',
-      },
+      headers,
       body: '',
     };
   }
 
   try {
-    // Validate Stripe API key
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeKey) {
-      return errorHandler.createErrorResponse(
-        new Error('Stripe secret key is not configured'),
-        { 
-          missingVariables: ['STRIPE_SECRET_KEY'],
-          requestId: event.requestId
-        }
-      );
-    }
-
-    // Initialize Stripe
-    const stripe = new Stripe(stripeKey, {
-      apiVersion: '2024-02-14',
-      appInfo: {
-        name: 'Rare Collectables Store',
-        version: '1.0.0'
-      }
-    });
-
-    // Parse and validate request body
-    const { cart, customer_email, shipping_address, hCaptchaToken } = JSON.parse(event.body);
-
-    // Verify hCaptcha token
-    if (!hCaptchaToken) {
-      return errorHandler.createErrorResponse(
-        new Error('hCaptcha verification failed'),
-        { 
-          operation: 'hcaptcha_verification',
-          requestId: event.requestId
-        }
-      );
-    }
-
-    // Verify hCaptcha token with server
-    const hcaptchaSecret = process.env.HCAPTCHA_SECRET_KEY;
-    if (!hcaptchaSecret) {
-      return errorHandler.createErrorResponse(
-        new Error('hCaptcha secret key is not configured'),
-        { 
-          missingVariables: ['HCAPTCHA_SECRET_KEY'],
-          requestId: event.requestId
-        }
-      );
-    }
-
-    try {
-      const hcaptchaResponse = await fetch('https://hcaptcha.com/siteverify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `response=${hCaptchaToken}&secret=${hcaptchaSecret}`
-      });
-
-      const hcaptchaData = await hcaptchaResponse.json();
-      if (!hcaptchaData.success) {
-        return errorHandler.createErrorResponse(
-          new Error('hCaptcha verification failed'),
-          { 
-            operation: 'hcaptcha_verification',
-            error: hcaptchaData,
-            requestId: event.requestId
-          }
-        );
-      }
-    } catch (hcaptchaError) {
-      return errorHandler.createErrorResponse(
-        new Error('Failed to verify hCaptcha'),
-        { 
-          operation: 'hcaptcha_verification',
-          error: hcaptchaError,
-          requestId: event.requestId
-        }
-      );
-    }
-
-    // Validate cart
-    if (!Array.isArray(cart) || cart.length === 0) {
-      return errorHandler.createErrorResponse(
-        new Error('Cart is empty or invalid'),
-        { 
-          operation: 'cart_validation',
-          cart: cart,
-          requestId: event.requestId
-        }
-      );
-    }
-
-    // Calculate total amount in cents
-    const total = cart.reduce((sum, item) => {
-      if (!item.price || !item.quantity) {
-        throw new Error(`Invalid cart item: missing price or quantity`);
-      }
-      return sum + (parseFloat(item.price) * 100 * item.quantity);
-    }, 0);
-
-    if (total <= 0) {
-      return errorHandler.createErrorResponse(
-        new Error('Total amount must be greater than 0'),
-        { 
-          operation: 'amount_validation',
-          total: total,
-          requestId: event.requestId
-        }
-      );
-    }
-
-    try {
-      // Create customer
-      const customer = await stripe.customers.create({
-        email: customer_email,
-        metadata: {
-          shipping_address: shipping_address ? JSON.stringify({
-            line1: shipping_address.line1,
-            city: shipping_address.city,
-            postal_code: shipping_address.zip,
-            country: shipping_address.country || 'GB'
-          }) : null
-        }
-      });
-
-      // Create payment intent
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: total,
-        currency: 'gbp',
-        customer: customer.id,
-        metadata: {
-          customer_email,
-          shipping_address: shipping_address ? JSON.stringify({
-            line1: shipping_address.line1,
-            city: shipping_address.city,
-            postal_code: shipping_address.zip,
-            country: shipping_address.country || 'GB'
-          }) : null
-        }
-      });
-
+    // Validate request origin
+    const allowedOrigins = ['http://localhost:8081', 'https://rarecollectables1.netlify.app'];
+    const origin = event.headers.origin || event.headers.Origin;
+    if (!allowedOrigins.includes(origin)) {
       return {
-        statusCode: 200,
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({
+          error: 'Invalid origin',
+          requestId: event.requestId
+        })
+      };
+    }
+
+    // Validate authentication
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    if (!authHeader) {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({
+          error: 'Authentication required',
+          requestId: event.requestId
+        })
+      };
+    }
+
+    const auth = authHeader.split(' ')[1];
+    if (!auth || auth !== process.env.STRIPE_SECRET_KEY) {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({
+          error: 'Invalid credentials',
+          requestId: event.requestId
+        })
+      };
+    }
+
+    // Validate Stripe API key
+    if (!stripeKey) {
+      console.error('Stripe secret key is not set');
+      return {
+        statusCode: 500,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Credentials': 'true'
         },
-        body: JSON.stringify({
-          clientSecret: paymentIntent.client_secret,
-          customerId: customer.id
+        body: JSON.stringify({ 
+          error: 'Stripe secret key is not configured',
+          details: 'Please set STRIPE_SECRET_KEY in Netlify environment variables'
         })
       };
-
-    } catch (error) {
-      errorHandler.logError(error, {
-        operation: 'payment_processing',
-        requestId: event.requestId,
-        context: {
-          customer_email,
-          total,
-          cart
-        }
-      });
-
-      return errorHandler.createErrorResponse(error, {
-        operation: 'payment_processing',
-        requestId: event.requestId,
-        context: {
-          customer_email,
-          total,
-          cart
-        }
-      });
-    }
-  } catch (error) {
-    return errorHandler.createErrorResponse(
-      error,
-      { 
-        operation: 'request_processing',
-        requestId: event.requestId
-      }
-    );
-  }
-  // Handle CORS preflight requests
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Credentials': 'true',
-      },
-      body: '',
-    };
-  }
-
-  try {
-    // Validate Stripe API key
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeKey) {
-      return errorHandler.createErrorResponse(
-        new Error('Stripe secret key is not configured'),
-        { 
-          missingVariables: ['STRIPE_SECRET_KEY'],
-          requestId: event.requestId
-        }
-      );
     }
 
-    // Initialize Stripe with proper API version
-    const stripe = new Stripe(stripeKey, {
-      apiVersion: '2024-02-14',
-      appInfo: {
-        name: 'Rare Collectables Store',
-        version: '1.0.0'
-      }
-    });
-
-    // Parse request body
-    const { cart, customer_email, shipping_address } = JSON.parse(event.body);
-
-    // Validate cart
-    if (!Array.isArray(cart) || cart.length === 0) {
-      return errorHandler.createErrorResponse(
-        new Error('Cart is empty or invalid'),
-        { 
-          operation: 'cart_validation',
-          cart: cart,
-          requestId: event.requestId
-        }
-      );
-    }
-
-    // Calculate total amount in cents
-    const total = cart.reduce((sum, item) => {
-      if (!item.price || !item.quantity) {
-        throw new Error(`Invalid cart item: missing price or quantity`);
-      }
-      return sum + (parseFloat(item.price) * 100 * item.quantity);
-    }, 0);
-
-    if (total <= 0) {
-      return errorHandler.createErrorResponse(
-        new Error('Total amount must be greater than 0'),
-        { 
-          operation: 'amount_validation',
-          total: total,
-          requestId: event.requestId
-        }
-      );
-    }
-
+    // Validate Stripe key format
     if (!stripeKey.startsWith('sk_')) {
-      throw errorHandler.createErrorResponse(
-        new Error('Invalid Stripe key format'),
-        { invalidKey: stripeKey }
-      );
+      console.error('Invalid Stripe key format:', stripeKey);
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify({ 
+          error: 'Invalid Stripe secret key format',
+          details: 'Stripe key must start with sk_test_ or sk_live_'
+        })
+      };
     }
 
-    // Initialize Stripe with proper API version
-    const stripe = new Stripe(stripeKey, {
-      apiVersion: '2024-02-14',
-      appInfo: {
-        name: 'Rare Collectables Store',
-        version: '1.0.0'
-      }
+    // Validate Stripe key format
+    if (!stripeKey.startsWith('sk_')) {
+      console.error('Invalid Stripe key format:', stripeKey);
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          error: 'Invalid Stripe secret key format',
+          details: 'Stripe key must start with sk_test_ or sk_live_'
+        })
+      };
+    }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2022-11-15', // Using a more stable API version
     });
 
     const { cart, customer_email, shipping_address } = JSON.parse(event.body);
@@ -395,96 +217,20 @@ exports.handler = async (event) => {
     // Log the processed line items
     console.log('Processed line items:', line_items);
 
-    // Create customer
-    try {
-      const customer = await stripe.customers.create({
-        email: customer_email,
-        metadata: {
-          shipping_address: shipping_address ? JSON.stringify({
-            line1: shipping_address.line1,
-            city: shipping_address.city,
-            postal_code: shipping_address.zip,
-            country: shipping_address.country || 'GB'
-          }) : null
-        }
-      });
+    // Create Payment Intent with proper validation
+    const customer = await stripe.customers.create({
+      email: customer_email,
+      metadata: {
+        shipping_address: shipping_address ? JSON.stringify({
+          line1: shipping_address.line1,
+          city: shipping_address.city,
+          postal_code: shipping_address.zip,
+          country: shipping_address.country || 'GB'
+        }) : null
+      }
+    });
 
-      // Create payment intent
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: total,
-        currency: 'gbp',
-        customer: customer.id,
-        metadata: {
-          customer_email,
-          shipping_address: shipping_address ? JSON.stringify({
-            line1: shipping_address.line1,
-            city: shipping_address.city,
-            postal_code: shipping_address.zip,
-            country: shipping_address.country || 'GB'
-          }) : null
-        }
-      });
-
-      // Add cart metadata
-      const cartData = cart.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity
-      }));
-
-      // Add cart metadata to the payment intent after creation
-      await stripe.paymentIntents.update(paymentIntent.id, {
-        metadata: {
-          ...paymentIntent.metadata,
-          cart_items: JSON.stringify(cartData)
-        }
-      });
-
-      // Create ephemeral key for the customer
-      const ephemeralKey = await stripe.ephemeralKeys.create(
-        { customer: customer.id },
-        { stripe_version: '2024-02-14' }
-      );
-
-      return {
-        statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Credentials': 'true'
-        },
-        body: JSON.stringify({
-          clientSecret: paymentIntent.client_secret,
-          customerId: customer.id,
-          ephemeralKey: ephemeralKey.secret
-        })
-      };
-    } catch (error) {
-      errorHandler.logError(error, {
-        operation: 'payment_processing',
-        requestId: event.requestId,
-        context: {
-          customer_email,
-          total,
-          cart
-        }
-      });
-
-      return errorHandler.createErrorResponse(error, {
-        operation: 'payment_processing',
-        requestId: event.requestId,
-        context: {
-          customer_email,
-          total,
-          cart
-        }
-      });
-    }
-
-    // Create payment intent
+    // Create payment intent with simplified metadata
     const paymentIntent = await stripe.paymentIntents.create({
       amount: total,
       currency: 'gbp',
@@ -498,15 +244,6 @@ exports.handler = async (event) => {
           country: shipping_address.country || 'GB'
         }) : null
       }
-    }).catch(error => {
-      throw errorHandler.createErrorResponse(
-        error,
-        {
-          operation: 'payment_intent_creation',
-          amount: total,
-          currency: 'gbp'
-        }
-      );
     });
 
     // Add additional metadata about the cart for tracking purposes
@@ -528,7 +265,7 @@ exports.handler = async (event) => {
     // Create ephemeral key for the customer
     const ephemeralKey = await stripe.ephemeralKeys.create(
       { customer: customer.id },
-      { stripe_version: '2024-02-14' }
+      { stripe_version: '2022-11-15' }
     );
 
     return {

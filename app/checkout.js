@@ -1,21 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator, Linking, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Elements, CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { useStore } from '../context/store';
-import { colors, fontFamily, spacing, borderRadius, shadows } from '../theme';
 import { z } from 'zod';
 import { storeOrder } from './components/orders-modal';
 import { trackEvent } from '../lib/trackEvent';
-import Constants from 'expo-constants';
-import { HCAPTCHA_SITE_KEY, HCAPTCHA_CONTAINER_ID } from './config/hcaptcha';
+import { HCAPTCHA_SITE_KEY } from './config/hcaptcha';
+import './checkout.css';
 
 // Get Stripe keys from environment
-const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || Constants.expoConfig?.extra?.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-
-// Netlify function endpoint for Stripe Checkout
-const NETLIFY_STRIPE_FUNCTION_URL = Constants.expoConfig?.extra?.NETLIFY_STRIPE_FUNCTION_URL || 'https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session';
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const NETLIFY_STRIPE_FUNCTION_URL = 'https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session';
 
 const contactSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -24,510 +20,238 @@ const contactSchema = z.object({
 const addressSchema = z.object({
   line1: z.string().min(3, 'Address required'),
   city: z.string().min(2, 'City required'),
-  zip: z.string().min(3, 'ZIP required'),
+  postcode: z.string().min(3, 'Postcode required'),
 });
 
-function CheckoutScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { cart, removeFromCart } = useStore();
-  const [contact, setContact] = useState({ name: '', email: '' });
-  const [address, setAddress] = useState({ line1: '', city: '', zip: '' });
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [paying, setPaying] = useState(false);
-  const [stripe, setStripe] = useState(null);
-  const [cardElement, setCardElement] = useState(null);
-  const [stripeLoading, setStripeLoading] = useState(true);
-  const hcaptchaRef = useRef(null);
+function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, setPaying, hCaptchaToken, setHCaptchaToken, validateForm, removeFromCart }) {
+  const stripe = useStripe();
+  const elements = useElements();
 
-  useEffect(() => {
-    const initStripe = async () => {
-      try {
-        setStripeLoading(true);
-        const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
-        if (stripe) {
-          setStripe(stripe);
-          const elements = stripe.elements();
-          const card = elements.create('card');
-          card.mount('#card-element');
-          setCardElement(card);
-          setStripeLoading(false);
-        }
-      } catch (error) {
-        console.error('Failed to initialize Stripe:', error);
-        setStripeLoading(false);
-        Alert.alert('Error', 'Failed to initialize payment system. Please check your internet connection and try again.');
-      }
-    };
-
-    // Initialize hCaptcha
-    const initHCaptcha = () => {
-      if (window.hcaptcha && HCAPTCHA_SITE_KEY) {
-        window.hcaptcha.render(HCAPTCHA_CONTAINER_ID, {
-          sitekey: HCAPTCHA_SITE_KEY,
-          theme: 'light',
-          size: 'normal',
-          callback: (token) => {
-            console.log('hCaptcha token:', token);
-          }
-        });
-      }
-    };
-
-    initStripe();
-    initHCaptcha();
-
-    return () => {
-      if (cardElement) {
-        cardElement.unmount();
-      }
-    };
-  }, []);
-
-  // Calculate cart totals
-  const subtotal = cart.reduce((sum, item) => sum + (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * (item.quantity || 1), 0);
-  const tax = subtotal * 0.1;
-  const total = subtotal + tax;
-
-  useEffect(() => {
-    const initStripe = async () => {
-      try {
-        setStripeLoading(true);
-        const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
-        if (stripe) {
-          setStripe(stripe);
-          const elements = stripe.elements();
-          const card = elements.create('card');
-          card.mount('#card-element');
-          setCardElement(card);
-          setStripeLoading(false);
-        }
-      } catch (error) {
-        console.error('Failed to initialize Stripe:', error);
-        setStripeLoading(false);
-        Alert.alert('Error', 'Failed to initialize payment system. Please check your internet connection and try again.');
-      }
-    };
-    initStripe();
-  }, []);
-
-  const validateForm = () => {
-    const contactErrors = contactSchema.safeParse(contact).error;
-    const addressErrors = addressSchema.safeParse(address).error;
-
-    if (contactErrors) {
-      setErrors(prev => ({ ...prev, ...contactErrors.errors.reduce((acc, error) => ({ ...acc, [error.path[0]]: error.message }), {}) }));
-      return false;
+  const handleStripeCheckout = async () => {
+    if (!validateForm()) return;
+    if (!hCaptchaToken) {
+      window.alert('Please complete the hCaptcha verification');
+      return;
     }
-
-    if (addressErrors) {
-      setErrors(prev => ({ ...prev, ...addressErrors.errors.reduce((acc, error) => ({ ...acc, [error.path[0]]: error.message }), {}) }));
-      return false;
-    }
-
-    return true;
-  };
-
-  const createPaymentIntent = async () => {
     try {
-      // Get hCaptcha token
-      const hcaptchaToken = await new Promise((resolve) => {
-        const hcaptcha = window.hcaptcha;
-        if (hcaptcha) {
-          hcaptcha.execute().then(token => resolve(token));
-        } else {
-          resolve(null);
-        }
-      });
-
+      setPaying(true);
       const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          cart, 
-          customer_email: contact.email, 
-          shipping_address: address,
-          hCaptchaToken: hcaptchaToken
-        }),
+        body: JSON.stringify({ cart, contact, address, hCaptchaToken }),
       });
-
-      const data = await response.json();
-      console.log('Payment Intent response:', data);
-
-      if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to create payment session');
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Payment Intent error:', error);
-      throw error;
-    }
-  };
-
-  const handleStripeCheckout = async () => {
-    try {
-      // Validate form
-      if (!validateForm()) {
-        Alert.alert('Error', 'Please fill in all required fields');
-        return;
-      }
-
-      if (stripeLoading) {
-        throw new Error('Payment system is initializing. Please wait a moment and try again.');
-      }
-
-      if (!stripe) {
-        throw new Error('Payment system failed to initialize. Please check your internet connection and try again.');
-      }
-
-      if (!cardElement) {
-        throw new Error('Card details not captured. Please enter your card information.');
-      }
-
-      setPaying(true);
-      setLoading(true);
-
-      // Create payment intent
-      const paymentIntentData = await createPaymentIntent();
-
-      // Confirm payment with Stripe
-      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
-        paymentIntentData.clientSecret,
-        {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              name: contact.name,
-              email: contact.email,
-              address: {
-                line1: address.line1,
-                city: address.city,
-                postal_code: address.zip,
-                country: 'GB'
-              }
-            }
-          }
-        }
-      );
-
-      if (confirmError) {
-        console.error('Payment confirmation error:', confirmError);
-        Alert.alert(
-          'Payment Error',
-          `${confirmError.message || 'An error occurred during payment confirmation'}\n\nType: ${confirmError.type || 'unknown'}\n\nPlease try again or contact support if the issue persists.`,
-          [
-            {
-              text: 'Try Again',
-              onPress: () => {
-                setPaymentError(null);
-                setPaymentProcessing(false);
-              }
-            },
-            {
-              text: 'Cancel',
-              style: 'cancel'
-            }
-          ]
-        );
-        return;
-      }
-
-      // Payment successful
-      Alert.alert('Success', 'Payment completed successfully!');
-      // Clear cart and navigate to confirmation
-      removeFromCart(cart);
-      router.push('/confirmation');
-
-      // Track successful payment
-      await trackEvent({
-        eventType: 'checkout_success',
-        metadata: {
-          paymentIntent,
-          cart,
-          contact,
-          address,
-          subtotal,
-          tax,
-          total
-        }
-      });
-
-    } catch (error) {
-      console.error('Payment error:', {
-        message: error.message,
-        type: error.type,
-        code: error.code,
-        stack: error.stack
-      });
-
-      // Track payment error
-      await trackEvent({
-        eventType: 'checkout_error',
-        metadata: {
-          error: {
-            type: error.type || 'unknown',
-            message: error.message,
-            code: error.code,
-            stack: error.stack
+      if (!response.ok) throw new Error('Failed to create payment intent');
+      const { clientSecret } = await response.json();
+      const cardElement = elements.getElement(CardElement);
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: contact.name,
+            email: contact.email,
+            address: { line1: address.line1, city: address.city, postal_code: address.postcode },
           },
-          cart,
-          contact,
-          address,
-          subtotal,
-          tax,
-          total
-        }
+        },
       });
-
-      // Show error to user
-      let errorMessage = error.message || 'Failed to process payment. Please try again later.';
-      
-      if (error.type === 'card_error') {
-        errorMessage = `Card error: ${error.message}`;
-      } else if (error.type === 'validation_error') {
-        errorMessage = `Validation error: ${error.message}`;
-      } else if (error.type === 'api_error') {
-        errorMessage = `Payment processing error: ${error.message}`;
-      } else if (error.type === 'unknown') {
-        errorMessage = 'An unexpected error occurred. Please try again later.';
-      }
-
-      Alert.alert(
-        'Payment Error',
-        errorMessage,
-        [
-          { 
-            text: 'OK',
-            style: 'cancel'
-          },
-          {
-            text: 'Try Again',
-            onPress: () => {
-              setPaymentError(null);
-              setPaymentProcessing(false);
-            }
-          }
-        ]
-      );
+      if (result.error) throw new Error(result.error.message);
+      await storeOrder({
+        items: cart,
+        contact,
+        address,
+        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        paymentIntentId: result.paymentIntent.id,
+      });
+      trackEvent('Order Completed', {
+        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        items: cart.length,
+      });
+      cart.forEach(item => removeFromCart(item.id));
+      window.location.href = '/checkout-success';
+    } catch (error) {
+      console.error('Checkout error:', error);
+      window.alert(error.message || 'An error occurred during checkout. Please try again.');
     } finally {
       setPaying(false);
-      setLoading(false);
     }
   };
 
-  const renderContactAndAddress = () => (
-    <>
-      <Text style={styles.label}>Full Name</Text>
-      <TextInput
-        style={styles.input}
-        value={contact.name}
-        onChangeText={t => setContact({ ...contact, name: t })}
-        placeholder="Full Name"
-      />
-      {!!errors.name && <Text style={styles.error}>{errors.name}</Text>}
-      <Text style={styles.label}>Email</Text>
-      <TextInput
-        style={styles.input}
-        value={contact.email}
-        onChangeText={t => setContact({ ...contact, email: t })}
-        placeholder="Email"
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      {!!errors.email && <Text style={styles.error}>{errors.email}</Text>}
-      <Text style={styles.label}>Shipping Address</Text>
-      <TextInput
-        style={styles.input}
-        value={address.line1}
-        onChangeText={t => setAddress({ ...address, line1: t })}
-        placeholder="Street address"
-      />
-      {!!errors.line1 && <Text style={styles.error}>{errors.line1}</Text>}
-      <Text style={styles.label}>City</Text>
-      <TextInput
-        style={styles.input}
-        value={address.city}
-        onChangeText={t => setAddress({ ...address, city: t })}
-        placeholder="City"
-      />
-      {!!errors.city && <Text style={styles.error}>{errors.city}</Text>}
-      <Text style={styles.label}>Postal Code</Text>
-      <TextInput
-        style={styles.input}
-        value={address.zip}
-        onChangeText={t => setAddress({ ...address, zip: t })}
-        placeholder="Postal Code"
-        keyboardType="default"
-      />
-      {!!errors.zip && <Text style={styles.error}>{errors.zip}</Text>}
-    </>
-  );
-
-  const renderPayment = () => (
-    <>
-      <View style={styles.summaryContainer}>
-        <Text style={styles.summaryLabel}>Order Summary</Text>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryText}>Subtotal:</Text>
-          <Text style={styles.summaryValue}>£{subtotal.toFixed(2)}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryText}>Tax (10%):</Text>
-          <Text style={styles.summaryValue}>£{tax.toFixed(2)}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryText}>Total:</Text>
-          <Text style={[styles.summaryValue, styles.summaryTotal]}>£{total.toFixed(2)}</Text>
-        </View>
-      </View>
-
-      {/* Card Element Container */}
-      <View style={styles.cardContainer}>
-        <div id="card-element" style={styles.cardElement}>
-          {!stripeLoading && stripe && cardElement && (
-            <div style={{ width: '100%', height: '100%' }} />
-          )}
-        </div>
-      </View>
-
-      <Pressable
-        style={[styles.button, { marginTop: 24, backgroundColor: '#BFA054' }]}
-        onPress={handleStripeCheckout}
-        disabled={paying}
-      >
-        {paying ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Pay with Card</Text>
-        )}
-      </Pressable>
-    </>
-  );
-
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
-      {/* hCaptcha Widget */}
-      <View style={styles.hCaptchaContainer}>
-        <div id={HCAPTCHA_CONTAINER_ID} style={{ width: '100%', height: '100%' }} />
-      </View>
-
-      {/* Test Card Details Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Test Card Details</Text>
-        <Text style={styles.sectionText}>
-          {TEST_CARD_GUIDE}
-        </Text>
-        <Text style={styles.sectionText}>
-          Note: These are Stripe test cards. No real charges will be made.
-        </Text>
-      </View>
-      <Text style={styles.header}>Checkout</Text>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Contact Information</Text>
-        {renderContactAndAddress()}
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Payment Information</Text>
-        {renderPayment()}
-      </View>
-    </ScrollView>
+    <div className="form-section payment-section-expert">
+      <div className="section-header">
+        <h2>Payment Information</h2>
+        <p>Secure payment processing</p>
+      </div>
+      <div className="payment-section-flex">
+        <div className="hCaptcha hCaptcha-container">
+          <HCaptcha sitekey={HCAPTCHA_SITE_KEY} onVerify={setHCaptchaToken} onExpire={() => setHCaptchaToken(null)} onError={error => console.error('hCaptcha error:', error)} />
+        </div>
+        <div className="stripe-payment-form">
+          <label htmlFor="card-element" className="input-label">Card Details</label>
+          <div className="card-element-container">
+            <CardElement id="card-element" className="stripe-card-element" options={{ style: { base: { fontSize: '16px', color: '#2D3748', letterSpacing: '0.025em', fontFamily: 'Inter-SemiBold', backgroundColor: '#fff', '::placeholder': { color: '#aab7c4' }, }, invalid: { color: '#E53E3E' } } }} />
+          </div>
+        </div>
+      </div>
+      <div className="button-container">
+        <button className={`checkout-button ${paying ? 'checkout-button-disabled' : ''}`} onClick={handleStripeCheckout} disabled={paying}>
+          {paying ? (
+            <div className="button-loading">
+              <div className="button-spinner"></div>
+            </div>
+          ) : (
+            <span>Pay with Card</span>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 
-const TEST_CARD_DETAILS = {
-  successful: {
-    number: '4242 4242 4242 4242',
-    expiry: '12/29',
-    cvc: '314'
-  },
-  decline: {
-    number: '4000 0000 0000 0002',
-    expiry: '12/29',
-    cvc: '314'
-  },
-  insufficient_funds: {
-    number: '4000 0000 0000 9995',
-    expiry: '12/29',
-    cvc: '314'
-  },
-  invalid_expiry: {
-    number: '4000 0000 0000 0002',
-    expiry: '01/20',
-    cvc: '314'
-  }
-};
+export default function CheckoutScreen() {
+  const { cart, removeFromCart } = useStore();
+  const [contact, setContact] = useState({ name: '', email: '' });
+  const [address, setAddress] = useState({ line1: '', city: '', postcode: '' });
+  const [errors, setErrors] = useState({});
+  const [stripeLoading, setStripeLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [stripe, setStripe] = useState(null);
+  const [hCaptchaToken, setHCaptchaToken] = useState(null);
+  const [stripeError, setStripeError] = useState(null);
 
-const TEST_CARD_GUIDE = `
-  Test Card Details:
-  - Successful payment: 4242 4242 4242 4242
-  - Declined payment: 4000 0000 0000 0002
-  - Insufficient funds: 4000 0000 0000 9995
-  - Invalid expiry: 4000 0000 0000 0002 (with past expiry date)
-  - Any expiry date in the future is valid
-  - Any 3-digit CVC is valid
-`;
+  useEffect(() => {
+    const initializeStripe = async () => {
+      try {
+        setStripeLoading(true);
+        setStripeError(null);
+        if (!STRIPE_PUBLISHABLE_KEY) {
+          setStripeError('Stripe publishable key is missing. Please check your environment configuration.');
+          return;
+        }
+        const stripeInstance = await loadStripe(STRIPE_PUBLISHABLE_KEY);
+        if (stripeInstance) setStripe(stripeInstance);
+        else setStripeError('Failed to initialize Stripe. Please check your publishable key and network connection.');
+      } catch (error) {
+        setStripeError('Failed to initialize Stripe: ' + (error.message || error));
+        console.error('Failed to initialize Stripe:', error);
+      } finally {
+        setStripeLoading(false);
+      }
+    };
+    initializeStripe();
+  }, []);
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: spacing.l,
-  },
-  hCaptchaContainer: {
-    marginBottom: spacing.l,
-    width: '100%',
-    height: 100,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.m,
-    padding: spacing.m,
-    shadowColor: colors.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  section: {
-    marginBottom: spacing.xl,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
-  sectionText: { fontSize: 14, color: '#666', marginBottom: 4 },
-  header: { fontSize: 28, fontWeight: '900', color: '#BFA054', marginBottom: 18, marginTop: 16, textAlign: 'center' },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#BFA054' },
-  summaryContainer: { marginBottom: 24 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  summaryText: { fontSize: 16 },
-  summaryValue: { fontSize: 16, fontWeight: 'bold', color: '#BFA054' },
-  summaryTotal: { color: '#635BFF' },
-  label: { fontSize: 16, fontWeight: 'bold', marginTop: 12 },
-  input: { borderWidth: 1, borderColor: '#E5DCC3', borderRadius: 8, padding: 10, marginTop: 6, fontSize: 16, backgroundColor: '#fff' },
-  error: { color: 'red', marginTop: 4 },
-  button: { backgroundColor: '#BFA054', borderRadius: 8, padding: 12, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  cardContainer: { 
-    marginBottom: 24,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-  },
-  cardElement: { 
-    width: '100%',
-    height: 50,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    color: '#333'
-  },
-  summaryLabel: { fontSize: 18, fontWeight: 'bold', marginBottom: 12 }
-});
+  const handleInputChange = (type, field, value) => {
+    if (type === 'contact') setContact(prev => ({ ...prev, [field]: value }));
+    else if (type === 'address') setAddress(prev => ({ ...prev, [field]: value }));
+  };
 
-export default CheckoutScreen;
+  const validateForm = () => {
+    const contactErrors = {};
+    const addressErrors = {};
+    try { contactSchema.parse(contact); } catch (error) {
+      if (error.errors) error.errors.forEach(err => { contactErrors[err.path[0]] = err.message; });
+    }
+    try { addressSchema.parse(address); } catch (error) {
+      if (error.errors) error.errors.forEach(err => { addressErrors[err.path[0]] = err.message; });
+    }
+    setErrors({ contact: Object.values(contactErrors), address: Object.values(addressErrors) });
+    return Object.keys(contactErrors).length === 0 && Object.keys(addressErrors).length === 0;
+  };
+
+  const renderContactAndAddress = () => (
+    <div className="contact-address-form">
+      <div className="form-section-header">
+        <h2>Contact Information</h2>
+        <p>Required for order confirmation</p>
+      </div>
+      <div className="form-section">
+        {Object.entries(errors).map(([type, errorList]) => (
+          errorList.map((error, index) => (
+            <div key={index} className="error-message">{error}</div>
+          ))
+        ))}
+        <div className="input-group">
+          <input className={`form-input ${errors.contact?.includes('Name is required') ? 'error-input' : ''}`} placeholder="Full Name" value={contact.name} onChange={e => handleInputChange('contact', 'name', e.target.value)} autoComplete="name" />
+          <input className={`form-input ${errors.contact?.includes('Enter a valid email') ? 'error-input' : ''}`} placeholder="Email" value={contact.email} onChange={e => handleInputChange('contact', 'email', e.target.value)} type="email" autoComplete="email" />
+          <input className={`form-input ${errors.address?.includes('Address required') ? 'error-input' : ''}`} placeholder="Address Line 1" value={address.line1} onChange={e => handleInputChange('address', 'line1', e.target.value)} autoComplete="address-line1" />
+          <input className={`form-input ${errors.address?.includes('City required') ? 'error-input' : ''}`} placeholder="City" value={address.city} onChange={e => handleInputChange('address', 'city', e.target.value)} autoComplete="address-level2" />
+          <input className={`form-input ${errors.address?.includes('Postcode required') ? 'error-input' : ''}`} placeholder="Postcode" value={address.postcode} onChange={e => handleInputChange('address', 'postcode', e.target.value)} type="text" autoComplete="postal-code" />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {stripeLoading && (
+        <div className="stripe-loading">
+          <div className="loading-spinner"></div>
+          <div>Loading secure payment form...</div>
+        </div>
+      )}
+      {stripeError && !stripeLoading && (
+        <div className="stripe-error">
+          <div style={{ color: '#E53E3E', fontWeight: 'bold', marginBottom: 16 }}>{stripeError}</div>
+          <div>Please contact support or try again later.</div>
+        </div>
+      )}
+      {stripe && !stripeLoading && !stripeError && (
+        <Elements stripe={stripe}>
+          <div className="checkout-container expert-layout">
+            <div className="checkout-content">
+              <button className="back-to-cart-btn" onClick={() => { window.location.href = '/cart'; }}>
+                ← Back to Cart
+              </button>
+              <div className="checkout-header">
+                <h1>Checkout</h1>
+                <p>Please fill in your details to complete your order</p>
+              </div>
+              <div className="form-container">
+                <div className="form-section">
+                  <div className="section-header">
+                    <h2>Contact Information</h2>
+                    <p>Required for order confirmation</p>
+                  </div>
+                  {renderContactAndAddress()}
+                </div>
+                <div className="form-section order-summary-section">
+                  <div className="section-header">
+                    <h2>Order Summary</h2>
+                    <p>Review your order details</p>
+                  </div>
+                  <div className="summary-container">
+                    <div className="summary-item">
+                      <span className="summary-label">Subtotal:</span>
+                      <span className="summary-value">£{cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2)}</span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="summary-label">Tax (10%):</span>
+                      <span className="summary-value">£{(cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * 0.1).toFixed(2)}</span>
+                    </div>
+                    <div className="summary-item total">
+                      <span className="summary-label total-label">Total:</span>
+                      <span className="summary-value total-value">£{(cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * 0.1)).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+                <StripePaymentForm
+                  cart={cart}
+                  contact={contact}
+                  address={address}
+                  errors={errors}
+                  setErrors={setErrors}
+                  paying={paying}
+                  setPaying={setPaying}
+                  hCaptchaToken={hCaptchaToken}
+                  setHCaptchaToken={setHCaptchaToken}
+                  validateForm={validateForm}
+                  removeFromCart={removeFromCart}
+                />
+              </div>
+            </div>
+          </div>
+        </Elements>
+      )}
+    </>
+  );
+}
