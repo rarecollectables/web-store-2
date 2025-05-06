@@ -67,6 +67,23 @@ function CheckoutScreen() {
     }
   }, [stripe]);
 
+  const validateForm = () => {
+    const contactErrors = contactSchema.safeParse(contact).error;
+    const addressErrors = addressSchema.safeParse(address).error;
+
+    if (contactErrors) {
+      setErrors(prev => ({ ...prev, ...contactErrors.errors.reduce((acc, error) => ({ ...acc, [error.path[0]]: error.message }), {}) }));
+      return false;
+    }
+
+    if (addressErrors) {
+      setErrors(prev => ({ ...prev, ...addressErrors.errors.reduce((acc, error) => ({ ...acc, [error.path[0]]: error.message }), {}) }));
+      return false;
+    }
+
+    return true;
+  };
+
   const handleStripeCheckout = async () => {
     setPaying(true);
     setLoading(true);
@@ -79,53 +96,86 @@ function CheckoutScreen() {
       }
 
       if (!stripe) {
-        throw new Error('Stripe is not initialized. Please try again.');
+        throw new Error('Payment processing system is not ready. Please try again.');
       }
 
       if (!cardElement) {
-        throw new Error('Card element not initialized. Please try again.');
+        throw new Error('Card details not captured. Please enter your card information.');
       }
 
       // Create payment intent
-      const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cart, customer_email: contact.email, shipping_address: address }),
-      });
+      try {
+        const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cart, customer_email: contact.email, shipping_address: address }),
+        });
 
-      const data = await response.json();
-      console.log('Payment Intent response:', data);
+        const data = await response.json();
+        console.log('Payment Intent response:', data);
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create payment intent');
-      }
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to create payment session. Please try again.');
+        }
 
-      // Confirm card payment
-      const { error } = await stripe.confirmCardPayment(data.clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: contact.name,
-            email: contact.email,
-            address: {
-              line1: address.line1,
-              city: address.city,
-              postal_code: address.zip,
-              country: 'GB'
+        // Confirm card payment
+        const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              name: contact.name,
+              email: contact.email,
+              address: {
+                line1: address.line1,
+                city: address.city,
+                postal_code: address.zip,
+                country: 'GB'
+              }
             }
           }
-        }
-      });
+        });
 
-      if (error) {
+        if (error) {
+          // Handle different types of errors
+          if (error.type === 'card_error') {
+            throw new Error(`Card error: ${error.message}`);
+          } else if (error.type === 'validation_error') {
+            throw new Error(`Validation error: ${error.message}`);
+          } else if (error.type === 'api_error') {
+            throw new Error(`Payment processing error: ${error.message}`);
+          } else {
+            throw new Error(`Payment error: ${error.message}`);
+          }
+        }
+
+        // Payment successful
+        Alert.alert('Success', 'Payment completed successfully!');
+        // Clear cart and navigate to confirmation
+        removeFromCart(cart);
+        router.push('/confirmation');
+
+        // Log successful payment
+        await trackEvent({
+          eventType: 'checkout_success',
+          metadata: {
+            paymentIntent,
+            cart,
+            contact,
+            address,
+            subtotal,
+            tax,
+            total
+          }
+        });
+
+      } catch (error) {
+        // Handle server communication errors
+        if (error instanceof SyntaxError) {
+          throw new Error('Failed to communicate with payment server. Please try again.');
+        }
         throw error;
       }
 
-      // Payment successful
-      Alert.alert('Success', 'Payment completed successfully!');
-      // Clear cart and navigate to confirmation
-      removeFromCart(cart);
-      router.push('/confirmation');
     } catch (error) {
       console.error('Payment error:', error);
 
@@ -134,6 +184,7 @@ function CheckoutScreen() {
         eventType: 'checkout_error',
         metadata: {
           error: {
+            type: error.type || 'unknown',
             message: error.message,
             name: error.name,
             stack: error.stack
@@ -147,10 +198,32 @@ function CheckoutScreen() {
         }
       });
 
+      // Provide more specific error messages
+      let errorMessage = error.message || 'Failed to process payment. Please try again later.';
+      
+      if (error.type === 'card_error') {
+        errorMessage = `Card error: ${error.message}`;
+      } else if (error.type === 'validation_error') {
+        errorMessage = `Validation error: ${error.message}`;
+      } else if (error.type === 'api_error') {
+        errorMessage = `Payment processing error: ${error.message}`;
+      } else if (error.type === 'unknown') {
+        errorMessage = 'An unexpected error occurred. Please try again later.';
+      }
+
       Alert.alert(
-        'Error',
-        error.message || 'Failed to process payment. Please try again later.',
-        [{ text: 'OK' }]
+        'Payment Error',
+        errorMessage,
+        [
+          { 
+            text: 'OK',
+            style: 'cancel'
+          },
+          { 
+            text: 'Try Again',
+            onPress: () => handleStripeCheckout()
+          }
+        ]
       );
     } finally {
       setPaying(false);
