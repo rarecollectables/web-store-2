@@ -10,8 +10,11 @@ import { storeOrder } from './components/orders-modal';
 import { trackEvent } from '../lib/trackEvent';
 import Constants from 'expo-constants';
 
+// Get Stripe keys from environment
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || Constants.expoConfig?.extra?.STRIPE_PUBLISHABLE_KEY;
+
 // Netlify function endpoint for Stripe Checkout
-const NETLIFY_STRIPE_FUNCTION_URL = Constants.expoConfig?.extra?.NETLIFY_STRIPE_FUNCTION_URL || 'https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session';
+const NETLIFY_STRIPE_FUNCTION_URL = process.env.EXPO_PUBLIC_NETLIFY_FUNCTION_URL || Constants.expoConfig?.extra?.NETLIFY_STRIPE_FUNCTION_URL || 'https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session';
 
 const contactSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -45,7 +48,7 @@ function CheckoutScreen() {
     const initStripe = async () => {
       try {
         setStripeLoading(true);
-        const stripe = await loadStripe(process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+        const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
         if (stripe) {
           setStripe(stripe);
           const elements = stripe.elements();
@@ -303,7 +306,11 @@ function CheckoutScreen() {
 
       {/* Card Element Container */}
       <View style={styles.cardContainer}>
-        <div id="card-element" style={styles.cardElement} />
+        <div id="card-element" style={styles.cardElement}>
+          {!stripeLoading && stripe && cardElement && (
+            <div style={{ width: '100%', height: '100%' }} />
+          )}
+        </div>
       </View>
 
       <Pressable
