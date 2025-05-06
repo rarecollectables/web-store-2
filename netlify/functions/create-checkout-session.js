@@ -16,14 +16,33 @@ exports.handler = async (event) => {
   }
   try {
     // Validate Stripe API key
-    if (!process.env.STRIPE_SECRET_KEY) {
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) {
       console.error('Stripe secret key is not set');
       return {
         statusCode: 500,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ error: 'Stripe secret key is not configured' })
+        body: JSON.stringify({ 
+          error: 'Stripe secret key is not configured',
+          details: 'Please set STRIPE_SECRET_KEY in Netlify environment variables'
+        })
+      };
+    }
+
+    // Validate Stripe key format
+    if (!stripeKey.startsWith('sk_')) {
+      console.error('Invalid Stripe key format:', stripeKey);
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          error: 'Invalid Stripe secret key format',
+          details: 'Stripe key must start with sk_test_ or sk_live_'
+        })
       };
     }
 
