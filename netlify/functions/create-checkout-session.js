@@ -69,20 +69,10 @@ exports.handler = async (event) => {
       };
     }
 
-    // Handle shipping address configuration
-    let shippingConfig = null;
-    if (shipping_address) {
-      try {
-        shippingConfig = {
-          allowed_countries: ['GB', 'US', 'CA', 'IE', 'AU', 'FR', 'DE', 'NG']
-        };
-      } catch (error) {
-        console.error('Error processing shipping address:', {
-          error: error.message,
-          shipping_address
-        });
-      }
-    }
+    // Calculate total amount in cents
+    const total = cart.reduce((sum, item) => {
+      return sum + (item.price * 100 * item.quantity);
+    }, 0);
 
     // Validate cart
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
@@ -143,43 +133,34 @@ exports.handler = async (event) => {
     // Log the processed line items
     console.log('Processed line items:', line_items);
 
-    // Log line items before creating session
-    console.log('Creating checkout session with items:', line_items);
-
-    // Create the Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'payment',
-      line_items,
-      customer_email: customer_email || undefined,
-      shipping_address_collection: shippingConfig,
-      shipping_options: shipping_address ? [
-        {
-          shipping_rate_data: {
-            type: 'fixed_amount',
-            fixed_amount: { amount: 0, currency: 'gbp' },
-            display_name: 'Free Shipping',
-            delivery_estimate: {
-              minimum: { unit: 'business_day', value: 3 },
-              maximum: { unit: 'business_day', value: 5 },
-            },
-          },
-        }
-      ] : undefined,
-      automatic_tax: { enabled: true },
-      success_url: `${process.env.SUCCESS_URL}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CANCEL_URL}`,
+    // Create Payment Intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: total,
+      currency: 'gbp',
+      customer_email: customer_email,
       metadata: {
-        customer_email: customer_email,
-      },
+        customer_email,
+        shipping_address: shipping_address ? JSON.stringify(shipping_address) : null,
+        cart: JSON.stringify(cart)
+      }
     });
+
+    // Create ephemeral key for the customer
+    const ephemeralKey = await stripe.ephemeralKeys.create(
+      { customer: paymentIntent.customer },
+      { stripe_version: '2022-11-15' }
+    );
 
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ id: session.id }),
+      body: JSON.stringify({
+        clientSecret: paymentIntent.client_secret,
+        customerId: paymentIntent.customer,
+        ephemeralKey: ephemeralKey.secret
+      })
     };
   } catch (error) {
     console.error('Error creating checkout session:', error);

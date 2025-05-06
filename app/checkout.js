@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator, Linking, Alert } from 'react-native';
+import { loadStripe } from '@stripe/stripe-js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useStore } from '../context/store';
@@ -22,169 +23,111 @@ const addressSchema = z.object({
   zip: z.string().min(3, 'ZIP required'),
 });
 
-export default function CheckoutScreen() {
+function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { cart, removeFromCart } = useStore();
-  const [step, setStep] = useState(0);
   const [contact, setContact] = useState({ name: '', email: '' });
   const [address, setAddress] = useState({ line1: '', city: '', zip: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [stripe, setStripe] = useState(null);
+  const [cardElement, setCardElement] = useState(null);
 
+  // Calculate cart totals
   const subtotal = cart.reduce((sum, item) => sum + (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * (item.quantity || 1), 0);
   const tax = subtotal * 0.1;
   const total = subtotal + tax;
 
-  function validateAndNext() {
-    if (step === 0) {
-      const result1 = contactSchema.safeParse(contact);
-      const result2 = addressSchema.safeParse(address);
-      if (!result1.success || !result2.success) {
-        setErrors({
-          ...(!result1.success && result1.error.flatten().fieldErrors),
-          ...(!result2.success && result2.error.flatten().fieldErrors),
-        });
+  useEffect(() => {
+    const initStripe = async () => {
+      try {
+        const stripe = await loadStripe(process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+        if (stripe) {
+          setStripe(stripe);
+          const elements = stripe.elements();
+          const card = elements.create('card');
+          card.mount('#card-element');
+          setCardElement(card);
+        }
+      } catch (error) {
+        console.error('Failed to initialize Stripe:', error);
+      }
+    };
+    initStripe();
+  }, []);
+
+  useEffect(() => {
+    if (stripe) {
+      const elements = stripe.elements();
+      const card = elements.create('card');
+      card.mount('#card-element');
+      setCardElement(card);
+    }
+  }, [stripe]);
+
+  const handleStripeCheckout = async () => {
+    setPaying(true);
+    setLoading(true);
+
+    try {
+      // Validate form
+      if (!validateForm()) {
+        Alert.alert('Error', 'Please fill in all required fields');
         return;
       }
-    }
-    setErrors({});
-    setStep(s => Math.min(s + 1, 1));
-  }
 
-  async function handleStripeCheckout() {
-    setPaying(true);
-    try {
-      console.log('Starting checkout process');
-      console.log('Cart:', cart);
-      console.log('Contact:', contact);
-      console.log('Address:', address);
-      console.log('Netlify function URL:', NETLIFY_STRIPE_FUNCTION_URL);
+      if (!stripe) {
+        throw new Error('Stripe is not initialized. Please try again.');
+      }
 
-      await trackEvent({
-        eventType: 'proceed_to_checkout',
-        metadata: {
-          cart: cart.map(item => ({
-            id: item.id,
-            title: item.title,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          contact,
-          address,
-          subtotal,
-          tax,
-          total,
-        }
-      });
+      if (!cardElement) {
+        throw new Error('Card element not initialized. Please try again.');
+      }
 
-      console.log('Making request to Netlify function');
+      // Create payment intent
       const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          cart,
-          customer_email: contact.email,
-          shipping_address: {
-            line1: address.line1,
-            city: address.city,
-            postal_code: address.zip,
-            country: 'GB', // Default to UK since it's the primary market
-            name: contact.name
-          }
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cart, customer_email: contact.email, shipping_address: address }),
       });
 
-      console.log('Response status:', response.status);
       const data = await response.json();
-      console.log('Response data:', data);
+      console.log('Payment Intent response:', data);
 
       if (!response.ok) {
-        console.error('Server error:', {
-          status: response.status,
-          statusText: response.statusText,
-          data
-        });
-        
-        if (data.error) {
-          // Handle specific error types
-          if (data.error.type === 'card_error') {
-            Alert.alert(
-              'Payment Error',
-              data.error.message || 'There was an error with your card. Please check your details and try again.',
-              [{ text: 'OK' }]
-            );
-          } else if (data.error.type === 'rate_limit') {
-            Alert.alert(
-              'Too Many Requests',
-              'Please wait a moment and try again.',
-              [{ text: 'OK' }]
-            );
-          } else {
-            Alert.alert(
-              'Error',
-              data.error.message || 'Failed to create checkout session. Please try again later.',
-              [{ text: 'OK' }]
-            );
+        throw new Error(data.error || 'Failed to create payment intent');
+      }
+
+      // Confirm card payment
+      const { error } = await stripe.confirmCardPayment(data.clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: contact.name,
+            email: contact.email,
+            address: {
+              line1: address.line1,
+              city: address.city,
+              postal_code: address.zip,
+              country: 'GB'
+            }
           }
-          throw new Error(data.error.message || 'Failed to create checkout session');
-        } else {
-          Alert.alert(
-            'Error',
-            'Failed to create checkout session. Please try again later.',
-            [{ text: 'OK' }]
-          );
-          throw new Error('Failed to create checkout session');
         }
-      }
-
-      // Get the session ID from the response
-      const sessionId = data.id;
-      if (!sessionId) {
-        console.error('No session ID in response:', data);
-        Alert.alert(
-          'Error',
-          'Failed to create checkout session. Please try again later.',
-          [{ text: 'OK' }]
-        );
-        throw new Error('No session ID in response');
-      }
-
-      // Construct the Stripe checkout URL
-      const url = `https://checkout.stripe.com/c/pay/${sessionId}`;
-      console.log('Constructed Stripe checkout URL:', url);
-
-      console.log('Opening Stripe checkout URL:', {
-        url,
-        timestamp: new Date().toISOString()
       });
 
-      try {
-        await Linking.openURL(url);
-      } catch (linkError) {
-        console.error('Error opening Stripe checkout URL:', {
-          error: linkError,
-          url,
-          timestamp: new Date().toISOString()
-        });
-        Alert.alert(
-          'Error',
-          'Failed to open payment page. Please try again later.',
-          [{ text: 'OK' }]
-        );
-        throw linkError;
+      if (error) {
+        throw error;
       }
+
+      // Payment successful
+      Alert.alert('Success', 'Payment completed successfully!');
+      // Clear cart and navigate to confirmation
+      removeFromCart(cart);
+      router.push('/confirmation');
     } catch (error) {
-      console.error('Checkout error:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        timestamp: new Date().toISOString()
-      });
+      console.error('Payment error:', error);
 
       // Log to analytics for tracking
       await trackEvent({
@@ -211,22 +154,22 @@ export default function CheckoutScreen() {
       );
     } finally {
       setPaying(false);
+      setLoading(false);
       console.log('Checkout process completed', {
         success: !error,
         timestamp: new Date().toISOString()
       });
     }
-  }
+  };
 
   const renderContactAndAddress = () => (
-    <View style={styles.step}>
-      <Text style={styles.label}>Name</Text>
+    <>
+      <Text style={styles.label}>Full Name</Text>
       <TextInput
         style={styles.input}
         value={contact.name}
         onChangeText={t => setContact({ ...contact, name: t })}
         placeholder="Full Name"
-        autoCapitalize="words"
       />
       {!!errors.name && <Text style={styles.error}>{errors.name}</Text>}
       <Text style={styles.label}>Email</Text>
@@ -234,12 +177,12 @@ export default function CheckoutScreen() {
         style={styles.input}
         value={contact.email}
         onChangeText={t => setContact({ ...contact, email: t })}
-        placeholder="Email Address"
+        placeholder="Email"
         keyboardType="email-address"
         autoCapitalize="none"
       />
       {!!errors.email && <Text style={styles.error}>{errors.email}</Text>}
-      <Text style={styles.label}>Address</Text>
+      <Text style={styles.label}>Shipping Address</Text>
       <TextInput
         style={styles.input}
         value={address.line1}
@@ -255,58 +198,101 @@ export default function CheckoutScreen() {
         placeholder="City"
       />
       {!!errors.city && <Text style={styles.error}>{errors.city}</Text>}
-      <Text style={styles.label}>ZIP</Text>
+      <Text style={styles.label}>Postal Code</Text>
       <TextInput
         style={styles.input}
         value={address.zip}
         onChangeText={t => setAddress({ ...address, zip: t })}
-        placeholder="ZIP Code"
+        placeholder="Postal Code"
         keyboardType="default"
       />
       {!!errors.zip && <Text style={styles.error}>{errors.zip}</Text>}
-      <Pressable
-        style={[styles.button, { marginTop: 24 }]}
-        onPress={validateAndNext}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>Proceed to Payment</Text>
-      </Pressable>
-    </View>
+    </>
   );
 
   const renderPayment = () => (
-    <View style={styles.step}>
-      <Text style={styles.summaryLabel}>Order Summary</Text>
-      <Text>Subtotal: £{subtotal.toFixed(2)}</Text>
-      <Text>Tax: £{tax.toFixed(2)}</Text>
-      <Text>Total: £{total.toFixed(2)}</Text>
+    <>
+      <View style={styles.summaryContainer}>
+        <Text style={styles.summaryLabel}>Order Summary</Text>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryText}>Subtotal:</Text>
+          <Text style={styles.summaryValue}>£{subtotal.toFixed(2)}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryText}>Tax (10%):</Text>
+          <Text style={styles.summaryValue}>£{tax.toFixed(2)}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryText}>Total:</Text>
+          <Text style={[styles.summaryValue, styles.summaryTotal]}>£{total.toFixed(2)}</Text>
+        </View>
+      </View>
+
+      {/* Card Element Container */}
+      <View style={styles.cardContainer}>
+        <div id="card-element" style={styles.cardElement} />
+      </View>
+
       <Pressable
-        style={[styles.button, { marginTop: 24, backgroundColor: '#635BFF' }]}
+        style={[styles.button, { marginTop: 24, backgroundColor: '#BFA054' }]}
         onPress={handleStripeCheckout}
         disabled={paying}
       >
-        {paying ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Pay with Card / Apple Pay / Google Pay</Text>}
+        {paying ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Pay with Card</Text>
+        )}
       </Pressable>
-    </View>
+    </>
   );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
       <Text style={styles.header}>Checkout</Text>
-      {step === 0 && renderContactAndAddress()}
-      {step === 1 && renderPayment()}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Contact Information</Text>
+        {renderContactAndAddress()}
+      </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Payment Information</Text>
+        {renderPayment()}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.ivory },
+  section: { marginBottom: 24, paddingHorizontal: 12, backgroundColor: '#fff', borderRadius: 8, padding: 16 },
   header: { fontSize: 28, fontWeight: '900', color: '#BFA054', marginBottom: 18, marginTop: 16, textAlign: 'center' },
-  step: { marginBottom: spacing.md, paddingHorizontal: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#BFA054' },
+  summaryContainer: { marginBottom: 24 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  summaryText: { fontSize: 16 },
+  summaryValue: { fontSize: 16, fontWeight: 'bold', color: '#BFA054' },
+  summaryTotal: { color: '#635BFF' },
   label: { fontSize: 16, fontWeight: 'bold', marginTop: 12 },
   input: { borderWidth: 1, borderColor: '#E5DCC3', borderRadius: 8, padding: 10, marginTop: 6, fontSize: 16, backgroundColor: '#fff' },
   error: { color: 'red', marginTop: 4 },
-  button: { backgroundColor: '#BFA054', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 16 },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
-  summaryLabel: { fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
+  button: { backgroundColor: '#BFA054', borderRadius: 8, padding: 12, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  cardContainer: { 
+    marginBottom: 24,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+  },
+  cardElement: { 
+    width: '100%',
+    height: 50,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 16,
+    color: '#333'
+  },
+  summaryLabel: { fontSize: 18, fontWeight: 'bold', marginBottom: 12 }
 });
+
+export default CheckoutScreen;
