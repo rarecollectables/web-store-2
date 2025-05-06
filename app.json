@@ -29,7 +29,8 @@
       "expo-secure-store"
     ],
     "extra": {
-      "NETLIFY_STRIPE_FUNCTION_URL": "https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session"
+      "NETLIFY_STRIPE_FUNCTION_URL": "https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session",
+      "HCAPTCHA_SITE_KEY": "ES_e7023a1a15d2413ca17ebbce7d469c36"
     }
   }
 }

@@ -20,9 +20,254 @@ exports.handler = async (event) => {
     // Validate Stripe API key
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) {
-      throw errorHandler.createErrorResponse(
+      return errorHandler.createErrorResponse(
         new Error('Stripe secret key is not configured'),
-        { missingVariables: ['STRIPE_SECRET_KEY'] }
+        { 
+          missingVariables: ['STRIPE_SECRET_KEY'],
+          requestId: event.requestId
+        }
+      );
+    }
+
+    // Initialize Stripe
+    const stripe = new Stripe(stripeKey, {
+      apiVersion: '2024-02-14',
+      appInfo: {
+        name: 'Rare Collectables Store',
+        version: '1.0.0'
+      }
+    });
+
+    // Parse and validate request body
+    const { cart, customer_email, shipping_address, hCaptchaToken } = JSON.parse(event.body);
+
+    // Verify hCaptcha token
+    if (!hCaptchaToken) {
+      return errorHandler.createErrorResponse(
+        new Error('hCaptcha verification failed'),
+        { 
+          operation: 'hcaptcha_verification',
+          requestId: event.requestId
+        }
+      );
+    }
+
+    // Verify hCaptcha token with server
+    const hcaptchaSecret = process.env.HCAPTCHA_SECRET_KEY;
+    if (!hcaptchaSecret) {
+      return errorHandler.createErrorResponse(
+        new Error('hCaptcha secret key is not configured'),
+        { 
+          missingVariables: ['HCAPTCHA_SECRET_KEY'],
+          requestId: event.requestId
+        }
+      );
+    }
+
+    try {
+      const hcaptchaResponse = await fetch('https://hcaptcha.com/siteverify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `response=${hCaptchaToken}&secret=${hcaptchaSecret}`
+      });
+
+      const hcaptchaData = await hcaptchaResponse.json();
+      if (!hcaptchaData.success) {
+        return errorHandler.createErrorResponse(
+          new Error('hCaptcha verification failed'),
+          { 
+            operation: 'hcaptcha_verification',
+            error: hcaptchaData,
+            requestId: event.requestId
+          }
+        );
+      }
+    } catch (hcaptchaError) {
+      return errorHandler.createErrorResponse(
+        new Error('Failed to verify hCaptcha'),
+        { 
+          operation: 'hcaptcha_verification',
+          error: hcaptchaError,
+          requestId: event.requestId
+        }
+      );
+    }
+
+    // Validate cart
+    if (!Array.isArray(cart) || cart.length === 0) {
+      return errorHandler.createErrorResponse(
+        new Error('Cart is empty or invalid'),
+        { 
+          operation: 'cart_validation',
+          cart: cart,
+          requestId: event.requestId
+        }
+      );
+    }
+
+    // Calculate total amount in cents
+    const total = cart.reduce((sum, item) => {
+      if (!item.price || !item.quantity) {
+        throw new Error(`Invalid cart item: missing price or quantity`);
+      }
+      return sum + (parseFloat(item.price) * 100 * item.quantity);
+    }, 0);
+
+    if (total <= 0) {
+      return errorHandler.createErrorResponse(
+        new Error('Total amount must be greater than 0'),
+        { 
+          operation: 'amount_validation',
+          total: total,
+          requestId: event.requestId
+        }
+      );
+    }
+
+    try {
+      // Create customer
+      const customer = await stripe.customers.create({
+        email: customer_email,
+        metadata: {
+          shipping_address: shipping_address ? JSON.stringify({
+            line1: shipping_address.line1,
+            city: shipping_address.city,
+            postal_code: shipping_address.zip,
+            country: shipping_address.country || 'GB'
+          }) : null
+        }
+      });
+
+      // Create payment intent
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: total,
+        currency: 'gbp',
+        customer: customer.id,
+        metadata: {
+          customer_email,
+          shipping_address: shipping_address ? JSON.stringify({
+            line1: shipping_address.line1,
+            city: shipping_address.city,
+            postal_code: shipping_address.zip,
+            country: shipping_address.country || 'GB'
+          }) : null
+        }
+      });
+
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Credentials': 'true'
+        },
+        body: JSON.stringify({
+          clientSecret: paymentIntent.client_secret,
+          customerId: customer.id
+        })
+      };
+
+    } catch (error) {
+      errorHandler.logError(error, {
+        operation: 'payment_processing',
+        requestId: event.requestId,
+        context: {
+          customer_email,
+          total,
+          cart
+        }
+      });
+
+      return errorHandler.createErrorResponse(error, {
+        operation: 'payment_processing',
+        requestId: event.requestId,
+        context: {
+          customer_email,
+          total,
+          cart
+        }
+      });
+    }
+  } catch (error) {
+    return errorHandler.createErrorResponse(
+      error,
+      { 
+        operation: 'request_processing',
+        requestId: event.requestId
+      }
+    );
+  }
+  // Handle CORS preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+      body: '',
+    };
+  }
+
+  try {
+    // Validate Stripe API key
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) {
+      return errorHandler.createErrorResponse(
+        new Error('Stripe secret key is not configured'),
+        { 
+          missingVariables: ['STRIPE_SECRET_KEY'],
+          requestId: event.requestId
+        }
+      );
+    }
+
+    // Initialize Stripe with proper API version
+    const stripe = new Stripe(stripeKey, {
+      apiVersion: '2024-02-14',
+      appInfo: {
+        name: 'Rare Collectables Store',
+        version: '1.0.0'
+      }
+    });
+
+    // Parse request body
+    const { cart, customer_email, shipping_address } = JSON.parse(event.body);
+
+    // Validate cart
+    if (!Array.isArray(cart) || cart.length === 0) {
+      return errorHandler.createErrorResponse(
+        new Error('Cart is empty or invalid'),
+        { 
+          operation: 'cart_validation',
+          cart: cart,
+          requestId: event.requestId
+        }
+      );
+    }
+
+    // Calculate total amount in cents
+    const total = cart.reduce((sum, item) => {
+      if (!item.price || !item.quantity) {
+        throw new Error(`Invalid cart item: missing price or quantity`);
+      }
+      return sum + (parseFloat(item.price) * 100 * item.quantity);
+    }, 0);
+
+    if (total <= 0) {
+      return errorHandler.createErrorResponse(
+        new Error('Total amount must be greater than 0'),
+        { 
+          operation: 'amount_validation',
+          total: total,
+          requestId: event.requestId
+        }
       );
     }
 
@@ -151,26 +396,93 @@ exports.handler = async (event) => {
     console.log('Processed line items:', line_items);
 
     // Create customer
-    const customer = await stripe.customers.create({
-      email: customer_email,
-      metadata: {
-        shipping_address: shipping_address ? JSON.stringify({
-          line1: shipping_address.line1,
-          city: shipping_address.city,
-          postal_code: shipping_address.zip,
-          country: shipping_address.country || 'GB'
-        }) : null
-      }
-    }).catch(error => {
-      throw errorHandler.createErrorResponse(
-        error,
-        {
-          operation: 'customer_creation',
-          email: customer_email,
-          hasShipping: !!shipping_address
+    try {
+      const customer = await stripe.customers.create({
+        email: customer_email,
+        metadata: {
+          shipping_address: shipping_address ? JSON.stringify({
+            line1: shipping_address.line1,
+            city: shipping_address.city,
+            postal_code: shipping_address.zip,
+            country: shipping_address.country || 'GB'
+          }) : null
         }
+      });
+
+      // Create payment intent
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: total,
+        currency: 'gbp',
+        customer: customer.id,
+        metadata: {
+          customer_email,
+          shipping_address: shipping_address ? JSON.stringify({
+            line1: shipping_address.line1,
+            city: shipping_address.city,
+            postal_code: shipping_address.zip,
+            country: shipping_address.country || 'GB'
+          }) : null
+        }
+      });
+
+      // Add cart metadata
+      const cartData = cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      }));
+
+      // Add cart metadata to the payment intent after creation
+      await stripe.paymentIntents.update(paymentIntent.id, {
+        metadata: {
+          ...paymentIntent.metadata,
+          cart_items: JSON.stringify(cartData)
+        }
+      });
+
+      // Create ephemeral key for the customer
+      const ephemeralKey = await stripe.ephemeralKeys.create(
+        { customer: customer.id },
+        { stripe_version: '2024-02-14' }
       );
-    });
+
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Credentials': 'true'
+        },
+        body: JSON.stringify({
+          clientSecret: paymentIntent.client_secret,
+          customerId: customer.id,
+          ephemeralKey: ephemeralKey.secret
+        })
+      };
+    } catch (error) {
+      errorHandler.logError(error, {
+        operation: 'payment_processing',
+        requestId: event.requestId,
+        context: {
+          customer_email,
+          total,
+          cart
+        }
+      });
+
+      return errorHandler.createErrorResponse(error, {
+        operation: 'payment_processing',
+        requestId: event.requestId,
+        context: {
+          customer_email,
+          total,
+          cart
+        }
+      });
+    }
 
     // Create payment intent
     const paymentIntent = await stripe.paymentIntents.create({

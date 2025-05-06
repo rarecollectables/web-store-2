@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator, Linking, Alert } from 'react-native';
 import { loadStripe } from '@stripe/stripe-js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { storeOrder } from './components/orders-modal';
 import { trackEvent } from '../lib/trackEvent';
 import Constants from 'expo-constants';
+import { HCAPTCHA_SITE_KEY, HCAPTCHA_CONTAINER_ID } from './config/hcaptcha';
 
 // Get Stripe keys from environment
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || Constants.expoConfig?.extra?.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -38,6 +39,51 @@ function CheckoutScreen() {
   const [stripe, setStripe] = useState(null);
   const [cardElement, setCardElement] = useState(null);
   const [stripeLoading, setStripeLoading] = useState(true);
+  const hcaptchaRef = useRef(null);
+
+  useEffect(() => {
+    const initStripe = async () => {
+      try {
+        setStripeLoading(true);
+        const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
+        if (stripe) {
+          setStripe(stripe);
+          const elements = stripe.elements();
+          const card = elements.create('card');
+          card.mount('#card-element');
+          setCardElement(card);
+          setStripeLoading(false);
+        }
+      } catch (error) {
+        console.error('Failed to initialize Stripe:', error);
+        setStripeLoading(false);
+        Alert.alert('Error', 'Failed to initialize payment system. Please check your internet connection and try again.');
+      }
+    };
+
+    // Initialize hCaptcha
+    const initHCaptcha = () => {
+      if (window.hcaptcha && HCAPTCHA_SITE_KEY) {
+        window.hcaptcha.render(HCAPTCHA_CONTAINER_ID, {
+          sitekey: HCAPTCHA_SITE_KEY,
+          theme: 'light',
+          size: 'normal',
+          callback: (token) => {
+            console.log('hCaptcha token:', token);
+          }
+        });
+      }
+    };
+
+    initStripe();
+    initHCaptcha();
+
+    return () => {
+      if (cardElement) {
+        cardElement.unmount();
+      }
+    };
+  }, []);
 
   // Calculate cart totals
   const subtotal = cart.reduce((sum, item) => sum + (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * (item.quantity || 1), 0);
@@ -83,10 +129,44 @@ function CheckoutScreen() {
     return true;
   };
 
-  const handleStripeCheckout = async () => {
-    setPaying(true);
-    setLoading(true);
+  const createPaymentIntent = async () => {
+    try {
+      // Get hCaptcha token
+      const hcaptchaToken = await new Promise((resolve) => {
+        const hcaptcha = window.hcaptcha;
+        if (hcaptcha) {
+          hcaptcha.execute().then(token => resolve(token));
+        } else {
+          resolve(null);
+        }
+      });
 
+      const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          cart, 
+          customer_email: contact.email, 
+          shipping_address: address,
+          hCaptchaToken: hcaptchaToken
+        }),
+      });
+
+      const data = await response.json();
+      console.log('Payment Intent response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to create payment session');
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Payment Intent error:', error);
+      throw error;
+    }
+  };
+
+  const handleStripeCheckout = async () => {
     try {
       // Validate form
       if (!validateForm()) {
@@ -106,151 +186,83 @@ function CheckoutScreen() {
         throw new Error('Card details not captured. Please enter your card information.');
       }
 
+      setPaying(true);
+      setLoading(true);
+
       // Create payment intent
-      try {
-        const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cart, customer_email: contact.email, shipping_address: address }),
-        });
+      const paymentIntentData = await createPaymentIntent();
 
-        const data = await response.json();
-        console.log('Payment Intent response:', data);
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to create payment session. Please try again.');
-        }
-
-        // Confirm card payment
-        try {
-          const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
-            payment_method: {
-              card: cardElement,
-              billing_details: {
-                name: contact.name,
-                email: contact.email,
-                address: {
-                  line1: address.line1,
-                  city: address.city,
-                  postal_code: address.zip,
-                  country: 'GB'
-                }
+      // Confirm payment with Stripe
+      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+        paymentIntentData.clientSecret,
+        {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              name: contact.name,
+              email: contact.email,
+              address: {
+                line1: address.line1,
+                city: address.city,
+                postal_code: address.zip,
+                country: 'GB'
               }
             }
-          });
-
-          if (error) {
-            // Handle different types of errors
-            if (error.type === 'card_error') {
-              throw new Error(`Card error: ${error.message}`);
-            } else if (error.type === 'validation_error') {
-              throw new Error(`Validation error: ${error.message}`);
-            } else if (error.type === 'api_error') {
-              throw new Error(`Payment processing error: ${error.message}`);
-            } else {
-              throw new Error(`Payment error: ${error.message}`);
-            }
           }
-
-          // Payment successful
-          Alert.alert('Success', 'Payment completed successfully!');
-          // Clear cart and navigate to confirmation
-          removeFromCart(cart);
-          router.push('/confirmation');
-
-          // Log successful payment
-          await trackEvent({
-            eventType: 'checkout_success',
-            metadata: {
-              paymentIntent,
-              cart,
-              contact,
-              address,
-              subtotal,
-              tax,
-              total
-            }
-          });
-
-        } catch (error) {
-          // Handle server communication errors
-          if (error instanceof SyntaxError) {
-            throw new Error('Failed to communicate with payment server. Please try again.');
-          }
-          throw error;
         }
+      );
 
-      } catch (error) {
-        console.error('Payment error:', {
-          error: error.message,
-          type: error.type,
-          code: error.code,
-          stack: error.stack
-        });
-
-        // Log to analytics for tracking
-        await trackEvent({
-          eventType: 'checkout_error',
-          metadata: {
-            error: {
-              type: error.type || 'unknown',
-              message: error.message,
-              code: error.code,
-              stack: error.stack
-            },
-            cart,
-            contact,
-            address,
-            subtotal,
-            tax,
-            total
-          }
-        });
-
-        // Provide more specific error messages
-        let errorMessage = error.message || 'Failed to process payment. Please try again later.';
-        
-        if (error.type === 'card_error') {
-          errorMessage = `Card error: ${error.message}`;
-        } else if (error.type === 'validation_error') {
-          errorMessage = `Validation error: ${error.message}`;
-        } else if (error.type === 'api_error') {
-          errorMessage = `Payment processing error: ${error.message}`;
-        } else if (error.type === 'unknown') {
-          errorMessage = 'An unexpected error occurred. Please try again later.';
-        }
-
+      if (confirmError) {
+        console.error('Payment confirmation error:', confirmError);
         Alert.alert(
           'Payment Error',
-          errorMessage,
+          `${confirmError.message || 'An error occurred during payment confirmation'}\n\nType: ${confirmError.type || 'unknown'}\n\nPlease try again or contact support if the issue persists.`,
           [
-            { 
-              text: 'OK',
-              style: 'cancel'
-            },
-            { 
+            {
               text: 'Try Again',
-              onPress: () => handleStripeCheckout()
+              onPress: () => {
+                setPaymentError(null);
+                setPaymentProcessing(false);
+              }
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel'
             }
           ]
         );
-      } finally {
-        setPaying(false);
-        setLoading(false);
-        console.log('Checkout process completed', {
-          success: !error,
-          timestamp: new Date().toISOString()
-        });
+        return;
       }
+
+      // Payment successful
+      Alert.alert('Success', 'Payment completed successfully!');
+      // Clear cart and navigate to confirmation
+      removeFromCart(cart);
+      router.push('/confirmation');
+
+      // Track successful payment
+      await trackEvent({
+        eventType: 'checkout_success',
+        metadata: {
+          paymentIntent,
+          cart,
+          contact,
+          address,
+          subtotal,
+          tax,
+          total
+        }
+      });
+
     } catch (error) {
       console.error('Payment error:', {
-        error: error.message,
+        message: error.message,
         type: error.type,
         code: error.code,
         stack: error.stack
       });
 
-      // Log to analytics for tracking
+      // Track payment error
       await trackEvent({
         eventType: 'checkout_error',
         metadata: {
@@ -269,7 +281,7 @@ function CheckoutScreen() {
         }
       });
 
-      // Provide more specific error messages
+      // Show error to user
       let errorMessage = error.message || 'Failed to process payment. Please try again later.';
       
       if (error.type === 'card_error') {
@@ -290,19 +302,18 @@ function CheckoutScreen() {
             text: 'OK',
             style: 'cancel'
           },
-          { 
+          {
             text: 'Try Again',
-            onPress: () => handleStripeCheckout()
+            onPress: () => {
+              setPaymentError(null);
+              setPaymentProcessing(false);
+            }
           }
         ]
       );
     } finally {
       setPaying(false);
       setLoading(false);
-      console.log('Checkout process completed', {
-        success: !error,
-        timestamp: new Date().toISOString()
-      });
     }
   };
 
@@ -396,7 +407,22 @@ function CheckoutScreen() {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+      {/* hCaptcha Widget */}
+      <View style={styles.hCaptchaContainer}>
+        <div id={HCAPTCHA_CONTAINER_ID} style={{ width: '100%', height: '100%' }} />
+      </View>
+
+      {/* Test Card Details Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Test Card Details</Text>
+        <Text style={styles.sectionText}>
+          {TEST_CARD_GUIDE}
+        </Text>
+        <Text style={styles.sectionText}>
+          Note: These are Stripe test cards. No real charges will be made.
+        </Text>
+      </View>
       <Text style={styles.header}>Checkout</Text>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Contact Information</Text>
@@ -410,9 +436,70 @@ function CheckoutScreen() {
   );
 }
 
+const TEST_CARD_DETAILS = {
+  successful: {
+    number: '4242 4242 4242 4242',
+    expiry: '12/29',
+    cvc: '314'
+  },
+  decline: {
+    number: '4000 0000 0000 0002',
+    expiry: '12/29',
+    cvc: '314'
+  },
+  insufficient_funds: {
+    number: '4000 0000 0000 9995',
+    expiry: '12/29',
+    cvc: '314'
+  },
+  invalid_expiry: {
+    number: '4000 0000 0000 0002',
+    expiry: '01/20',
+    cvc: '314'
+  }
+};
+
+const TEST_CARD_GUIDE = `
+  Test Card Details:
+  - Successful payment: 4242 4242 4242 4242
+  - Declined payment: 4000 0000 0000 0002
+  - Insufficient funds: 4000 0000 0000 9995
+  - Invalid expiry: 4000 0000 0000 0002 (with past expiry date)
+  - Any expiry date in the future is valid
+  - Any 3-digit CVC is valid
+`;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.ivory },
-  section: { marginBottom: 24, paddingHorizontal: 12, backgroundColor: '#fff', borderRadius: 8, padding: 16 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: spacing.l,
+  },
+  hCaptchaContainer: {
+    marginBottom: spacing.l,
+    width: '100%',
+    height: 100,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.m,
+    padding: spacing.m,
+    shadowColor: colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  section: {
+    marginBottom: spacing.xl,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
+  sectionText: { fontSize: 14, color: '#666', marginBottom: 4 },
   header: { fontSize: 28, fontWeight: '900', color: '#BFA054', marginBottom: 18, marginTop: 16, textAlign: 'center' },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#BFA054' },
   summaryContainer: { marginBottom: 24 },
