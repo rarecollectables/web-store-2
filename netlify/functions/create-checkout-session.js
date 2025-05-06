@@ -21,6 +21,31 @@ exports.handler = async (event) => {
 
     const { cart, customer_email, shipping_address } = JSON.parse(event.body);
 
+    // Log incoming request data
+    console.log('Received checkout request:', {
+      cartCount: cart.length,
+      hasCustomerEmail: !!customer_email,
+      hasShippingAddress: !!shipping_address,
+      shippingCountries: shipping_address ? ['GB', 'US', 'CA', 'IE', 'AU', 'FR', 'DE', 'NG'] : []
+    });
+
+    // Validate input data
+    if (!Array.isArray(cart) || cart.length === 0) {
+      console.error('Invalid cart:', cart);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Cart is empty or invalid' })
+      };
+    }
+
+    if (shipping_address && !Array.isArray(shipping_address.allowed_countries)) {
+      console.error('Invalid shipping address:', shipping_address);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid shipping address configuration' })
+      };
+    }
+
     // Validate cart
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
       console.error('Invalid cart array:', cart);
@@ -85,7 +110,7 @@ exports.handler = async (event) => {
 
     // Create the Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'apple_pay', 'google_pay'],
+      payment_method_types: ['card'],
       mode: 'payment',
       line_items,
       customer_email: customer_email || undefined,
