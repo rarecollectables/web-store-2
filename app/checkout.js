@@ -89,7 +89,13 @@ export default function CheckoutScreen() {
         body: JSON.stringify({
           cart,
           customer_email: contact.email,
-          shipping_address: address,
+          shipping_address: {
+            line1: address.line1,
+            city: address.city,
+            postal_code: address.zip,
+            country: 'GB', // Default to UK since it's the primary market
+            name: contact.name
+          }
         })
       });
 

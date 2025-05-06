@@ -38,12 +38,19 @@ exports.handler = async (event) => {
       };
     }
 
-    if (shipping_address && !Array.isArray(shipping_address.allowed_countries)) {
-      console.error('Invalid shipping address:', shipping_address);
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid shipping address configuration' })
-      };
+    // Handle shipping address configuration
+    let shippingConfig = null;
+    if (shipping_address) {
+      try {
+        shippingConfig = {
+          allowed_countries: ['GB', 'US', 'CA', 'IE', 'AU', 'FR', 'DE', 'NG']
+        };
+      } catch (error) {
+        console.error('Error processing shipping address:', {
+          error: error.message,
+          shipping_address
+        });
+      }
     }
 
     // Validate cart
@@ -114,9 +121,7 @@ exports.handler = async (event) => {
       mode: 'payment',
       line_items,
       customer_email: customer_email || undefined,
-      shipping_address_collection: shipping_address ? { 
-        allowed_countries: ['GB', 'US', 'CA', 'IE', 'AU', 'FR', 'DE', 'NG'],
-      } : undefined,
+      shipping_address_collection: shippingConfig,
       shipping_options: shipping_address ? [
         {
           shipping_rate_data: {
