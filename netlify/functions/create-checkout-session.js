@@ -1,5 +1,5 @@
 const Stripe = require('stripe');
-const errorHandler = require('./utils/errorHandler');
+const errorHandler = require('./utils/errorHandler.js');
 
 exports.handler = async (event) => {
   // Handle CORS preflight requests
