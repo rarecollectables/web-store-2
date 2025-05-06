@@ -15,8 +15,20 @@ exports.handler = async (event) => {
     };
   }
   try {
+    // Validate Stripe API key
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('Stripe secret key is not set');
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: 'Stripe secret key is not configured' })
+      };
+    }
+
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2023-10-16',
+      apiVersion: '2022-11-15', // Using a more stable API version
     });
 
     const { cart, customer_email, shipping_address } = JSON.parse(event.body);
