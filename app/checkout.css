@@ -83,18 +83,6 @@
   margin-bottom: 16px;
 }
 
-.hCaptcha-container {
-  flex: 1 1 180px;
-  min-width: 180px;
-  max-width: 220px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  box-shadow: none;
-  padding: 0;
-}
-
 .stripe-payment-form {
   flex: 2 1 320px;
   min-width: 280px;
@@ -324,22 +312,4 @@ body, html {
 
 .stripe-card-element--invalid {
   border-color: #E53E3E;
-}
-
-.hCaptcha {
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
-  margin-bottom: 24px;
-}
-
-.hCaptcha iframe {
-  width: 100% !important;
-  max-width: 300px !important;
-  margin: 0 auto !important;
-  display: block !important;
-}
-
-.hCaptcha .h-captcha-response {
-  display: none !important;
 }

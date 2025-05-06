@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { useStore } from '../context/store';
 import { z } from 'zod';
 import { storeOrder } from './components/orders-modal';
 import { trackEvent } from '../lib/trackEvent';
-import { HCAPTCHA_SITE_KEY } from './config/hcaptcha';
 import './checkout.css';
+
+console.log('hCaptcha site key being used:', process.env.EXPO_PUBLIC_HCAPTCHA_SITE_KEY);
 
 // Get Stripe keys from environment
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -23,24 +23,24 @@ const addressSchema = z.object({
   postcode: z.string().min(3, 'Postcode required'),
 });
 
-function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, setPaying, hCaptchaToken, setHCaptchaToken, validateForm, removeFromCart }) {
+function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, setPaying, validateForm, removeFromCart }) {
   const stripe = useStripe();
   const elements = useElements();
 
   const handleStripeCheckout = async () => {
     if (!validateForm()) return;
-    if (!hCaptchaToken) {
-      window.alert('Please complete the hCaptcha verification');
-      return;
-    }
     try {
       setPaying(true);
       const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cart, contact, address, hCaptchaToken }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.STRIPE_SECRET_KEY || ''}` },
+        body: JSON.stringify({ cart, contact, address }),
       });
-      if (!response.ok) throw new Error('Failed to create payment intent');
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('Stripe backend error:', response.status, errText);
+        throw new Error(`Failed to create payment intent: ${response.status} ${errText}`);
+      }
       const { clientSecret } = await response.json();
       const cardElement = elements.getElement(CardElement);
       const result = await stripe.confirmCardPayment(clientSecret, {
@@ -53,7 +53,14 @@ function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, 
           },
         },
       });
-      if (result.error) throw new Error(result.error.message);
+      if (result.error) {
+        console.error('Stripe payment error:', result.error);
+        throw new Error(`Stripe payment failed: ${result.error.message}`);
+      }
+      if (result.paymentIntent && result.paymentIntent.status !== 'succeeded') {
+        console.error('Stripe payment not successful:', result.paymentIntent);
+        throw new Error(`Payment not successful: ${result.paymentIntent.status}`);
+      }
       await storeOrder({
         items: cart,
         contact,
@@ -82,9 +89,6 @@ function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, 
         <p>Secure payment processing</p>
       </div>
       <div className="payment-section-flex">
-        <div className="hCaptcha hCaptcha-container">
-          <HCaptcha sitekey={HCAPTCHA_SITE_KEY} onVerify={setHCaptchaToken} onExpire={() => setHCaptchaToken(null)} onError={error => console.error('hCaptcha error:', error)} />
-        </div>
         <div className="stripe-payment-form">
           <label htmlFor="card-element" className="input-label">Card Details</label>
           <div className="card-element-container">
@@ -115,7 +119,6 @@ export default function CheckoutScreen() {
   const [stripeLoading, setStripeLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [stripe, setStripe] = useState(null);
-  const [hCaptchaToken, setHCaptchaToken] = useState(null);
   const [stripeError, setStripeError] = useState(null);
 
   useEffect(() => {
@@ -242,8 +245,6 @@ export default function CheckoutScreen() {
                   setErrors={setErrors}
                   paying={paying}
                   setPaying={setPaying}
-                  hCaptchaToken={hCaptchaToken}
-                  setHCaptchaToken={setHCaptchaToken}
                   validateForm={validateForm}
                   removeFromCart={removeFromCart}
                 />

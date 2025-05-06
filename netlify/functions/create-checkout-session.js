@@ -20,7 +20,7 @@ exports.handler = async (event) => {
 
   try {
     // Validate request origin
-    const allowedOrigins = ['http://localhost:8081', 'https://rarecollectables1.netlify.app'];
+    const allowedOrigins = ['http://localhost:8081', 'https://rarecollectables1.netlify.app', 'http://127.0.0.1:8081'];
     const origin = event.headers.origin || event.headers.Origin;
     if (!allowedOrigins.includes(origin)) {
       return {
@@ -36,6 +36,7 @@ exports.handler = async (event) => {
     // Validate authentication
     const authHeader = event.headers.authorization || event.headers.Authorization;
     if (!authHeader) {
+      console.error('Missing Authorization header:', event.headers);
       return {
         statusCode: 401,
         headers,
@@ -45,9 +46,9 @@ exports.handler = async (event) => {
         })
       };
     }
-
     const auth = authHeader.split(' ')[1];
     if (!auth || auth !== process.env.STRIPE_SECRET_KEY) {
+      console.error('Invalid credentials. Provided:', auth, 'Expected:', process.env.STRIPE_SECRET_KEY);
       return {
         statusCode: 401,
         headers,
@@ -59,7 +60,7 @@ exports.handler = async (event) => {
     }
 
     // Validate Stripe API key
-    if (!stripeKey) {
+    if (!process.env.STRIPE_SECRET_KEY) {
       console.error('Stripe secret key is not set');
       return {
         statusCode: 500,
@@ -75,8 +76,8 @@ exports.handler = async (event) => {
     }
 
     // Validate Stripe key format
-    if (!stripeKey.startsWith('sk_')) {
-      console.error('Invalid Stripe key format:', stripeKey);
+    if (!process.env.STRIPE_SECRET_KEY.startsWith('sk_')) {
+      console.error('Invalid Stripe key format:', process.env.STRIPE_SECRET_KEY);
       return {
         statusCode: 500,
         headers: {
@@ -90,33 +91,19 @@ exports.handler = async (event) => {
       };
     }
 
-    // Validate Stripe key format
-    if (!stripeKey.startsWith('sk_')) {
-      console.error('Invalid Stripe key format:', stripeKey);
-      return {
-        statusCode: 500,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          error: 'Invalid Stripe secret key format',
-          details: 'Stripe key must start with sk_test_ or sk_live_'
-        })
-      };
-    }
-
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: '2022-11-15', // Using a more stable API version
     });
 
-    const { cart, customer_email, shipping_address } = JSON.parse(event.body);
+    // Parse request body
+    const { cart, contact, address } = JSON.parse(event.body);
 
     // Log incoming request data
     console.log('Received checkout request:', {
       cartCount: cart.length,
-      hasCustomerEmail: !!customer_email,
-      hasShippingAddress: !!shipping_address,
-      shippingCountries: shipping_address ? ['GB', 'US', 'CA', 'IE', 'AU', 'FR', 'DE', 'NG'] : []
+      hasContact: !!contact,
+      hasAddress: !!address,
+      shippingCountries: address ? ['GB', 'US', 'CA', 'IE', 'AU', 'FR', 'DE', 'NG'] : []
     });
 
     // Validate input data
@@ -219,13 +206,13 @@ exports.handler = async (event) => {
 
     // Create Payment Intent with proper validation
     const customer = await stripe.customers.create({
-      email: customer_email,
+      email: contact.email,
       metadata: {
-        shipping_address: shipping_address ? JSON.stringify({
-          line1: shipping_address.line1,
-          city: shipping_address.city,
-          postal_code: shipping_address.zip,
-          country: shipping_address.country || 'GB'
+        shipping_address: address ? JSON.stringify({
+          line1: address.line1,
+          city: address.city,
+          postal_code: address.zip,
+          country: address.country || 'GB'
         }) : null
       }
     });
@@ -236,12 +223,12 @@ exports.handler = async (event) => {
       currency: 'gbp',
       customer: customer.id,
       metadata: {
-        customer_email,
-        shipping_address: shipping_address ? JSON.stringify({
-          line1: shipping_address.line1,
-          city: shipping_address.city,
-          postal_code: shipping_address.zip,
-          country: shipping_address.country || 'GB'
+        contact_email: contact.email,
+        shipping_address: address ? JSON.stringify({
+          line1: address.line1,
+          city: address.city,
+          postal_code: address.zip,
+          country: address.country || 'GB'
         }) : null
       }
     });
