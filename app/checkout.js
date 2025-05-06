@@ -98,37 +98,123 @@ export default function CheckoutScreen() {
       console.log('Response data:', data);
 
       if (!response.ok) {
-        console.error('Error response from server:', data);
-        throw new Error(data.error || 'Failed to create checkout session');
-      }
-
-      if (!data.url) {
-        console.error('No URL received in response:', data);
-        throw new Error('No checkout URL received from server');
-      }
-
-      console.log('Opening checkout URL:', data.url);
-      Linking.openURL(data.url)
-        .then(() => console.log('URL opened successfully'))
-        .catch(error => {
-          console.error('Error opening URL:', error);
-          throw new Error('Failed to open checkout URL');
+        console.error('Server error:', {
+          status: response.status,
+          statusText: response.statusText,
+          data
         });
-    } catch (error) {
-      console.error('Checkout error:', error);
-      Alert.alert(
-        'Payment Error',
-        error.message || 'Unable to start payment. Please try again.',
-        [
-          {
-            text: 'OK',
-            onPress: () => setPaying(false)
+        
+        if (data.error) {
+          // Handle specific error types
+          if (data.error.type === 'card_error') {
+            Alert.alert(
+              'Payment Error',
+              data.error.message || 'There was an error with your card. Please check your details and try again.',
+              [{ text: 'OK' }]
+            );
+          } else if (data.error.type === 'rate_limit') {
+            Alert.alert(
+              'Too Many Requests',
+              'Please wait a moment and try again.',
+              [{ text: 'OK' }]
+            );
+          } else {
+            Alert.alert(
+              'Error',
+              data.error.message || 'Failed to create checkout session. Please try again later.',
+              [{ text: 'OK' }]
+            );
           }
-        ]
+          throw new Error(data.error.message || 'Failed to create checkout session');
+        } else {
+          Alert.alert(
+            'Error',
+            'Failed to create checkout session. Please try again later.',
+            [{ text: 'OK' }]
+          );
+          throw new Error('Failed to create checkout session');
+        }
+      }
+
+      console.log('Response data:', {
+        id: data.id,
+        status: response.status,
+        ok: response.ok,
+        timestamp: new Date().toISOString()
+      });
+
+      if (!data.id) {
+        console.error('Invalid response format:', {
+          data,
+          timestamp: new Date().toISOString()
+        });
+        Alert.alert(
+          'Error',
+          'Invalid response from server. Please try again later.',
+          [{ text: 'OK' }]
+        );
+        throw new Error('Invalid response format');
+      }
+
+      console.log('Redirecting to Stripe checkout');
+      const url = `https://checkout.stripe.com/c/pay/${data.id}`;
+      console.log('Opening Stripe checkout URL:', {
+        url,
+        timestamp: new Date().toISOString()
+      });
+
+      try {
+        await Linking.openURL(url);
+      } catch (linkError) {
+        console.error('Error opening Stripe checkout URL:', {
+          error: linkError,
+          url,
+          timestamp: new Date().toISOString()
+        });
+        Alert.alert(
+          'Error',
+          'Failed to open payment page. Please try again later.',
+          [{ text: 'OK' }]
+        );
+        throw linkError;
+      }
+    } catch (error) {
+      console.error('Checkout error:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        timestamp: new Date().toISOString()
+      });
+
+      // Log to analytics for tracking
+      await trackEvent({
+        eventType: 'checkout_error',
+        metadata: {
+          error: {
+            message: error.message,
+            name: error.name,
+            stack: error.stack
+          },
+          cart,
+          contact,
+          address,
+          subtotal,
+          tax,
+          total
+        }
+      });
+
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to process payment. Please try again later.',
+        [{ text: 'OK' }]
       );
-      Alert.alert('Payment Error', err.message || 'Unable to start payment.');
     } finally {
       setPaying(false);
+      console.log('Checkout process completed', {
+        success: !error,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
