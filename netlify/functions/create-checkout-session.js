@@ -33,31 +33,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Validate authentication
-    const authHeader = event.headers.authorization || event.headers.Authorization;
-    if (!authHeader) {
-      console.error('Missing Authorization header:', event.headers);
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({
-          error: 'Authentication required',
-          requestId: event.requestId
-        })
-      };
-    }
-    const auth = authHeader.split(' ')[1];
-    if (!auth || auth !== process.env.STRIPE_SECRET_KEY) {
-      console.error('Invalid credentials. Provided:', auth, 'Expected:', process.env.STRIPE_SECRET_KEY);
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({
-          error: 'Invalid credentials',
-          requestId: event.requestId
-        })
-      };
-    }
+
 
     // Validate Stripe API key
     if (!process.env.STRIPE_SECRET_KEY) {

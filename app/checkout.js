@@ -33,7 +33,7 @@ function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, 
       setPaying(true);
       const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.STRIPE_SECRET_KEY || ''}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cart, contact, address }),
       });
       if (!response.ok) {
