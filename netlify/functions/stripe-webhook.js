@@ -76,12 +76,19 @@ exports.handler = async (event) => {
         }
       }
       // TODO: Add fulfillment trigger here if needed
+      // Always return 200 after successful processing so Stripe does not retry
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ received: true })
+      };
     } catch (err) {
       errorHandler.logError(err, { ...context, stage: 'supabase_insert_catch' });
       return errorHandler.createErrorResponse(err, context);
     }
   }
-
-  // Respond to Stripe to acknowledge receipt
-  return { statusCode: 200, body: 'success' };
+  // Return 200 for all other event types (or you can filter as needed)
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ received: true })
+  };
 };

@@ -295,7 +295,7 @@ CREATE TABLE IF NOT EXISTS wishlist_items (
 -- Create orders table
 CREATE TABLE IF NOT EXISTS orders (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    user_id UUID NOT NULL,
+    user_id UUID,
     status TEXT NOT NULL DEFAULT 'pending',
     total_amount DECIMAL(10, 2) NOT NULL,
     shipping_address JSONB,
@@ -303,8 +303,15 @@ CREATE TABLE IF NOT EXISTS orders (
     payment_method TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    amount NUMERIC(10, 2), -- Stripe payment amount
+    payment_intent_id TEXT, -- Stripe PaymentIntent ID
+    currency VARCHAR(10), -- Payment currency
+    contact_email VARCHAR(255), -- Customer email for confirmation
+    product_image TEXT, -- Product image URL
+    quantity INTEGER, -- Product quantity
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
 
 -- Create order_items table
 CREATE TABLE IF NOT EXISTS order_items (
