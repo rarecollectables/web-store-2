@@ -16,10 +16,14 @@ const contactSchema = z.object({
   name: z.string().min(2, 'Name is required'),
   email: z.string().email('Enter a valid email'),
 });
+const ukPostcodeRegex = /^(GIR 0AA|[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})$/i;
 const addressSchema = z.object({
   line1: z.string().min(3, 'Address required'),
   city: z.string().min(2, 'City required'),
-  postcode: z.string().min(3, 'Postcode required'),
+  postcode: z.string()
+    .min(5, 'Postcode required')
+    .max(8, 'Postcode too long')
+    .regex(ukPostcodeRegex, 'Enter a valid UK postcode (e.g., SW1A 1AA)'),
 });
 
 
@@ -369,6 +373,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
+  },
+  checkoutButton: {
+    backgroundColor: colors.gold,
+    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  checkoutButtonText: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    fontFamily: fontFamily.serif,
+    textShadowColor: '#e6c98b',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  checkoutButtonDisabled: {
+    backgroundColor: '#e5d9c3',
+    opacity: 0.6,
   },
 });
 

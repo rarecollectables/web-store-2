@@ -30,7 +30,7 @@
     ],
     "extra": {
       "NETLIFY_STRIPE_FUNCTION_URL": "https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session",
-      "HCAPTCHA_SITE_KEY_DEVELOPMENT": "YOUR_DEVELOPMENT_SITE_KEY"
+
     }
   }
 }
