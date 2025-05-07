@@ -23,6 +23,10 @@ export default function RootLayout() {
               options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }}
             />
             <Stack.Screen
+              name="checkout-success"
+              options={{ presentation: 'card', animation: 'fade' }}
+            />
+            <Stack.Screen
               name="chat"
               options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }}
             />
