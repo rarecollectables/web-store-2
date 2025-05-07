@@ -33,7 +33,31 @@ exports.handler = async (event) => {
       };
     }
 
-
+    // Validate authentication
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    if (!authHeader) {
+      console.error('Missing Authorization header:', event.headers);
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({
+          error: 'Authentication required',
+          requestId: event.requestId
+        })
+      };
+    }
+    const auth = authHeader.split(' ')[1];
+    if (!auth || auth !== process.env.STRIPE_SECRET_KEY) {
+      console.error('Invalid credentials. Provided:', auth, 'Expected:', process.env.STRIPE_SECRET_KEY);
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({
+          error: 'Invalid credentials',
+          requestId: event.requestId
+        })
+      };
+    }
 
     // Validate Stripe API key
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -225,12 +249,6 @@ exports.handler = async (event) => {
       }
     });
 
-    // Create ephemeral key for the customer
-    const ephemeralKey = await stripe.ephemeralKeys.create(
-      { customer: customer.id },
-      { stripe_version: '2022-11-15' }
-    );
-
     return {
       statusCode: 200,
       headers: {
@@ -240,11 +258,10 @@ exports.handler = async (event) => {
         'Access-Control-Allow-Headers': 'Content-Type, Authorization'
       },
       body: JSON.stringify({
-        clientSecret: paymentIntent.client_secret,
-        customerId: customer.id,
-        ephemeralKey: ephemeralKey.secret
+        clientSecret: paymentIntent.client_secret
       })
     };
+
   } catch (error) {
     console.error('Error creating checkout session:', {
       error: error.message,
