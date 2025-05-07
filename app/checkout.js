@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
+import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { useStore } from '../context/store';
 import { z } from 'zod';
 import { storeOrder } from './components/orders-modal';
 import { trackEvent } from '../lib/trackEvent';
-import './checkout.css';
+import { colors, fontFamily, spacing, borderRadius, shadows } from '../theme';
+import { CardElement, useElements, useStripe, Elements } from '@stripe/react-stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
 
-console.log('hCaptcha site key being used:', process.env.EXPO_PUBLIC_HCAPTCHA_SITE_KEY);
-
-// Get Stripe keys from environment
+// Stripe keys from env
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const NETLIFY_STRIPE_FUNCTION_URL = 'https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session';
 
@@ -23,7 +22,9 @@ const addressSchema = z.object({
   postcode: z.string().min(3, 'Postcode required'),
 });
 
-function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, setPaying, validateForm, removeFromCart }) {
+
+
+export function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, setPaying, validateForm, removeFromCart, onSuccess }) {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -38,7 +39,6 @@ function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, 
       });
       if (!response.ok) {
         const errText = await response.text();
-        console.error('Stripe backend error:', response.status, errText);
         throw new Error(`Failed to create payment intent: ${response.status} ${errText}`);
       }
       const { clientSecret } = await response.json();
@@ -54,11 +54,9 @@ function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, 
         },
       });
       if (result.error) {
-        console.error('Stripe payment error:', result.error);
         throw new Error(`Stripe payment failed: ${result.error.message}`);
       }
       if (result.paymentIntent && result.paymentIntent.status !== 'succeeded') {
-        console.error('Stripe payment not successful:', result.paymentIntent);
         throw new Error(`Payment not successful: ${result.paymentIntent.status}`);
       }
       await storeOrder({
@@ -73,41 +71,45 @@ function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, 
         items: cart.length,
       });
       cart.forEach(item => removeFromCart(item.id));
-      window.location.href = '/checkout-success';
+      if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Checkout error:', error);
-      window.alert(error.message || 'An error occurred during checkout. Please try again.');
+      setErrors({ ...errors, payment: [error.message || 'An error occurred during checkout. Please try again.'] });
     } finally {
       setPaying(false);
     }
   };
 
   return (
-    <div className="form-section payment-section-expert">
-      <div className="section-header">
-        <h2>Payment Information</h2>
-        <p>Secure payment processing</p>
-      </div>
-      <div className="payment-section-flex">
-        <div className="stripe-payment-form">
-          <label htmlFor="card-element" className="input-label">Card Details</label>
-          <div className="card-element-container">
-            <CardElement id="card-element" className="stripe-card-element" options={{ style: { base: { fontSize: '16px', color: '#2D3748', letterSpacing: '0.025em', fontFamily: 'Inter-SemiBold', backgroundColor: '#fff', '::placeholder': { color: '#aab7c4' }, }, invalid: { color: '#E53E3E' } } }} />
-          </div>
-        </div>
-      </div>
-      <div className="button-container">
-        <button className={`checkout-button ${paying ? 'checkout-button-disabled' : ''}`} onClick={handleStripeCheckout} disabled={paying}>
+    <View style={styles.paymentSection}>
+      <Text style={styles.sectionTitle}>Payment Information</Text>
+      <Text style={styles.sectionSubtitle}>Secure payment processing</Text>
+      {errors.payment && errors.payment.map((msg, idx) => (
+        <Text key={idx} style={styles.errorText}>{msg}</Text>
+      ))}
+      <View style={styles.cardElementContainer}>
+        <Text style={styles.inputLabel}>Card Details</Text>
+        <View style={styles.stripeCardWrapper}>
+          <CardElement options={{ style: { base: { fontSize: 17, color: colors.onyxBlack, letterSpacing: '0.025em', fontFamily, backgroundColor: colors.white, '::placeholder': { color: '#aab7c4' }, }, invalid: { color: colors.ruby } } }} />
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.checkoutButton,
+            paying && styles.checkoutButtonDisabled,
+            pressed && !paying && { opacity: 0.93 },
+          ]}
+          onPress={handleStripeCheckout}
+          disabled={paying}
+          accessibilityRole="button"
+          accessibilityLabel="Pay with Card"
+        >
           {paying ? (
-            <div className="button-loading">
-              <div className="button-spinner"></div>
-            </div>
+            <ActivityIndicator color={colors.gold} style={{ marginVertical: 2 }} />
           ) : (
-            <span>Pay with Card</span>
+            <Text style={styles.checkoutButtonText}>Pay with Card</Text>
           )}
-        </button>
-      </div>
-    </div>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -135,7 +137,6 @@ export default function CheckoutScreen() {
         else setStripeError('Failed to initialize Stripe. Please check your publishable key and network connection.');
       } catch (error) {
         setStripeError('Failed to initialize Stripe: ' + (error.message || error));
-        console.error('Failed to initialize Stripe:', error);
       } finally {
         setStripeLoading(false);
       }
@@ -161,98 +162,214 @@ export default function CheckoutScreen() {
     return Object.keys(contactErrors).length === 0 && Object.keys(addressErrors).length === 0;
   };
 
-  const renderContactAndAddress = () => (
-    <div className="contact-address-form">
-      <div className="form-section-header">
-        <h2>Contact Information</h2>
-        <p>Required for order confirmation</p>
-      </div>
-      <div className="form-section">
-        {Object.entries(errors).map(([type, errorList]) => (
-          errorList.map((error, index) => (
-            <div key={index} className="error-message">{error}</div>
-          ))
-        ))}
-        <div className="input-group">
-          <input className={`form-input ${errors.contact?.includes('Name is required') ? 'error-input' : ''}`} placeholder="Full Name" value={contact.name} onChange={e => handleInputChange('contact', 'name', e.target.value)} autoComplete="name" />
-          <input className={`form-input ${errors.contact?.includes('Enter a valid email') ? 'error-input' : ''}`} placeholder="Email" value={contact.email} onChange={e => handleInputChange('contact', 'email', e.target.value)} type="email" autoComplete="email" />
-          <input className={`form-input ${errors.address?.includes('Address required') ? 'error-input' : ''}`} placeholder="Address Line 1" value={address.line1} onChange={e => handleInputChange('address', 'line1', e.target.value)} autoComplete="address-line1" />
-          <input className={`form-input ${errors.address?.includes('City required') ? 'error-input' : ''}`} placeholder="City" value={address.city} onChange={e => handleInputChange('address', 'city', e.target.value)} autoComplete="address-level2" />
-          <input className={`form-input ${errors.address?.includes('Postcode required') ? 'error-input' : ''}`} placeholder="Postcode" value={address.postcode} onChange={e => handleInputChange('address', 'postcode', e.target.value)} type="text" autoComplete="postal-code" />
-        </div>
-      </div>
-    </div>
-  );
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const tax = subtotal * 0.1;
+  const total = subtotal + tax;
+
+  if (stripeLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.gold} />
+        <Text style={styles.loadingText}>Loading secure payment form...</Text>
+      </View>
+    );
+  }
+  if (stripeError) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>{stripeError}</Text>
+        <Text style={styles.errorText}>Please contact support or try again later.</Text>
+      </View>
+    );
+  }
 
   return (
-    <>
-      {stripeLoading && (
-        <div className="stripe-loading">
-          <div className="loading-spinner"></div>
-          <div>Loading secure payment form...</div>
-        </div>
-      )}
-      {stripeError && !stripeLoading && (
-        <div className="stripe-error">
-          <div style={{ color: '#E53E3E', fontWeight: 'bold', marginBottom: 16 }}>{stripeError}</div>
-          <div>Please contact support or try again later.</div>
-        </div>
-      )}
-      {stripe && !stripeLoading && !stripeError && (
-        <Elements stripe={stripe}>
-          <div className="checkout-container expert-layout">
-            <div className="checkout-content">
-              <button className="back-to-cart-btn" onClick={() => { window.location.href = '/cart'; }}>
-                ← Back to Cart
-              </button>
-              <div className="checkout-header">
-                <h1>Checkout</h1>
-                <p>Please fill in your details to complete your order</p>
-              </div>
-              <div className="form-container">
-                <div className="form-section">
-                  <div className="section-header">
-                    <h2>Contact Information</h2>
-                    <p>Required for order confirmation</p>
-                  </div>
-                  {renderContactAndAddress()}
-                </div>
-                <div className="form-section order-summary-section">
-                  <div className="section-header">
-                    <h2>Order Summary</h2>
-                    <p>Review your order details</p>
-                  </div>
-                  <div className="summary-container">
-                    <div className="summary-item">
-                      <span className="summary-label">Subtotal:</span>
-                      <span className="summary-value">£{cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2)}</span>
-                    </div>
-                    <div className="summary-item">
-                      <span className="summary-label">Tax (10%):</span>
-                      <span className="summary-value">£{(cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * 0.1).toFixed(2)}</span>
-                    </div>
-                    <div className="summary-item total">
-                      <span className="summary-label total-label">Total:</span>
-                      <span className="summary-value total-value">£{(cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * 0.1)).toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-                <StripePaymentForm
-                  cart={cart}
-                  contact={contact}
-                  address={address}
-                  errors={errors}
-                  setErrors={setErrors}
-                  paying={paying}
-                  setPaying={setPaying}
-                  validateForm={validateForm}
-                  removeFromCart={removeFromCart}
-                />
-              </div>
-            </div>
-          </div>
-        </Elements>
-      )}
-    </>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.container, { flexGrow: 1, minHeight: '100vh', paddingHorizontal: 16 }]} keyboardShouldPersistTaps="handled">
+      <View style={[styles.checkoutBox, { width: '100%', maxWidth: undefined, padding: 0, margin: 0 }]}>
+        <Text style={styles.header}>Checkout</Text>
+        <Text style={styles.subHeader}>Please fill in your details to complete your order</Text>
+
+        {/* Contact & Address */}
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Contact Information</Text>
+          <Text style={styles.sectionSubtitle}>Required for order confirmation</Text>
+          {errors.contact && errors.contact.map((msg, idx) => (
+            <Text key={idx} style={styles.errorText}>{msg}</Text>
+          ))}
+          <TextInput
+            style={[styles.input, errors.contact?.includes('Name is required') && styles.inputError]}
+            placeholder="Full Name"
+            value={contact.name}
+            onChangeText={v => handleInputChange('contact', 'name', v)}
+            autoComplete="name"
+            placeholderTextColor={colors.platinum}
+          />
+          <TextInput
+            style={[styles.input, errors.contact?.includes('Enter a valid email') && styles.inputError]}
+            placeholder="Email"
+            value={contact.email}
+            onChangeText={v => handleInputChange('contact', 'email', v)}
+            keyboardType="email-address"
+            autoComplete="email"
+            placeholderTextColor={colors.platinum}
+          />
+        </View>
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Delivery Address</Text>
+          <Text style={styles.sectionSubtitle}>Where should we send your order?</Text>
+          {errors.address && errors.address.map((msg, idx) => (
+            <Text key={idx} style={styles.errorText}>{msg}</Text>
+          ))}
+          <TextInput
+            style={[styles.input, errors.address?.includes('Address required') && styles.inputError]}
+            placeholder="Address Line 1"
+            value={address.line1}
+            onChangeText={v => handleInputChange('address', 'line1', v)}
+            autoComplete="address-line1"
+            placeholderTextColor={colors.platinum}
+          />
+          <TextInput
+            style={[styles.input, errors.address?.includes('City required') && styles.inputError]}
+            placeholder="City"
+            value={address.city}
+            onChangeText={v => handleInputChange('address', 'city', v)}
+            autoComplete="address-level2"
+            placeholderTextColor={colors.platinum}
+          />
+          <TextInput
+            style={[styles.input, errors.address?.includes('Postcode required') && styles.inputError]}
+            placeholder="Postcode"
+            value={address.postcode}
+            onChangeText={v => handleInputChange('address', 'postcode', v)}
+            autoComplete="postal-code"
+            placeholderTextColor={colors.platinum}
+          />
+        </View>
+        {/* Order Summary */}
+        <View style={styles.orderSummarySection}>
+          <Text style={styles.sectionTitle}>Order Summary</Text>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text style={styles.summaryValue}>{`₤${subtotal.toFixed(2)}`}</Text></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Tax (10%)</Text><Text style={styles.summaryValue}>{`₤${tax.toFixed(2)}`}</Text></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabelTotal}>Total</Text><Text style={styles.summaryValueTotal}>{`₤${total.toFixed(2)}`}</Text></View>
+        </View>
+        {/* Stripe Payment */}
+        {stripe && (
+          <Elements stripe={stripe}>
+            <StripePaymentForm
+              cart={cart}
+              contact={contact}
+              address={address}
+              errors={errors}
+              setErrors={setErrors}
+              paying={paying}
+              setPaying={setPaying}
+              validateForm={validateForm}
+              removeFromCart={removeFromCart}
+            />
+          </Elements>
+        )}
+      </View>
+    </ScrollView>
   );
-}
+};
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+    backgroundColor: colors.white,
+  },
+  checkoutBox: {
+    backgroundColor: colors.white,
+    borderRadius: 10,
+    padding: 20,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  subHeader: {
+    fontSize: 16,
+    color: colors.grey,
+    marginBottom: 20,
+  },
+  formSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: colors.grey,
+    marginBottom: 10,
+  },
+  input: {
+    height: 40,
+    borderColor: colors.grey,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 10,
+  },
+  inputError: {
+    borderColor: colors.ruby,
+  },
+  errorText: {
+    fontSize: 14,
+    color: colors.ruby,
+    marginBottom: 10,
+  },
+  orderSummarySection: {
+    marginBottom: 20,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  summaryLabel: {
+    fontSize: 16,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  summaryLabelTotal: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  summaryValueTotal: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.grey,
+    marginTop: 10,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+});
+
+

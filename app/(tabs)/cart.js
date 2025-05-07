@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useStore } from '../../context/store';
@@ -15,9 +15,26 @@ function parsePrice(val) {
   return 0;
 }
 
+import CheckoutModal from '../components/CheckoutModal';
+import ConfirmationModal from '../components/ConfirmationModal';
+
 export default function CartScreen() {
   const { cart, updateCartItem, removeFromCart } = useStore();
   const router = useRouter();
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [contact, setContact] = useState({ name: '', email: '' });
+  const [address, setAddress] = useState({ line1: '', city: '', postcode: '' });
+
+  // When checkout is successful, show confirmation modal
+  const handleCheckoutSuccess = () => {
+    setCheckoutOpen(false);
+    setConfirmationOpen(true);
+  };
+  const handleContinueShopping = () => {
+    setConfirmationOpen(false);
+    router.replace('/(tabs)/shop');
+  };
 
   const subtotal = cart.reduce((sum, item) => {
     let price = parsePrice(item.price);
@@ -100,14 +117,31 @@ export default function CartScreen() {
         <View style={styles.summaryRow}><Text style={styles.labelTotal}>Total</Text><Text style={styles.valueTotal}>{`₤${total.toFixed(2)}`}</Text></View>
         <Pressable
           style={styles.checkoutBtn}
-          onPress={() => router.push('/checkout')}
+          onPress={() => setCheckoutOpen(true)}
           disabled={cart.length === 0}
           accessibilityLabel="Proceed to checkout"
         >
           <Text style={styles.checkoutBtnText}>Proceed to Checkout</Text>
         </Pressable>
       </View>
-    </View>
+    {/* Checkout Modal */}
+    <CheckoutModal
+      open={checkoutOpen}
+      onClose={() => setCheckoutOpen(false)}
+      cart={cart}
+      contact={contact}
+      address={address}
+      setCart={() => {}}
+      onSuccess={handleCheckoutSuccess}
+    />
+    {/* Confirmation Modal */}
+    <ConfirmationModal
+      open={confirmationOpen}
+      onClose={handleContinueShopping}
+      autoCloseMs={4000}
+      onContinue={handleContinueShopping}
+    />
+  </View>
   );
 }
 

@@ -2,13 +2,42 @@ const Stripe = require('stripe');
 
 exports.handler = async (event) => {
   // Handle CORS preflight requests
+  // Only allow trusted origins (production and local dev)
+  const allowedOrigins = [
+    'https://rarecollectables1.netlify.app',
+    'http://localhost:8081',
+    'http://127.0.0.1:8081'
+  ];
+  const origin = event.headers.origin || event.headers.Origin || '';
+  const isAllowedOrigin = allowedOrigins.includes(origin);
+
   const headers = {
-    'Access-Control-Allow-Origin': event.headers.origin || '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Credentials': 'true',
-    'Content-Type': 'application/json'
+    'Access-Control-Allow-Origin': isAllowedOrigin ? origin : allowedOrigins[0],
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json',
+    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'same-origin',
   };
+
+  // Respond to preflight OPTIONS
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: '',
+    };
+  }
+
+  // Only allow POST
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method not allowed' }),
+    };
+  }
 
   if (event.httpMethod === 'OPTIONS') {
     return {
