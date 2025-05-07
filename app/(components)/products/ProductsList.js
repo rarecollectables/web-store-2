@@ -161,10 +161,12 @@ export default function ProductsList() {
     if (!category) return null;
     
     const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
+    const headerTitleFontSize = Platform.OS === 'web' ? 48 : 32;
+    const headerSubtitleFontSize = Platform.OS === 'web' ? 22 : 18;
     return (
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>{categoryTitle}</Text>
-        <Text style={styles.headerSubtitle}>
+        <Text style={[styles.headerTitle, { fontSize: headerTitleFontSize }]}>{categoryTitle}</Text>
+        <Text style={[styles.headerSubtitle, { fontSize: headerSubtitleFontSize }]}>
           {products.length} {products.length === 1 ? 'item' : 'items'} available
         </Text>
       </View>
@@ -210,8 +212,10 @@ export default function ProductsList() {
     return (
       <FlatList
         data={products}
-        renderItem={({ item }) => (
-          <ProductCard item={item} cardWidth={cardWidth} />
+        renderItem={({ item, index }) => (
+          <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
+            <ProductCard item={item} cardWidth={cardWidth} />
+          </View>
         )}
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
@@ -250,6 +254,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.ivory,
   },
+  // Add for mobile single-column card spacing
+  mobileCardSpacing: {
+    marginBottom: spacing.xl,
+  },
   contentContainer: {
     paddingHorizontal: CONTAINER_PADDING,
     paddingVertical: spacing.xl,
@@ -266,28 +274,55 @@ const styles = StyleSheet.create({
   headerContainer: {
     marginBottom: spacing.xl,
     paddingBottom: spacing.l,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.softGoldBorder,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderBottomWidth: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
     padding: spacing.l,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     ...shadows.card,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: Platform.OS === 'web' ? 42 : 32,
+    // fontSize moved to component for Platform support
     fontFamily: fontFamily.serif,
-    color: colors.onyxBlack,
+    color: colors.gold,
     marginBottom: spacing.xs,
-    letterSpacing: -0.5,
-    fontWeight: '600',
+    letterSpacing: 0.5,
+    fontWeight: '700',
     textTransform: 'capitalize',
+    textShadowColor: 'rgba(191,160,84,0.13)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+    paddingHorizontal: spacing.l,
+    paddingTop: spacing.sm,
+    paddingBottom: 2,
+    borderBottomWidth: 4,
+    borderBottomColor: colors.gold,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    overflow: 'hidden',
   },
   headerSubtitle: {
-    fontSize: Platform.OS === 'web' ? 18 : 16,
+    // fontSize moved to component for Platform support
     fontFamily: fontFamily.sans,
-    color: colors.gray,
-    letterSpacing: 0.2,
-    fontWeight: '500',
+    color: colors.onyxBlack,
+    letterSpacing: 0.4,
+    fontWeight: '600',
+    marginTop: 2,
+    marginBottom: spacing.xs,
+    backgroundColor: 'rgba(255, 238, 200, 0.65)',
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   errorContainer: {
     flex: 1,
@@ -308,15 +343,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.l,
     borderRadius: borderRadius.md,
     alignItems: 'center',
-    ...Platform.select({
-      web: {
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        ':hover': {
-          backgroundColor: colors.darkGold,
-        },
-      },
-    }),
+    // Platform-specific styles should be added inline in the component
   },
   retryButtonText: {
     color: colors.white,

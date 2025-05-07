@@ -1,5 +1,7 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { createClient } = require('@supabase/supabase-js');
+const sendConfirmationEmail = require('./sendConfirmationEmail');
+const errorHandler = require('./utils/errorHandler');
 
 // Set up Supabase client
 const supabase = createClient(
@@ -8,6 +10,9 @@ const supabase = createClient(
 );
 
 exports.handler = async (event) => {
+  // For error context
+  const context = { requestId: event.headers['x-request-id'] || undefined };
+
   const sig = event.headers['stripe-signature'];
   let stripeEvent;
 
@@ -18,11 +23,8 @@ exports.handler = async (event) => {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
-    return {
-      statusCode: 400,
-      body: `Webhook Error: ${err.message}`,
-    };
+    errorHandler.logError(err, { ...context, stage: 'signature_verification' });
+    return errorHandler.createErrorResponse(err, context);
   }
 
   // Only handle payment_intent.succeeded for now
@@ -45,13 +47,25 @@ exports.handler = async (event) => {
         .from('orders')
         .insert([orderData]);
       if (error) {
-        console.error('Failed to insert order into Supabase:', error);
-        return { statusCode: 500, body: 'Failed to save order' };
+        errorHandler.logError(error, { ...context, stage: 'supabase_insert', orderData });
+        return errorHandler.createErrorResponse(error, context);
       }
       console.log('Order saved to Supabase:', data);
+
+      // Send confirmation email if contact_email is present
+      if (orderData.contact_email) {
+        try {
+          await sendConfirmationEmail({ to: orderData.contact_email, order: orderData });
+          console.log('Confirmation email sent to', orderData.contact_email);
+        } catch (emailErr) {
+          errorHandler.logError(emailErr, { ...context, stage: 'send_email', to: orderData.contact_email });
+          // Do not fail the webhook for email errors
+        }
+      }
+      // TODO: Add fulfillment trigger here if needed
     } catch (err) {
-      console.error('Supabase insert error:', err);
-      return { statusCode: 500, body: 'Supabase error' };
+      errorHandler.logError(err, { ...context, stage: 'supabase_insert_catch' });
+      return errorHandler.createErrorResponse(err, context);
     }
   }
 

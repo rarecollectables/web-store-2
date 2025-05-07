@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { storeOrder } from './components/orders-modal';
 import { trackEvent } from '../lib/trackEvent';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../theme';
+import ConfirmationModal from './components/ConfirmationModal';
+import { useRouter } from 'expo-router';
 import { CardElement, useElements, useStripe, Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 
@@ -121,6 +123,7 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
 }
 
 export default function CheckoutScreen() {
+  const router = useRouter();
   const { cart, removeFromCart } = useStore();
   const [contact, setContact] = useState({ name: '', email: '' });
   const [address, setAddress] = useState({ line1: '', city: '', postcode: '' });
@@ -129,6 +132,18 @@ export default function CheckoutScreen() {
   const [paying, setPaying] = useState(false);
   const [stripe, setStripe] = useState(null);
   const [stripeError, setStripeError] = useState(null);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+
+  // Called after successful payment
+  const handleCheckoutSuccess = () => {
+    setConfirmationOpen(true);
+  };
+
+  // Called when user closes modal or continues shopping
+  const handleContinueShopping = () => {
+    setConfirmationOpen(false);
+    router.replace('/'); // or '/(tabs)/shop' if you want to go to shop tab
+  };
 
   useEffect(() => {
     // Track when user views the checkout page
@@ -274,9 +289,17 @@ export default function CheckoutScreen() {
               setPaying={setPaying}
               validateForm={validateForm}
               removeFromCart={removeFromCart}
+              onSuccess={handleCheckoutSuccess}
             />
           </Elements>
         )}
+        {/* Confirmation Modal */}
+        <ConfirmationModal
+          open={confirmationOpen}
+          onClose={handleContinueShopping}
+          onContinue={handleContinueShopping}
+          autoCloseMs={15000}
+        />
       </View>
     </ScrollView>
   );
