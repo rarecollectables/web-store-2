@@ -211,6 +211,7 @@ const styles = StyleSheet.create({
   textContainer: {
     flex: 1,
     marginBottom: spacing.m,
+    alignItems: 'center',
   },
   name: {
     fontSize: 15,
@@ -220,6 +221,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '500',
     letterSpacing: 0.1,
+    textAlign: 'center',
   },
   price: {
     fontSize: 22,
@@ -229,6 +231,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: spacing.sm,
     paddingVertical: spacing.xs,
+    textAlign: 'center',
   },
   buttonContainer: {
     width: '100%',

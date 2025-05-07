@@ -55,9 +55,19 @@ exports.handler = async (event) => {
       // Send confirmation email if contact_email is present
       if (orderData.contact_email) {
         try {
-          await sendConfirmationEmail({ to: orderData.contact_email, order: orderData });
+          console.log('[EMAIL DEBUG] Attempting to send confirmation email', {
+            to: orderData.contact_email,
+            order: orderData
+          });
+          const emailResult = await sendConfirmationEmail({ to: orderData.contact_email, order: orderData });
+          console.log('[EMAIL DEBUG] Confirmation email send result:', emailResult);
           console.log('Confirmation email sent to', orderData.contact_email);
         } catch (emailErr) {
+          console.error('[EMAIL DEBUG] Failed to send confirmation email:', {
+            error: emailErr,
+            to: orderData.contact_email,
+            order: orderData
+          });
           errorHandler.logError(emailErr, { ...context, stage: 'send_email', to: orderData.contact_email });
           // Do not fail the webhook for email errors
         }
