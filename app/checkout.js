@@ -36,6 +36,8 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
     if (!validateForm()) return;
     try {
       setPaying(true);
+      // Track payment start
+      trackEvent({ eventType: 'checkout_payment_started', total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length });
       const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,13 +72,14 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
         paymentIntentId: result.paymentIntent.id,
       });
-      trackEvent('Order Completed', {
-        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
-        items: cart.length,
-      });
+      // Track payment success
+      trackEvent({ eventType: 'checkout_payment_success', total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length });
+      trackEvent({ eventType: 'order_completed', total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length });
       cart.forEach(item => removeFromCart(item.id));
       if (onSuccess) onSuccess();
     } catch (error) {
+      // Track payment failure
+      trackEvent({ eventType: 'checkout_payment_failed', error: error.message, total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length });
       setErrors({ ...errors, payment: [error.message || 'An error occurred during checkout. Please try again.'] });
     } finally {
       setPaying(false);
@@ -128,6 +131,8 @@ export default function CheckoutScreen() {
   const [stripeError, setStripeError] = useState(null);
 
   useEffect(() => {
+    // Track when user views the checkout page
+    trackEvent({ eventType: 'checkout_view' });
     const initializeStripe = async () => {
       try {
         setStripeLoading(true);
