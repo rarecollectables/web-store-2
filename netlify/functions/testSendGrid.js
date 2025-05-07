@@ -2,7 +2,7 @@ const sendConfirmationEmail = require('./sendConfirmationEmail');
 
 exports.handler = async (event) => {
   // Hardcoded test order and recipient
-  const testEmail = process.env.TEST_SENDGRID_EMAIL || 'kolmail@email.com';
+  const testEmail = 'kolamegagreen@gmail.com';
   const testOrder = {
     payment_intent_id: 'test_123',
     amount: 12345,
