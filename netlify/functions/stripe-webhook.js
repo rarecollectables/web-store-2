@@ -10,6 +10,7 @@ const supabase = createClient(
 );
 
 exports.handler = async (event) => {
+  console.log('[WEBHOOK DEBUG] stripe-webhook triggered', { headers: event.headers, body: event.body });
   // For error context
   const context = { requestId: event.headers['x-request-id'] || undefined };
 
@@ -31,6 +32,7 @@ exports.handler = async (event) => {
   if (stripeEvent.type === 'payment_intent.succeeded') {
     const paymentIntent = stripeEvent.data.object;
     const metadata = paymentIntent.metadata || {};
+    console.log('[WEBHOOK DEBUG] payment_intent metadata:', metadata);
     let orderData = {
       payment_intent_id: paymentIntent.id,
       amount: paymentIntent.amount,
@@ -40,6 +42,7 @@ exports.handler = async (event) => {
       shipping_address: metadata.shipping_address ? JSON.parse(metadata.shipping_address) : null,
       created_at: new Date().toISOString(),
     };
+    console.log('[WEBHOOK DEBUG] orderData:', orderData);
 
     try {
       // Insert order into Supabase 'orders' table
