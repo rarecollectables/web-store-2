@@ -47,9 +47,7 @@ const CATEGORY_IMAGES = {
 // Animated Category Card
 function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  if (typeof window !== 'undefined') {
-    console.log('[HOME PAGE CategoryCard] Images array for transition:', images, title || id);
-  }
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % images.length);
@@ -101,7 +99,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ChatScreen isChatVisible={isChatVisible} setIsChatVisible={setIsChatVisible} />
+
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -190,15 +188,20 @@ export default function HomeScreen() {
             </View>
           </View>
         </ScrollView>
-      <ChatScreen isChatVisible={isChatVisible} setIsChatVisible={setIsChatVisible} />
-      <Pressable
-        style={styles.chatButton}
-        onPress={() => setIsChatVisible(!isChatVisible)}
-        accessibilityRole="button"
-        accessibilityLabel="Toggle chat"
-      >
-        <FontAwesome name="comment" size={24} color={colors.onyxBlack} />
-      </Pressable>
+
+      {!isChatVisible && (
+        <Pressable
+          style={styles.chatButton}
+          onPress={() => setIsChatVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Toggle chat"
+        >
+          <FontAwesome name="comment" size={24} color={colors.onyxBlack} />
+        </Pressable>
+      )}
+      {isChatVisible && (
+        <ChatScreen isChatVisible={isChatVisible} setIsChatVisible={setIsChatVisible} />
+      )}
     </View>
   );
 }

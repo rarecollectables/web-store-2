@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase/client';
 import { View, Text, ActivityIndicator, FlatList, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 
 const EVENT_TYPES = [
@@ -18,6 +20,12 @@ const AdminEvents = () => {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [startPickerDate, setStartPickerDate] = useState(new Date());
+  const [endPickerDate, setEndPickerDate] = useState(new Date());
   const router = useRouter();
 
   useEffect(() => {
@@ -54,6 +62,14 @@ const AdminEvents = () => {
         (ev.location && JSON.stringify(ev.location).toLowerCase().includes(search.toLowerCase())) ||
         (ev.metadata && JSON.stringify(ev.metadata).toLowerCase().includes(search.toLowerCase()))
       );
+    }
+    if (startDate) {
+      const start = new Date(startDate + 'T00:00:00');
+      filtered = filtered.filter(ev => new Date(ev.created_at) >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate + 'T23:59:59');
+      filtered = filtered.filter(ev => new Date(ev.created_at) <= end);
     }
     return filtered;
   }
@@ -95,6 +111,64 @@ const AdminEvents = () => {
           value={search}
           onChangeText={setSearch}
         />
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ marginRight: 6 }}>From:</Text>
+          {Platform.OS === 'web' ? (
+            <input
+              type="date"
+              style={{ width: 120, marginRight: 8, height: 36, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', padding: 6 }}
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+            />
+          ) : (
+            <TouchableOpacity onPress={() => setShowStartPicker(true)} style={[styles.input, { width: 120, marginRight: 8, justifyContent: 'center' }]}> 
+              <Text>{startDate ? new Date(startDate).toLocaleDateString() : 'Select date'}</Text>
+            </TouchableOpacity>
+          )}
+          {showStartPicker && Platform.OS !== 'web' && (
+            <DateTimePicker
+              value={startDate ? new Date(startDate) : startPickerDate}
+              mode="date"
+              display="default"
+              onChange={(event, selectedDate) => {
+                setShowStartPicker(false);
+                if (selectedDate) {
+                  setStartDate(selectedDate.toISOString().slice(0,10));
+                  setStartPickerDate(selectedDate);
+                }
+              }}
+            />
+          )}
+
+          <Text style={{ marginRight: 6 }}>To:</Text>
+          {Platform.OS === 'web' ? (
+            <input
+              type="date"
+              style={{ width: 120, height: 36, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', padding: 6 }}
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+            />
+          ) : (
+            <TouchableOpacity onPress={() => setShowEndPicker(true)} style={[styles.input, { width: 120, justifyContent: 'center' }]}> 
+              <Text>{endDate ? new Date(endDate).toLocaleDateString() : 'Select date'}</Text>
+            </TouchableOpacity>
+          )}
+          {showEndPicker && Platform.OS !== 'web' && (
+            <DateTimePicker
+              value={endDate ? new Date(endDate) : endPickerDate}
+              mode="date"
+              display="default"
+              onChange={(event, selectedDate) => {
+                setShowEndPicker(false);
+                if (selectedDate) {
+                  setEndDate(selectedDate.toISOString().slice(0,10));
+                  setEndPickerDate(selectedDate);
+                }
+              }}
+            />
+          )}
+
+        </View>
         <View style={styles.dropdownContainer}>
           <Text style={{marginBottom: 4}}>Event Type:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>

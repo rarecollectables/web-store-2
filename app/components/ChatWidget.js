@@ -67,58 +67,60 @@ const ChatWidget = () => {
     outputRange: ['0deg', '45deg'],
   });
 
+
   return (
     <>
-      {/* Chat Screen */}
-      <ChatScreen 
-        isChatVisible={isChatVisible} 
-        setIsChatVisible={setIsChatVisible}
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: Math.min(400, screenWidth - spacing.lg * 2),
-          height: screenHeight - spacing.lg * 2,
-          zIndex: 1000,
-          backgroundColor: colors.white,
-          ...shadows.card,
-          borderRadius: borderRadius.lg,
-          overflow: 'hidden',
-        }}
-      />
-
-      {/* Chat Widget Button */}
-      <Animated.View
-        style={[
-          styles.widgetContainer,
-          widgetPosition,
-          {
-            transform: [
-              { scale: scaleAnim },
-              { rotate },
-            ],
-          },
-        ]}
-      >
-        <TouchableOpacity 
-          style={styles.widgetButton}
-          onPress={handleWidgetClick}
-          activeOpacity={0.8}
+      {/* Chat Icon Button - should only ever render when chat is closed */}
+      {isChatVisible ? null : (
+        <Animated.View
+          style={[
+            styles.widgetContainer,
+            {
+              transform: [{ scale: scaleAnim }],
+              ...(Platform.OS === 'web'
+                ? { right: spacing.lg, bottom: spacing.lg, left: 'auto', alignSelf: 'flex-end' }
+                : { left: Math.max((screenWidth - 60) / 2, 0), right: 'auto', bottom: spacing.lg, alignSelf: 'center' }),
+            },
+          ]}
         >
-          <FontAwesome
-            name={isChatVisible ? 'times' : 'comments'}
-            size={24}
-            color={colors.white}
-          />
-          {hasUnreadMessages && (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationText}>
-                {notificationCount > 99 ? '99+' : notificationCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
+          <TouchableOpacity
+            style={styles.widgetButton}
+            onPress={handleWidgetClick}
+            activeOpacity={0.85}
+          >
+            <Animated.View style={{ transform: [{ rotate }] }}>
+              <FontAwesome name="commenting-o" size={32} color={colors.gold} />
+              {hasUnreadMessages && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationText}>{notificationCount}</Text>
+                </View>
+              )}
+            </Animated.View>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* Chat Screen */}
+      {isChatVisible && (
+        <ChatScreen 
+          isChatVisible={isChatVisible} 
+          setIsChatVisible={setIsChatVisible}
+          boxWidth={420}
+          style={{
+            position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+            bottom: Platform.OS === 'web' ? 32 : '10%',
+            right: Platform.OS === 'web' ? 32 : undefined,
+            left: Platform.OS === 'web' ? undefined : Math.max((screenWidth - 420) / 2, 0),
+            width: '100%',
+            maxWidth: 420,
+            maxHeight: '80vh',
+            minHeight: 480,
+            zIndex: 1000,
+          }}
+        />
+      )}
+
+
     </>
   );
 };

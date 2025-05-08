@@ -2,43 +2,68 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, Modal, Dimensions, Alert, Animated, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme';
 import { chatService } from '../../lib/chat/chatService';
+
 import { supabase } from '../../lib/supabase/client';
 import { FontAwesome } from '@expo/vector-icons';
 import { v4 as uuidv4 } from 'uuid';
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.ivory,
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+    bottom: Platform.OS === 'web' ? 32 : '10%',
+    left: Platform.OS === 'web' ? 32 : spacing.xl,
+    // Remove left and centering margins for mobile
+    left: undefined,
+    marginLeft: undefined,
+    marginRight: undefined,
+    marginHorizontal: undefined,
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '80vh',
+    minHeight: 480,
     zIndex: 1000,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    overflow: 'hidden',
+    boxShadow: Platform.OS === 'web' ? '0 8px 32px 0 rgba(191,160,84,0.18)' : undefined,
+    backdropFilter: Platform.OS === 'web' ? 'blur(18px)' : undefined,
+    display: 'flex',
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.lg,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
     borderBottomWidth: 2,
-    borderBottomColor: colors.softGoldBorder,
-    backgroundColor: colors.white,
+    borderBottomColor: colors.gold,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(14px)' : undefined,
+    boxShadow: Platform.OS === 'web' ? '0 2px 24px 0 rgba(191,160,84,0.07)' : undefined,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.onyxBlack,
-    fontFamily,
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.gold,
+    fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif',
+    letterSpacing: 0.2,
   },
   closeButton: {
-    padding: spacing.lg,
+    padding: 8,
+    marginLeft: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   closeButtonText: {
-    fontSize: 28,
+    fontSize: 24,
     color: colors.onyxBlack,
-    fontFamily,
-    fontWeight: 'bold',
+    fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif',
+    fontWeight: '700',
+    lineHeight: 28,
   },
   errorContainer: {
     padding: spacing.lg,
@@ -57,36 +82,60 @@ const styles = StyleSheet.create({
   },
   messagesContainer: {
     flex: 1,
-    padding: spacing.lg,
-    backgroundColor: colors.ivory,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
+    backgroundColor: 'transparent',
   },
   messageContainer: {
-    marginBottom: spacing.md,
-    borderRadius: borderRadius.lg,
-    maxWidth: '80%',
-    overflow: 'hidden',
+    marginBottom: 16,
+    borderRadius: 22,
+    maxWidth: '84%',
+    overflow: 'visible',
+    padding: 0,
+    shadowColor: '#BFA054',
+    shadowOpacity: 0.09,
+    shadowRadius: 8,
+    elevation: 2,
   },
   userMessage: {
     alignSelf: 'flex-end',
     backgroundColor: colors.gold,
     borderColor: colors.softGoldBorder,
-    borderWidth: 1,
-    ...shadows.card,
-    padding: spacing.lg,
+    borderWidth: 0,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    borderRadius: 22,
+    marginBottom: 10,
+    maxWidth: '84%',
+    shadowColor: '#BFA054',
+    shadowOpacity: 0.10,
+    shadowRadius: 7,
+    elevation: 2,
+    fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif',
   },
   assistantMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.white,
-    padding: spacing.lg,
-    maxWidth: '80%',
-    ...shadows.card,
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.gold,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    maxWidth: '84%',
+    borderRadius: 22,
+    marginBottom: 10,
+    shadowColor: '#BFA054',
+    shadowOpacity: 0.08,
+    shadowRadius: 7,
+    elevation: 2,
+    fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif',
   },
   messageText: {
     color: colors.onyxBlack,
-    fontFamily,
-    fontSize: 16,
+    fontSize: 16.5,
+    fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif',
     lineHeight: 24,
-    letterSpacing: 0.5,
+    fontWeight: '400',
+    letterSpacing: 0.1,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -95,15 +144,26 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: spacing.lg,
-    borderTopWidth: 2,
-    borderTopColor: colors.softGoldBorder,
-    backgroundColor: colors.white,
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderTopWidth: 1.5,
+    borderTopColor: colors.gold,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    borderRadius: 22,
+    marginHorizontal: 14,
+    marginBottom: 18,
+    boxShadow: Platform.OS === 'web' ? '0 2px 12px 0 rgba(191,160,84,0.08)' : undefined,
+    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
   },
   input: {
     flex: 1,
-    marginRight: spacing.md,
-    borderWidth: 2,
+    minHeight: 44,
+    maxHeight: 120,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    fontSize: 17,
     borderColor: colors.softGoldBorder,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
@@ -114,9 +174,20 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     backgroundColor: colors.gold,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    ...shadows.card,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#BFA054',
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 4,
+    marginLeft: 2,
+    marginRight: 2,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer', transition: 'background 0.2s' } : {}),
+    position: 'relative',
+    right: 0,
   },
   sendButtonText: {
     color: colors.white,
@@ -134,16 +205,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.md,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    borderRadius: 18,
     marginTop: spacing.sm,
     ...shadows.card,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.gold,
   },
   typingText: {
     marginLeft: spacing.sm,
-    color: colors.platinum,
+    color: colors.gold,
     fontFamily,
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: 'bold',
+    letterSpacing: 0.3,
   },
   timestamp: {
     fontSize: 12,
@@ -153,6 +228,7 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+    backgroundColor: '#e5d8b6',
   },
   productInfo: {
     marginTop: spacing.sm,
@@ -186,7 +262,10 @@ const styles = StyleSheet.create({
   },
 });
 
-const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
+import { useRouter } from 'expo-router';
+
+const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
+  const router = useRouter();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -267,6 +346,19 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
         setIsInitialized(true);
         // Load initial messages
         await loadMessages();
+        // Greet the user if there are no previous messages
+        setTimeout(() => {
+          setMessages(prev => {
+            if (!prev || prev.length === 0) {
+              return [{
+                id: 'anna-greeting',
+                sender: 'assistant',
+                text: "Hello, I'm Anna! Welcome to Rare Collectables. How can I brighten your day or help you find something special?"
+              }];
+            }
+            return prev;
+          });
+        }, 400);
       } catch (error) {
         console.error('Error initializing chat:', error);
         setError('Failed to initialize chat session');
@@ -325,12 +417,9 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
       // Show typing indicator
       setIsTyping(true);
 
-      // Get product information
-      const productInfo = await chatService.getRelevantProductInfo(message);
-      
-      // Generate response
+      // Always use chatService.generateResponse for assistant replies
+      let productInfo = await chatService.getRelevantProductInfo(message);
       const response = await chatService.generateResponse(message, messages, productInfo);
-      
       // Add assistant response
       const assistantMessage = {
         text: response,
@@ -354,14 +443,20 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
   };
 
   // Render message with animations and product info
-  const renderMessage = (message, index) => {
+  const renderMessage = (message, index, router) => {
     const isUser = message.sender === 'user';
     const messageAnim = messageAnimations.get(index) || new Animated.Value(1);
 
-    const timestamp = new Date(message.timestamp).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    let timestamp = '';
+    if (message.timestamp) {
+      const dateObj = new Date(message.timestamp);
+      if (!isNaN(dateObj.getTime())) {
+        timestamp = dateObj.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+    }
 
     return (
       <Animated.View
@@ -383,16 +478,21 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
         ]}
       >
         <Text style={styles.messageText}>{message.text}</Text>
-        {message.productInfo?.length > 0 && !isUser && (
+        {/* Only render product cards for assistant productInfo */}
+        {!isUser && message.productInfo?.length > 0 && (
           <View style={styles.productInfo}>
             {message.productInfo.map((product, idx) => (
-              <View key={idx} style={styles.productCard}>
+              <Pressable
+                key={idx}
+                style={styles.productCard}
+                onPress={() => router.push(`/product/${product.id}`)}
+              >
                 <Text style={styles.productTitle}>{product.title}</Text>
-                <Text style={styles.productPrice}>${product.price.toFixed(2)}</Text>
+                <Text style={styles.productPrice}>${typeof product.price === 'number' ? product.price.toFixed(2) : product.price}</Text>
                 <Text style={styles.productStock}>
                   {product.inStock ? 'In Stock' : 'Out of Stock'}
                 </Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         )}
@@ -401,7 +501,7 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
     );
   };
 
-  // Handle error messages
+  // ...
   const handleErrorMessage = (error) => {
     const errorMessage = error.message.toLowerCase();
     
@@ -414,7 +514,7 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
     } else if (errorMessage.includes('no response received')) {
       setError('I apologize, but I didn\'t understand your question. Could you please rephrase it?');
     } else {
-      setError('I apologize, but I encountered an issue. Could you please try rephrasing your question?');
+      setError(''); // Do not show a generic error box for unhandled errors
     }
   };
 
@@ -444,10 +544,24 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
     }
   };
 
+  // Compute dynamic position and width for true centering on mobile/tablet
+  const dynamicContainerStyle = Platform.OS === 'web'
+    ? {}
+    : (() => {
+        const screenWidth = Dimensions.get('window').width;
+        const maxWidth = Math.min(props.boxWidth || 420, screenWidth - 32);
+        return {
+          left: Math.max((screenWidth - maxWidth) / 2, 16),
+          maxWidth,
+        };
+      })();
+
   return (
     <Animated.View
       style={[
         styles.container,
+        dynamicContainerStyle,
+        props.style,
         {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
@@ -479,7 +593,7 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
           ref={scrollViewRef}
           contentContainerStyle={styles.messagesList}
         >
-          {messages.map((msg, index) => renderMessage(msg, index))}
+          {messages.map((msg, index) => renderMessage(msg, index, router))}
           {isTyping && (
             <View style={styles.typingIndicator}>
               <ActivityIndicator size="small" color={colors.gold} />
@@ -498,6 +612,12 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible }) => {
           placeholderTextColor={colors.platinum}
           multiline
           maxLength={500}
+          onKeyPress={(e) => {
+            if (e.nativeEvent.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault && e.preventDefault();
+              handleSend();
+            }
+          }}
           onSubmitEditing={handleSubmit}
           blurOnSubmit={false}
           returnKeyType="send"

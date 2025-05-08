@@ -181,7 +181,7 @@ export default function ProductDetail() {
         ))}
       </View>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 120 + insets.bottom, paddingHorizontal: 8 }]} > 
-        <Text style={styles.title}>{product.title}</Text>
+        <Text style={styles.title}>{product.title || product.name || 'Untitled Product'}</Text>
         <View style={styles.pricePillWrapper}>
           <Text style={styles.price}>{product.price}</Text>
         </View>
