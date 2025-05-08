@@ -33,7 +33,16 @@ export default function ProductDetail() {
 
   let images = [];
   if (product) {
-    images = DATA_IMAGES[product.id] || (product.image_url ? [{ uri: product.image_url }] : (product.image ? [{ uri: product.image }] : []));
+    if (DATA_IMAGES[product.id]) {
+      images = DATA_IMAGES[product.id];
+    } else if (product.additional_images && Array.isArray(product.additional_images) && product.additional_images.length > 0) {
+      images = [
+        ...(product.image_url ? [{ uri: product.image_url }] : (product.image ? [{ uri: product.image }] : [])),
+        ...product.additional_images.filter(Boolean).map(url => ({ uri: url }))
+      ];
+    } else {
+      images = product.image_url ? [{ uri: product.image_url }] : (product.image ? [{ uri: product.image }] : []);
+    }
   }
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems && viewableItems.length > 0) {
@@ -50,13 +59,6 @@ export default function ProductDetail() {
   useEffect(() => {
     let isMounted = true;
     async function loadProduct() {
-      let found = PRODUCTS.find(p => p.id === id);
-      if (found) {
-        if (!isMounted) return;
-        setProduct(found);
-        setLoading(false);
-        return;
-      }
       try {
         const supaProduct = await fetchProductById(id);
         if (!isMounted) return;
@@ -149,22 +151,24 @@ export default function ProductDetail() {
       }}>
         <Text style={styles.closeText}>✕</Text>
       </Pressable>
-      <FlatList
-        ref={flatListRef}
-        data={images}
-        keyExtractor={(_, idx) => idx.toString()}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        renderItem={renderCarouselImage}
-        style={styles.carousel}
-        initialScrollIndex={0}
-        getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
-        snapToAlignment="center"
-        decelerationRate={Platform.OS === 'ios' ? 0 : 0.98}
-      />
+      <View style={styles.imageWrapper}>
+        <FlatList
+          ref={flatListRef}
+          data={images}
+          keyExtractor={(_, idx) => idx.toString()}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          renderItem={renderCarouselImage}
+          style={styles.carousel}
+          initialScrollIndex={0}
+          getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+          snapToAlignment="center"
+          decelerationRate={Platform.OS === 'ios' ? 0 : 0.98}
+        />
+      </View>
       <View style={styles.pagination}>
         {images.map((_, index) => (
           <View
@@ -176,13 +180,54 @@ export default function ProductDetail() {
           />
         ))}
       </View>
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 120 + insets.bottom }]}> 
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 120 + insets.bottom, paddingHorizontal: 8 }]} > 
         <Text style={styles.title}>{product.title}</Text>
         <View style={styles.pricePillWrapper}>
           <Text style={styles.price}>{product.price}</Text>
         </View>
         <Text style={styles.description}>{product.description || 'Featuring exceptional craftsmanship and timeless design, this piece is a perfect addition to your collection.'}</Text>
         <Text style={styles.details}>{product.details}</Text>
+
+        {/* Features Table */}
+        {(() => {
+          const features = [];
+          const category = (product.category || '').toLowerCase();
+          const labels = {
+            material:
+              category.includes('necklace') ? 'Necklace Material' :
+              category.includes('bracelet') ? 'Bracelet Material' :
+              category.includes('ring') ? 'Ring Material' :
+              'Material',
+            stone: 'Stone',
+            size:
+              category.includes('necklace') ? 'Pendant Size' :
+              category.includes('bracelet') ? 'Bracelet Size' :
+              category.includes('ring') ? 'Ring Size' :
+              'Size',
+            length:
+              category.includes('necklace') ? 'Chain Length' :
+              category.includes('bracelet') ? 'Bracelet Length' :
+              category.includes('ring') ? 'Ring Length' :
+              'Length',
+          };
+          if (product.material) features.push({ label: labels.material, value: product.material });
+          if (product.stone) features.push({ label: labels.stone, value: product.stone });
+          if (product.size) features.push({ label: labels.size, value: product.size });
+          if (product.length) features.push({ label: labels.length, value: product.length });
+          if (features.length === 0) return null;
+          return (
+            <View style={{ marginTop: 18, marginBottom: 10, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#eee' }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 16, padding: 10, backgroundColor: '#faf6e8', color: '#bfa14a' }}>Product Features</Text>
+              {features.map((f, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 14, borderBottomWidth: idx === features.length - 1 ? 0 : 1, borderBottomColor: '#f5e9c8' }}>
+                  <Text style={{ fontWeight: '500', color: '#444' }}>{f.label}</Text>
+                  <Text style={{ color: '#333' }}>{f.value}</Text>
+                </View>
+              ))}
+            </View>
+          );
+        })()}
+
         <View style={styles.divider} />
       </ScrollView>
       <View style={[styles.actionContainerFixed, { paddingBottom: insets.bottom + 12 }]}> 
@@ -216,6 +261,27 @@ export default function ProductDetail() {
 }
 
 const styles = StyleSheet.create({
+  imageWrapper: {
+    marginTop: 24,
+    marginBottom: 22,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#f8f8f8',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  image: {
+    width: '100%',
+    aspectRatio: 1,
+    resizeMode: 'contain',
+    maxHeight: 320,
+    backgroundColor: '#f8f8f8',
+    alignSelf: 'center',
+    borderRadius: 18,
+  },
   modal: {
     flex: 1,
     backgroundColor: colors.white,

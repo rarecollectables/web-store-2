@@ -84,6 +84,10 @@ CREATE TABLE IF NOT EXISTS products (
     rating DECIMAL(2, 1) DEFAULT 0,
     review_count INTEGER DEFAULT 0,
     featured BOOLEAN DEFAULT FALSE,
+    material TEXT,
+    stone TEXT,
+    size TEXT,
+    length TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

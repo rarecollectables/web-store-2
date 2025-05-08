@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://rarecollectables1.netlify.app/</loc>
+    <priority>1.0</priority>
+  </url>
+  <!-- Example product page, add more dynamically or manually -->
+  <url>
+    <loc>https://rarecollectables1.netlify.app/shop</loc>
+    <priority>0.9</priority>
+  </url>
+  <!-- Add more <url> entries for each product and category page as needed -->
+</urlset>

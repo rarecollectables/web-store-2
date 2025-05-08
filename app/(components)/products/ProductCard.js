@@ -15,31 +15,28 @@ export default function ProductCard({ item, cardWidth }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Get all images for the product
+  // Combine main image and additional_images (TEXT[]), filter for valid strings
   const getProductImages = () => {
-    const images = [item.image_url];
-    
-    // Add additional images if they exist
-    if (item.additional_images) {
-      try {
-        const additionalImages = JSON.parse(item.additional_images);
-        if (Array.isArray(additionalImages)) {
-          images.push(...additionalImages);
-        }
-      } catch (error) {
-        console.error('Error parsing additional_images:', error);
-      }
+    const images = [];
+    if (typeof item.image_url === 'string' && item.image_url.trim() !== '') {
+      images.push(item.image_url);
     }
-    
-    return images.filter(Boolean); // Remove any null/undefined values
+    if (Array.isArray(item.additional_images)) {
+      images.push(...item.additional_images.filter(img => typeof img === 'string' && img.trim() !== ''));
+    }
+    return images;
   };
 
   const images = getProductImages();
+  if (typeof window !== 'undefined') {
+
+  }
 
   useEffect(() => {
     if (images.length > 1) {
       intervalRef.current = setInterval(() => {
         setCurrentIndex((prev) => (prev + 1) % images.length);
-      }, 3200); // Match home page timing
+      }, 3200);
     }
     return () => {
       if (intervalRef.current) {
@@ -111,7 +108,7 @@ export default function ProductCard({ item, cardWidth }) {
           </View>
         ) : (
           <ImageBackground
-            source={{ uri: images[currentIndex] }}
+            source={typeof images[currentIndex] === 'string' && images[currentIndex].trim() !== '' ? { uri: images[currentIndex] } : undefined}
             style={styles.image}
             imageStyle={styles.imageStyle}
             onLoadStart={() => setImageLoading(true)}
@@ -119,6 +116,14 @@ export default function ProductCard({ item, cardWidth }) {
             onError={() => {
               setImageLoading(false);
               setImageError(true);
+              // Skip to next image if available
+              if (images.length > 1) {
+
+                setTimeout(() => {
+                  setCurrentIndex((prev) => (prev + 1) % images.length);
+                  setImageError(false);
+                }, 500);
+              }
             }}
           >
             {images.length > 1 && (

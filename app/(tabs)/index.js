@@ -47,6 +47,9 @@ const CATEGORY_IMAGES = {
 // Animated Category Card
 function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  if (typeof window !== 'undefined') {
+    console.log('[HOME PAGE CategoryCard] Images array for transition:', images, title || id);
+  }
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % images.length);

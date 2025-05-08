@@ -64,7 +64,7 @@ export default function ProductsList() {
         // Build the query
         let query = supabase
           .from('products')
-          .select('id, name, price, image_url, category, description, stock')
+          .select('id, name, price, image_url, category, description, stock, additional_images')
           .order('created_at', { ascending: false });
 
         if (category) {

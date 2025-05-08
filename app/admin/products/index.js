@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
 import { Appbar, Card, Button, TextInput, FAB, Portal, Dialog, Paragraph, ActivityIndicator } from 'react-native-paper';
 import { supabase } from '../../../lib/supabase/client';
 import { useRouter } from 'expo-router';
@@ -10,7 +10,7 @@ export default function AdminProducts() {
   const [error, setError] = useState(null);
   const [showDialog, setShowDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [form, setForm] = useState({ name: '', price: '', image_url: '', category: '', description: '', stock: '' });
+  const [form, setForm] = useState({ name: '', price: '', image_url: '', additional_images: '', category: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
   const router = useRouter();
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function AdminProducts() {
     setError(null);
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, price, image_url, category, description, stock')
+      .select('id, name, price, image_url, additional_images, category, description, stock, material, stone, size, length')
       .order('created_at', { ascending: false });
     if (error) {
       setError('Failed to fetch products');
@@ -34,18 +34,27 @@ export default function AdminProducts() {
 
   function openDialog(product = null) {
     setEditingProduct(product);
-    setForm(product ? { ...product, price: String(product.price), stock: String(product.stock) } : { name: '', price: '', image_url: '', category: '', description: '', stock: '' });
+    setForm(product ? {
+      ...product,
+      price: String(product.price),
+      stock: String(product.stock),
+      additional_images: Array.isArray(product.additional_images) ? product.additional_images.join(', ') : (product.additional_images || ''),
+      material: product.material || '',
+      stone: product.stone || '',
+      size: product.size || '',
+      length: product.length || ''
+    } : { name: '', price: '', image_url: '', additional_images: '', category: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
     setShowDialog(true);
   }
 
   function closeDialog() {
     setShowDialog(false);
     setEditingProduct(null);
-    setForm({ name: '', price: '', image_url: '', category: '', description: '', stock: '' });
+    setForm({ name: '', price: '', image_url: '', additional_images: '', category: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
   }
 
   async function handleSave() {
-    const { name, price, image_url, category, description, stock } = form;
+    const { name, price, image_url, additional_images, category, description, stock, material, stone, size, length } = form;
     if (!name || !price) return Alert.alert('Validation', 'Name and price are required');
     setLoading(true);
     let result;
@@ -56,7 +65,12 @@ export default function AdminProducts() {
       image_url: image_url?.trim() || null,
       category: category?.trim() || null,
       description: description?.trim() || null,
-      stock: stock === '' ? null : parseInt(stock)
+      stock: stock === '' ? null : parseInt(stock),
+      additional_images: additional_images ? additional_images.split(',').map(s => s.trim()).filter(Boolean) : [],
+      material: material?.trim() || null,
+      stone: stone?.trim() || null,
+      size: size?.trim() || null,
+      length: length?.trim() || null
     };
     if (editingProduct) {
       result = await supabase
@@ -125,6 +139,7 @@ export default function AdminProducts() {
         <Dialog visible={showDialog} onDismiss={closeDialog}>
           <Dialog.Title>{editingProduct ? 'Edit Product' : 'Add Product'}</Dialog.Title>
           <Dialog.Content>
+            <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 12 }}>
             <TextInput
               label="Name"
               value={form.name}
@@ -151,6 +166,36 @@ export default function AdminProducts() {
               style={styles.input}
             />
             <TextInput
+              label="Additional Images (comma separated URLs)"
+              value={form.additional_images}
+              onChangeText={text => setForm(f => ({ ...f, additional_images: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Material"
+              value={form.material}
+              onChangeText={text => setForm(f => ({ ...f, material: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Stone"
+              value={form.stone}
+              onChangeText={text => setForm(f => ({ ...f, stone: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Size"
+              value={form.size}
+              onChangeText={text => setForm(f => ({ ...f, size: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Length"
+              value={form.length}
+              onChangeText={text => setForm(f => ({ ...f, length: text }))}
+              style={styles.input}
+            />
+            <TextInput
               label="Description"
               value={form.description}
               onChangeText={text => setForm(f => ({ ...f, description: text }))}
@@ -163,6 +208,7 @@ export default function AdminProducts() {
               keyboardType="number-pad"
               style={styles.input}
             />
+            </ScrollView>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={closeDialog}>Cancel</Button>
