@@ -139,7 +139,7 @@ export default function HomeScreen() {
                     cardSize={cardSize}
                     marginRight={marginRight}
                     images={images}
-                    onPress={() => router.push({ pathname: '/shop', params: { category: cat.id } })}
+                    onPress={() => router.push(`/shop?category=${cat.id}`)}
                   />
                 );
               })}
