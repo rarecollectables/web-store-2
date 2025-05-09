@@ -112,7 +112,7 @@ export default function HomeScreen() {
       >
           <View style={styles.content}>
             <ImageBackground
-              source={require('../../assets/images/Rare Collectables hero.png')}
+              source={require('../../assets/images/homepage-herobanner.webp')}
               style={[styles.heroContainer, { width: width }]}
               imageStyle={{ opacity: 0.8 }}
             >
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   chatIcon: {
     fontSize: 24,
-    color: colors.onyxBlack,
+    color: colors.white,
     fontFamily,
     fontWeight: 'bold',
   },
@@ -243,14 +243,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     backgroundColor: 'transparent',
-    padding: spacing.md,
+    padding: 0,
   },
   heroContainer: {
     height: 280,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
-    borderRadius: borderRadius.lg,
+    // borderRadius: borderRadius.lg,
     overflow: 'hidden',
     backgroundColor: colors.onyxBlack,
   },
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   ctaText: {
-    color: colors.onyxBlack,
+    color: colors.white,
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -329,9 +329,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     textAlign: 'center',
     fontFamily: fontFamily.serif,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
     letterSpacing: 0.5,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     paddingVertical: spacing.sm,
