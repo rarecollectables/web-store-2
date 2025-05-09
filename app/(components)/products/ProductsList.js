@@ -13,6 +13,17 @@ const GRID_GAP = 32;
 const MOBILE_BREAKPOINT = 768;
 const TABLET_BREAKPOINT = 1024;
 
+import { TextInput, ScrollView } from 'react-native';
+
+const CATEGORY_OPTIONS = [
+  'All',
+  'Necklaces',
+  'Earrings',
+  'Bracelets',
+  'Rings',
+  // Add more categories as needed
+];
+
 export default function ProductsList() {
   const { width } = useWindowDimensions();
   const { category } = useGlobalSearchParams();
@@ -34,10 +45,19 @@ export default function ProductsList() {
         CARD_MAX_WIDTH
       );
 
+  // New: Search and category state
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+
   const loadMore = () => {
     if (!hasMore || loading) return;
     setPage(prev => prev + 1);
   };
+
+  useEffect(() => {
+    setPage(1);
+    setProducts([]);
+  }, [search, selectedCategory]);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -67,9 +87,11 @@ export default function ProductsList() {
           .select('id, name, price, image_url, category, description, stock, additional_images')
           .order('created_at', { ascending: false });
 
-        if (category) {
+        // Apply selectedCategory filter (overrides URL param if not 'All')
+        if (selectedCategory && selectedCategory !== 'All') {
+          query = query.eq('category', selectedCategory);
+        } else if (category) {
           const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
-          console.log('Applying category filter:', formattedCategory);
           query = query.eq('category', formattedCategory);
         }
 
@@ -98,7 +120,7 @@ export default function ProductsList() {
         console.log('Raw products data:', data);
 
         // Validate and transform the data
-        const validProducts = data.map(product => {
+        let validProducts = data.map(product => {
           try {
             // Parse price from string format (e.g., '£50') to number
             let price = 0;
@@ -135,6 +157,14 @@ export default function ProductsList() {
           }
         }).filter(Boolean); // Remove null products
 
+        // Filter by search
+        if (search.trim() !== '') {
+          const lowerSearch = search.trim().toLowerCase();
+          validProducts = validProducts.filter(product =>
+            product.name.toLowerCase().includes(lowerSearch) ||
+            (product.description && product.description.toLowerCase().includes(lowerSearch))
+          );
+        }
         console.log('Processed products:', validProducts);
         setProducts(prevProducts => {
           // If we're on the first page, replace products
@@ -155,7 +185,7 @@ export default function ProductsList() {
     }
 
     fetchProducts();
-  }, [category, page]);
+  }, [category, page, search, selectedCategory]);
 
   const renderHeader = () => {
     if (!category) return null;
@@ -242,8 +272,87 @@ export default function ProductsList() {
     );
   };
 
+  // Render compact category filter and search bar
+  const renderFilters = () => (
+    <View
+      style={{
+        flexDirection: width > 600 ? 'row' : 'column',
+        alignItems: 'center',
+        gap: width > 600 ? 12 : 6,
+        marginTop: spacing.lg,
+        marginBottom: spacing.md,
+        marginHorizontal: spacing.lg,
+        zIndex: 10,
+      }}
+    >
+      {/* Category Filter */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, marginBottom: width > 600 ? 0 : 6, minWidth: width > 600 ? 320 : undefined }}
+        contentContainerStyle={{ flexDirection: 'row', alignItems: 'center' }}
+      >
+        {CATEGORY_OPTIONS.map(cat => (
+          <Pressable
+            key={cat}
+            style={({ pressed }) => [
+              {
+                paddingVertical: 4,
+                paddingHorizontal: 10,
+                borderRadius: 14,
+                backgroundColor: selectedCategory === cat ? colors.gold : colors.white,
+                marginRight: 6,
+                borderWidth: 1,
+                borderColor: colors.gold,
+                opacity: pressed ? 0.7 : 1,
+                minWidth: 60,
+              }
+            ]}
+            onPress={() => {
+              setSelectedCategory(cat);
+              setProducts([]); // reset products
+              setPage(1);
+              setHasMore(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Filter by ${cat}`}
+          >
+            <Text style={{ color: selectedCategory === cat ? colors.white : colors.gold, fontWeight: 'bold', fontSize: 13 }}>{cat}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+      {/* Search Bar */}
+      <TextInput
+        value={search}
+        onChangeText={text => {
+          setSearch(text);
+          setProducts([]); // reset products
+          setPage(1);
+          setHasMore(true);
+        }}
+        placeholder="Search products..."
+        style={{
+          flex: 1,
+          backgroundColor: colors.white,
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: colors.gold,
+          paddingHorizontal: 10,
+          paddingVertical: Platform.OS === 'web' ? 6 : 4,
+          fontSize: 14,
+          minWidth: width > 600 ? 220 : undefined,
+          maxWidth: 320,
+        }}
+        accessibilityLabel="Search products"
+        returnKeyType="search"
+        clearButtonMode="while-editing"
+      />
+    </View>
+  );
+
   return (
     <View style={styles.container}>
+      {renderFilters()}
       {renderContent()}
     </View>
   );

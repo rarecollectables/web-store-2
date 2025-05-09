@@ -7,14 +7,14 @@ export default function SEOProductsList({ category, products }) {
     ? `${category.charAt(0).toUpperCase() + category.slice(1)} | Rare Collectables`
     : 'Shop Rare Collectables';
   const description = category
-    ? `Browse unique items in the ${category} category. Discover rare and luxury collectables.`
-    : 'Discover rare and luxury collectables. Shop unique products with detailed descriptions, secure checkout, and worldwide shipping.';
+    ? `Browse unique items in the ${category} category. Affordable luxury collectables with UK shipping only.`
+    : 'Affordable luxury collectables. Shop unique and premium products with detailed descriptions, secure checkout, and UK shipping only.';
   const keywords = category
     ? `${category}, rare, collectables, shop, luxury, unique`
     : 'rare, collectables, luxury, shop, unique, products';
   const url = category
-    ? `https://rarecollectables1.netlify.app/shop?category=${encodeURIComponent(category)}`
-    : 'https://rarecollectables1.netlify.app/shop';
+    ? `https://rarecollectables.co.uk/shop?category=${encodeURIComponent(category)}`
+    : 'https://rarecollectables.co.uk/shop';
 
   // Structured data for a product list page (ItemList)
   const structuredData = {

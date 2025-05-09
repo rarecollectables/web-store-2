@@ -49,7 +49,7 @@ exports.handler = async (event) => {
 
   try {
     // Validate request origin
-    const allowedOrigins = ['http://localhost:8081', 'https://rarecollectables1.netlify.app', 'http://127.0.0.1:8081'];
+    const allowedOrigins = ['http://localhost:8081', 'https://rarecollectables.co.uk', 'http://127.0.0.1:8081'];
     const origin = event.headers.origin || event.headers.Origin;
     if (!allowedOrigins.includes(origin)) {
       return {

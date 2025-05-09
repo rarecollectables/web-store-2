@@ -22,7 +22,7 @@ async function sendConfirmationEmail({ to, order }) {
           <hr style="border: none; border-top: 1px solid #eee; margin: 18px 0;" />
           <h3 style="color: #BFA054;">Order Summary</h3>
           <div style="text-align: center; margin-bottom: 16px;">
-            <img src="${order.product_image || 'https://rarecollectables1.netlify.app/default-product-image.jpg'}" alt="Product Image" style="max-width: 180px; max-height: 180px; object-fit: contain; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 8px #eee; margin-bottom: 8px;" />
+            <img src="${order.product_image || 'https://rarecollectables.co.uk/default-product-image.jpg'}" alt="Product Image" style="max-width: 180px; max-height: 180px; object-fit: contain; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 8px #eee; margin-bottom: 8px;" />
           </div>
           <table style="width: 100%; font-size: 16px; margin-bottom: 12px;">
             <tr>

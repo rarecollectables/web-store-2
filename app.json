@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "rare-collectables",
+    "name": "Rare Collectables | Affordable Luxury",
     "slug": "rare-collectables",
+    "description": "Affordable luxury collectables including rare jewellery, premium accessories, and unique gifts. Every piece is carefully curated for quality and exclusivity. Enjoy secure checkout, detailed product descriptions, and UK shipping only. Shop now for the perfect statement piece or gift!",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/rare collectables square transparent logo.png",
@@ -29,8 +30,7 @@
       "expo-secure-store"
     ],
     "extra": {
-      "NETLIFY_STRIPE_FUNCTION_URL": "https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session",
-
+      "NETLIFY_STRIPE_FUNCTION_URL": "https://rarecollectables.co.uk/.netlify/functions/create-checkout-session"
     }
   }
 }

@@ -1,11 +1,11 @@
 import React from 'react';
 
 export default function SEO({
-  title = 'Rare Collectables',
-  description = 'Discover rare and luxury collectables. Shop unique products with detailed descriptions, secure checkout, and worldwide shipping.',
-  keywords = 'rare, collectables, luxury, shop, unique, products',
-  image = 'https://rarecollectables1.netlify.app/default-og-image.jpg',
-  url = 'https://rarecollectables1.netlify.app',
+  title = 'Rare Collectables | Affordable Luxury',
+  description = 'Affordable luxury collectables. Shop unique and premium products with detailed descriptions, secure checkout, and UK shipping only.',
+  keywords = 'affordable luxury, rare, collectables, UK shipping, shop, unique, premium products',
+  image = 'https://rarecollectables.co.uk/default-og-image.jpg',
+  url = 'https://rarecollectables.co.uk',
   type = 'website',
   children,
   structuredData

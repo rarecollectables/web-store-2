@@ -4,7 +4,7 @@ const path = require('path');
 // Import your product data
 const { PRODUCTS } = require('./app/(data)/products.js');
 
-const siteUrl = 'https://rarecollectables1.netlify.app';
+const siteUrl = 'https://rarecollectables.co.uk';
 
 const uniqueCategories = [...new Set(PRODUCTS.map(p => p.category))];
 

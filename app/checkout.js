@@ -12,7 +12,7 @@ import { loadStripe } from '@stripe/stripe-js';
 
 // Stripe keys from env
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-const NETLIFY_STRIPE_FUNCTION_URL = 'https://rarecollectables1.netlify.app/.netlify/functions/create-checkout-session';
+const NETLIFY_STRIPE_FUNCTION_URL = 'https://rarecollectables.co.uk/.netlify/functions/create-checkout-session';
 
 const contactSchema = z.object({
   name: z.string().min(2, 'Name is required'),

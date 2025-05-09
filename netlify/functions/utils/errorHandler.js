@@ -34,7 +34,7 @@ const errorHandler = {
       statusCode: error.statusCode || 500,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': isProduction ? 'https://rarecollectables1.netlify.app' : '*',
+        'Access-Control-Allow-Origin': isProduction ? 'https://rarecollectables.co.uk' : '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Credentials': 'true'
