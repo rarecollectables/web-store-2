@@ -8,6 +8,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web') {
+      // Inject Microsoft Clarity
       if (!document.getElementById('clarity-script')) {
         const script = document.createElement('script');
         script.id = 'clarity-script';
@@ -21,6 +22,25 @@ export default function RootLayout() {
           })(window, document, "clarity", "script", "qydxxehxd0");
         `;
         document.head.appendChild(script);
+      }
+      // Inject Google Analytics 4 (gtag.js)
+      if (!document.getElementById('ga4-gtag-js')) {
+        const gaScript = document.createElement('script');
+        gaScript.id = 'ga4-gtag-js';
+        gaScript.async = true;
+        gaScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-PX5Q4F56NV';
+        document.head.appendChild(gaScript);
+      }
+      if (!document.getElementById('ga4-inline')) {
+        const inlineScript = document.createElement('script');
+        inlineScript.id = 'ga4-inline';
+        inlineScript.innerHTML = `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-PX5Q4F56NV');
+        `;
+        document.head.appendChild(inlineScript);
       }
     }
   }, []);
