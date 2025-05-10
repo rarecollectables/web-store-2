@@ -339,10 +339,19 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
     const initializeChat = async () => {
       try {
         const session = await chatService.getGuestSession(null);
+        let sid = null;
         if (!session) {
           throw new Error('Failed to get session');
         }
-        setSessionId(session.session_id);
+        // Handle both string and object returns
+        if (typeof session === 'string') {
+          sid = session;
+        } else if (typeof session === 'object' && session.session_id) {
+          sid = session.session_id;
+        } else {
+          throw new Error('Unrecognized session format');
+        }
+        setSessionId(sid);
         setIsInitialized(true);
         // Load initial messages
         await loadMessages();
@@ -433,7 +442,11 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
       await chatService.storeMessage(message, null, response, sessionId);
 
       // Track analytics
-      await trackChatAnalytics(message, response, productInfo, sessionId);
+      if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
+        console.warn('Skipping analytics: Invalid sessionId', sessionId);
+      } else {
+        await trackChatAnalytics(message, response, productInfo, sessionId);
+      }
     } catch (error) {
       handleErrorMessage(error);
     } finally {

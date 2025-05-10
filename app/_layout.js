@@ -4,6 +4,9 @@ import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StoreProvider } from '../context/store';
 import { Provider as PaperProvider } from 'react-native-paper';
+import { trackEvent } from '../lib/trackEvent';
+import { getLocationInfo } from '../lib/trackEvent';
+
 
 export default function RootLayout() {
   useEffect(() => {
@@ -43,6 +46,20 @@ export default function RootLayout() {
         document.head.appendChild(inlineScript);
       }
     }
+  }, []);
+
+  // Print country and track home page visit
+  useEffect(() => {
+    (async () => {
+      // Try to get location info and print country
+      let country = null;
+      try {
+        await getLocationInfo(); // Optionally keep this if you want to fetch location, but do not log
+      } catch (err) {
+        // Optionally handle error silently
+      }
+      trackEvent({ eventType: 'home_page_visit' });
+    })();
   }, []);
 
   return (
