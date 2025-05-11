@@ -33,7 +33,7 @@ export default function RootLayout() {
       if (!document.querySelector('meta[property="og:image"]')) {
         const ogImg = document.createElement('meta');
         ogImg.setAttribute('property', 'og:image');
-        ogImg.content = 'https://yourdomain.com/assets/images/products/1-1-Necklace.avif'; // <-- Using a necklace product image
+        ogImg.content = 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/products/Necklaces/1-2-Necklace.avif'; // <-- Using a necklace product image
         document.head.appendChild(ogImg);
       }
       if (!document.querySelector('meta[property="og:type"]')) {
@@ -73,6 +73,8 @@ export default function RootLayout() {
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
           gtag('config', 'G-PX5Q4F56NV');
+          gtag('config', 'G-KQ67K3HC7N'); 
+          gtag('config', 'G-CSMXSKT0QH'); 
         `;
         document.head.appendChild(inlineScript);
       }
