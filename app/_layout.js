@@ -11,6 +11,37 @@ import { getLocationInfo } from '../lib/trackEvent';
 export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web') {
+      // Inject meta tags for SEO and social previews
+      if (!document.querySelector('meta[name="description"]')) {
+        const metaDesc = document.createElement('meta');
+        metaDesc.name = 'description';
+        metaDesc.content = 'Discover stunning heart and charm jewellery at Rare Collectables. Shop affordable luxury necklaces, bracelets, and earrings designed to make every moment special. Free shipping & exclusive offers!';
+        document.head.appendChild(metaDesc);
+      }
+      if (!document.querySelector('meta[property="og:title"]')) {
+        const ogTitle = document.createElement('meta');
+        ogTitle.setAttribute('property', 'og:title');
+        ogTitle.content = 'Rare Collectables | Affordable Luxury';
+        document.head.appendChild(ogTitle);
+      }
+      if (!document.querySelector('meta[property="og:description"]')) {
+        const ogDesc = document.createElement('meta');
+        ogDesc.setAttribute('property', 'og:description');
+        ogDesc.content = 'Discover stunning heart and charm jewellery at Rare Collectables. Shop affordable luxury necklaces, bracelets, and earrings designed to make every moment special. Free shipping & exclusive offers!';
+        document.head.appendChild(ogDesc);
+      }
+      if (!document.querySelector('meta[property="og:image"]')) {
+        const ogImg = document.createElement('meta');
+        ogImg.setAttribute('property', 'og:image');
+        ogImg.content = 'https://yourdomain.com/assets/images/products/1-1-Necklace.avif'; // <-- Using a necklace product image
+        document.head.appendChild(ogImg);
+      }
+      if (!document.querySelector('meta[property="og:type"]')) {
+        const ogType = document.createElement('meta');
+        ogType.setAttribute('property', 'og:type');
+        ogType.content = 'website';
+        document.head.appendChild(ogType);
+      }
       // Inject Microsoft Clarity
       if (!document.getElementById('clarity-script')) {
         const script = document.createElement('script');
