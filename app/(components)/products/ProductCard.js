@@ -7,12 +7,18 @@ import { trackEvent } from '../../../lib/trackEvent';
 
 export default function ProductCard({ item, cardWidth }) {
   const router = useRouter();
-  const { addToCart } = useStore();
+  const { addToCart, addToWishlist, removeFromWishlist, wishlist } = useStore();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const intervalRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [isWishlisted, setIsWishlisted] = useState(() => wishlist?.some(w => w.id === item.id));
+  const wishAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    setIsWishlisted(wishlist?.some(w => w.id === item.id));
+  }, [wishlist, item.id]);
 
   // Get all images for the product
   // Combine main image and additional_images (TEXT[]), filter for valid strings
@@ -91,6 +97,32 @@ export default function ProductCard({ item, cardWidth }) {
     return `£${numericPrice.toFixed(2)}`;
   };
 
+  // Wishlist button handler
+  const handleWishlist = (e) => {
+    e.stopPropagation();
+    Animated.sequence([
+      Animated.timing(wishAnim, { toValue: 1.25, duration: 120, useNativeDriver: true }),
+      Animated.spring(wishAnim, { toValue: 1, friction: 3, useNativeDriver: true })
+    ]).start();
+    const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+    if (!isWishlisted) {
+      addToWishlist(item);
+      trackEvent({
+        eventType: 'add_to_wishlist',
+        productId: item.id,
+        metadata: { productName: item.name, price }
+      });
+    } else {
+      removeFromWishlist(item.id);
+      trackEvent({
+        eventType: 'remove_from_wishlist',
+        productId: item.id,
+        metadata: { productName: item.name, price }
+      });
+    }
+    setIsWishlisted(prev => !prev);
+  };
+
   return (
     <Pressable
       style={[styles.container, { width: cardWidth }]}
@@ -142,6 +174,20 @@ export default function ProductCard({ item, cardWidth }) {
           </ImageBackground>
         )}
       </View>
+      <View style={styles.wishlistIconWrapper}>
+        <Animated.View style={{ transform: [{ scale: wishAnim }] }}>
+          <Pressable
+            onPress={handleWishlist}
+            accessibilityLabel={isWishlisted ? `Remove ${item.name} from wishlist` : `Add ${item.name} to wishlist`}
+            accessibilityRole="button"
+            style={[styles.wishlistButton, isWishlisted && styles.wishlistActive]}
+          >
+            <Text style={{ fontSize: 22, color: isWishlisted ? colors.gold : colors.gray }}>
+              {isWishlisted ? '♥' : '♡'}
+            </Text>
+          </Pressable>
+        </Animated.View>
+      </View>
       <View style={styles.contentContainer}>
         <View style={styles.textContainer}>
           <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
@@ -164,6 +210,22 @@ export default function ProductCard({ item, cardWidth }) {
 }
 
 const styles = StyleSheet.create({
+  wishlistIconWrapper: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    zIndex: 10,
+  },
+  wishlistButton: {
+    backgroundColor: 'transparent',
+    padding: 4,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wishlistActive: {
+    // Optionally add a highlight or shadow
+  },
   container: {
     backgroundColor: colors.white,
     borderRadius: borderRadius.lg,

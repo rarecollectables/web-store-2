@@ -41,8 +41,7 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
       // Calculate discounted total
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const discountedSubtotal = Math.max(0, subtotal - (discountAmount || 0));
-      const tax = discountedSubtotal * 0.1;
-      const total = Math.max(0, discountedSubtotal + tax);
+      const total = Math.max(0, discountedSubtotal); // No tax applied
       // Track payment start
       trackEvent({ eventType: 'checkout_payment_started', total, items: cart.length, coupon });
       const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
@@ -175,7 +174,7 @@ export default function CheckoutScreen() {
   // Called when user closes modal or continues shopping
   const handleContinueShopping = () => {
     setConfirmationOpen(false);
-    router.replace('/'); // or '/(tabs)/shop' if you want to go to shop tab
+    router.replace('/(tabs)/shop'); // Redirect to shop tab after order success
   };
 
   useEffect(() => {
@@ -252,8 +251,7 @@ export default function CheckoutScreen() {
       discountAmount = couponStatus.discount.value;
     }
   }
-  const tax = (subtotal - discountAmount) * 0.1;
-  const total = Math.max(0, subtotal - discountAmount + tax);
+  const total = Math.max(0, subtotal - discountAmount);
 
   if (stripeLoading) {
     return (
@@ -376,7 +374,6 @@ export default function CheckoutScreen() {
           {couponStatus?.valid && discountAmount > 0 && (
             <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Discount</Text><Text style={[styles.summaryValue, { color: colors.gold }]}>-₤{discountAmount.toFixed(2)}</Text></View>
           )}
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Tax (10%)</Text><Text style={styles.summaryValue}>{`₤${tax.toFixed(2)}`}</Text></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabelTotal}>Total</Text><Text style={styles.summaryValueTotal}>{`₤${total.toFixed(2)}`}</Text></View>
         </View>
         {/* Stripe Payment */}

@@ -9,8 +9,7 @@ export default function ConfirmationScreen() {
   const { cart } = useStore();
 
   const subtotal = cart.reduce((sum, item) => sum + (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * (item.quantity || 1), 0);
-  const tax = subtotal * 0.1;
-  const total = subtotal + tax;
+  const total = subtotal; // No tax applied
 
   return (
     <View style={styles.container}>
@@ -30,7 +29,6 @@ export default function ConfirmationScreen() {
             </View>
           ))}
           <Text style={styles.summaryText}>Subtotal: ₤{subtotal.toFixed(2)}</Text>
-          <Text style={styles.summaryText}>Tax (10%): ₤{tax.toFixed(2)}</Text>
           <Text style={styles.summaryTextBold}>Total: ₤{total.toFixed(2)}</Text>
         </View>
         <Text style={styles.delivery}>Estimated delivery: 2-4 business days</Text>

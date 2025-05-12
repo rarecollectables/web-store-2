@@ -129,9 +129,9 @@ export default function HomeScreen() {
       >
           <View style={styles.content}>
             <ImageBackground
-              source={require('../../assets/images/homepage-herobanner.webp')}
-              style={[styles.heroContainer, { width: width }]}
-              imageStyle={{ opacity: 0.8 }}
+                source={{ uri: 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils//homepage-herobanner.webp' }}
+                style={[styles.heroContainer, { width: width }]}
+                imageStyle={{ opacity: 0.8 }}
             >
               <View style={styles.overlay} />
               <Text style={styles.heroText}>Rare Collectables</Text>
@@ -192,14 +192,11 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
               <View style={styles.socialRow}>
-                <Pressable onPress={() => Linking.openURL('https://facebook.com/rarecollectables')} accessibilityRole="link" accessibilityLabel="Facebook">
+                <Pressable onPress={() => Linking.openURL('https://www.facebook.com/profile.php?id=61573565127513')} accessibilityRole="link" accessibilityLabel="Facebook">
                   <FontAwesome name="facebook" size={32} color="#4267B2" />
                 </Pressable>
-                <Pressable onPress={() => Linking.openURL('https://instagram.com/rarecollectables')} style={styles.socialIcon} accessibilityRole="link" accessibilityLabel="Instagram">
+                <Pressable onPress={() => Linking.openURL('https://instagram.com/rarecollectablesshop')} style={styles.socialIcon} accessibilityRole="link" accessibilityLabel="Instagram">
                   <FontAwesome name="instagram" size={32} color="#C13584" />
-                </Pressable>
-                <Pressable onPress={() => Linking.openURL('https://twitter.com/rarecollect')} style={styles.socialIcon} accessibilityRole="link" accessibilityLabel="Twitter">
-                  <FontAwesome name="twitter" size={32} color="#1DA1F2" />
                 </Pressable>
               </View>
             </View>

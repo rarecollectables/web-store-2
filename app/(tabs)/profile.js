@@ -35,7 +35,7 @@ const SECTIONS = [
     title: 'Support & Contact',
     icon: 'envelope',
     description: 'Get help or contact our concierge.',
-    action: () => Linking.openURL('mailto:support@rarecollectables.com'),
+    action: () => Linking.openURL('mailto:carecentre@rarecollectables.co.uk'),
   },
   {
     title: 'About Rare Collectables',

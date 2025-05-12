@@ -113,14 +113,28 @@ export default function ProductDetail() {
   function handleWishlist() {
     setWishAnimating(true);
     setIsWishlisted((prev) => !prev);
-    if (!isWishlisted && product) addToWishlist(product);
+    const eventType = isWishlisted ? 'remove_from_wishlist' : 'add_to_wishlist';
+    if (product) {
+      if (!isWishlisted) {
+        addToWishlist(product);
+      }
+      trackEvent({
+        eventType,
+        productId: product.id,
+        metadata: { productName: product.title || product.name, price: product.price }
+      });
+    }
     Animated.sequence([
       Animated.timing(heartScale, { toValue: 1.3, duration: 120, useNativeDriver: true }),
       Animated.spring(heartScale, { toValue: 1, friction: 3, useNativeDriver: true })
-    ]).start(() => setWishAnimating(false));
-    if (!isWishlisted && product) {
-      Alert.alert('Added to Wishlist', `${product.title} has been added to your wishlist.`);
-    }
+    ]).start(() => {
+      setWishAnimating(false);
+      if (!isWishlisted) {
+        Alert.alert('Added to Wishlist', `${product.title} has been added to your wishlist.`);
+      } else {
+        Alert.alert('Removed from Wishlist', `${product.title} has been removed from your wishlist.`);
+      }
+    });
   }
 
   if (loading) {

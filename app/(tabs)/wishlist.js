@@ -54,7 +54,16 @@ export default function WishlistScreen() {
     return (
       <Animated.View style={[styles.swipeRemove, { transform: [{ scale }] }]}> 
         <Pressable
-          onPress={() => removeFromWishlist(item.id)}
+          onPress={() => {
+            removeFromWishlist(item.id);
+            if (item && item.id) {
+              trackEvent({
+                eventType: 'remove_from_wishlist',
+                productId: item.id,
+                metadata: { productName: item.title, price: item.price }
+              });
+            }
+          }}
           style={styles.removeBtn}
           accessibilityLabel={`Remove ${item.title} from wishlist`}
           accessibilityRole="button"
