@@ -99,15 +99,35 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
   return (
     <View style={styles.paymentSection}>
       <Text style={styles.sectionTitle}>Payment Information</Text>
-      <Text style={styles.sectionSubtitle}>Secure payment processing</Text>
       {errors.payment && errors.payment.map((msg, idx) => (
         <Text key={idx} style={styles.errorText}>{msg}</Text>
       ))}
-      <View style={styles.cardElementContainer}>
-        <Text style={styles.inputLabel}>Card Details</Text>
-        <View style={styles.stripeCardWrapper}>
-          <CardElement options={{ style: { base: { fontSize: 17, color: colors.onyxBlack, letterSpacing: '0.025em', fontFamily, backgroundColor: colors.white, '::placeholder': { color: '#aab7c4' }, }, invalid: { color: colors.ruby } } }} />
+      <View style={styles.cardElementLuxuryContainer}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={styles.secureIcon}>🔒</Text>
+          <Text style={styles.secureLabel}>Secure Card Payment</Text>
         </View>
+        <Text style={styles.inputLabel}>Card Details</Text>
+        <View style={styles.stripeCardLuxuryWrapper}>
+          <CardElement options={{
+            style: {
+              base: {
+                fontSize: 18,
+                color: colors.onyxBlack,
+                fontFamily,
+                backgroundColor: colors.white,
+                border: 'none',
+                padding: '14px 14px',
+                '::placeholder': { color: '#bfa054', fontStyle: 'italic' },
+              },
+              invalid: {
+                color: colors.ruby,
+                borderColor: colors.ruby,
+              },
+            },
+          }} />
+        </View>
+        <Text style={styles.cardHelperText}>All transactions are encrypted and processed securely.</Text>
         <Pressable
           style={({ pressed }) => [
             styles.checkoutButton,
@@ -438,6 +458,51 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: colors.ruby,
+  },
+  cardElementLuxuryContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    boxShadow: '0 2px 16px rgba(191,160,84,0.08)',
+    padding: 22,
+    marginTop: 16,
+    marginBottom: 18,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.09,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  stripeCardLuxuryWrapper: {
+    backgroundColor: colors.white,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    marginBottom: 8,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  secureIcon: {
+    fontSize: 18,
+    color: colors.gold,
+    marginRight: 6,
+  },
+  secureLabel: {
+    fontSize: 16,
+    color: colors.gold,
+    fontFamily,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  cardHelperText: {
+    fontSize: 13,
+    color: colors.platinum,
+    marginBottom: 8,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   errorText: {
     fontSize: 14,

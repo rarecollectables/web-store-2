@@ -9,11 +9,11 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { coupon, paymentIntentId } = JSON.parse(event.body);
-    if (!coupon || !paymentIntentId) {
+    const { coupon } = JSON.parse(event.body);
+    if (!coupon) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Coupon code and paymentIntentId are required.' }),
+        body: JSON.stringify({ error: 'Coupon code is required.' }),
       };
     }
 
