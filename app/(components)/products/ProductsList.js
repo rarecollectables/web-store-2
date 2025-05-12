@@ -324,11 +324,26 @@ export default function ProductsList() {
       {/* Search Bar */}
       <TextInput
         value={search}
-        onChangeText={text => {
+        onChangeText={async text => {
           setSearch(text);
           setProducts([]); // reset products
           setPage(1);
           setHasMore(true);
+          // Log search if not empty
+          if (text.trim() !== '') {
+            try {
+              await fetch('/.netlify/functions/logSearch', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: text }),
+              });
+            } catch (err) {
+              // Fail silently, do not block UI
+              console.error('Failed to log search:', err);
+            }
+          }
         }}
         placeholder="Search products..."
         style={{
