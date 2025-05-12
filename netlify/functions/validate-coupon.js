@@ -1,6 +1,7 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 exports.handler = async (event) => {
+  console.log('Stripe Key:', process.env.STRIPE_SECRET_KEY ? '[SET]' : '[MISSING]');
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -10,6 +11,7 @@ exports.handler = async (event) => {
 
   try {
     const { coupon } = JSON.parse(event.body);
+    console.log('Coupon received:', coupon);
     if (!coupon) {
       return {
         statusCode: 400,
@@ -23,6 +25,7 @@ exports.handler = async (event) => {
       active: true,
       limit: 1
     });
+    console.log('Stripe promoCodes API result:', JSON.stringify(promoCodes));
 
     if (!promoCodes.data.length) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid or expired coupon code.' }) };

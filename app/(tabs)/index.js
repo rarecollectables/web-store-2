@@ -80,6 +80,8 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
   );
 }
 
+import SpringPromoModal from '../components/SpringPromoModal';
+
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -89,6 +91,20 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [email, setEmail] = useState('');
   const [isChatVisible, setIsChatVisible] = useState(false);
+  const [showPromo, setShowPromo] = useState(false);
+
+  useEffect(() => {
+    // Only show promo if not previously shown (per device)
+    const seen = typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('springPromoSeen');
+    if (!seen) setShowPromo(true);
+  }, []);
+
+  const handleClosePromo = () => {
+    setShowPromo(false);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('springPromoSeen', '1');
+    }
+  };
 
   // Responsive columns for category grid
   const columns = width > 900 ? 4 : width > 600 ? 3 : 2;
@@ -100,6 +116,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
 
+      <SpringPromoModal visible={showPromo} onClose={handleClosePromo} />
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
