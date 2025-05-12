@@ -10,8 +10,16 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { coupon } = JSON.parse(event.body);
-    console.log('Coupon received:', coupon);
+    let coupon;
+    try {
+      const body = JSON.parse(event.body);
+      coupon = body.coupon;
+    } catch (_parseErr) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid request body. Must be JSON with a coupon property.' }),
+      };
+    }
     if (!coupon) {
       return {
         statusCode: 400,
