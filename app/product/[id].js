@@ -10,6 +10,7 @@ import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme/
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchProductById } from '../../lib/supabase/fetchProductById';
 import { trackEvent } from '../../lib/trackEvent';
+import LuxuryModal from '../components/LuxuryModal';
 
 function MemoCarouselImage({ item, style }) {
   return <ExpoImage source={item} style={style} contentFit="cover" transition={300} />;
@@ -131,15 +132,23 @@ export default function ProductDetail() {
   }
   if (error || !product) {
     return (
-      <View style={styles.modal}>
-        <Pressable style={styles.close} onPress={() => {
-          if (router.canGoBack()) router.back();
-          else router.replace('/');
-        }}>
-          <Text style={styles.closeText}>✕</Text>
-        </Pressable>
-        <Text style={{ margin: 20, color: colors.text }}>{error || 'Product not found.'}</Text>
-      </View>
+      <LuxuryModal visible={true} showClose={false} animation="fade">
+        <View style={{ alignItems: 'center', justifyContent: 'center', padding: spacing.lg }}>
+          <Text style={{ color: colors.gold, fontSize: 24, fontWeight: 'bold', marginBottom: spacing.md, fontFamily, letterSpacing: 0.5, textAlign: 'center' }}>
+            Welcome to Rare Collectables!
+          </Text>
+          <Text style={{ color: colors.platinum, fontSize: 16, marginBottom: spacing.lg, fontFamily, textAlign: 'center', maxWidth: 340 }}>
+            We couldn't find that product, but you can search our shop for it or explore other luxury items.
+          </Text>
+          <Pressable
+            style={{ backgroundColor: colors.gold, borderRadius: borderRadius.md, paddingVertical: 12, paddingHorizontal: 36, marginTop: 8 }}
+            onPress={() => router.replace('/shop')}
+            accessibilityLabel="Go to Shop"
+          >
+            <Text style={{ color: colors.white, fontSize: 18, fontWeight: 'bold', letterSpacing: 0.5, fontFamily }}>Go to Shop</Text>
+          </Pressable>
+        </View>
+      </LuxuryModal>
     );
   }
 

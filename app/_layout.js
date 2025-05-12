@@ -6,7 +6,7 @@ import { StoreProvider } from '../context/store';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { trackEvent } from '../lib/trackEvent';
 import { getLocationInfo } from '../lib/trackEvent';
-
+import HomeBanner from './components/HomeBanner';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -99,6 +99,7 @@ export default function RootLayout() {
     <PaperProvider>
       <StoreProvider>
         <SafeAreaProvider>
+          <HomeBanner />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen

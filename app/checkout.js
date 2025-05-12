@@ -30,7 +30,7 @@ const addressSchema = z.object({
 
 
 
-export function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, setPaying, validateForm, removeFromCart, onSuccess }) {
+export function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, setPaying, validateForm, removeFromCart, onSuccess, coupon, discountAmount }) {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -38,12 +38,17 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
     if (!validateForm()) return;
     try {
       setPaying(true);
+      // Calculate discounted total
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const discountedSubtotal = Math.max(0, subtotal - (discountAmount || 0));
+      const tax = discountedSubtotal * 0.1;
+      const total = Math.max(0, discountedSubtotal + tax);
       // Track payment start
-      trackEvent({ eventType: 'checkout_payment_started', total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length });
+      trackEvent({ eventType: 'checkout_payment_started', total, items: cart.length, coupon });
       const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cart, contact, address }),
+        body: JSON.stringify({ cart, contact, address }), // backend still calculates amount, but we track discount in analytics and order
       });
       if (!response.ok) {
         const errText = await response.text();
@@ -71,22 +76,25 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         items: cart,
         contact,
         address,
-        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        total,
+        discount: discountAmount || 0,
+        coupon: coupon || null,
         paymentIntentId: result.paymentIntent.id,
       });
       // Track payment success
-      trackEvent({ eventType: 'checkout_payment_success', total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length });
-      trackEvent({ eventType: 'order_completed', total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length });
+      trackEvent({ eventType: 'checkout_payment_success', total, items: cart.length, coupon });
+      trackEvent({ eventType: 'order_completed', total, items: cart.length, coupon });
       cart.forEach(item => removeFromCart(item.id));
       if (onSuccess) onSuccess();
     } catch (error) {
       // Track payment failure
-      trackEvent({ eventType: 'checkout_payment_failed', error: error.message, total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length });
+      trackEvent({ eventType: 'checkout_payment_failed', error: error.message, total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length, coupon });
       setErrors({ ...errors, payment: [error.message || 'An error occurred during checkout. Please try again.'] });
     } finally {
       setPaying(false);
     }
   };
+
 
   return (
     <View style={styles.paymentSection}>
@@ -123,6 +131,11 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
 }
 
 export default function CheckoutScreen() {
+  // Coupon state (must be defined before use)
+  const [coupon, setCoupon] = useState('');
+  const [couponStatus, setCouponStatus] = useState(null); // { valid: bool, discount: {type, value}, error }
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+
   const router = useRouter();
   const { cart, removeFromCart } = useStore();
   const [contact, setContact] = useState({ name: '', email: '' });
@@ -173,6 +186,30 @@ export default function CheckoutScreen() {
     else if (type === 'address') setAddress(prev => ({ ...prev, [field]: value }));
   };
 
+  // Coupon validation handler
+  const handleApplyCoupon = async () => {
+    if (!coupon) return;
+    setApplyingCoupon(true);
+    setCouponStatus(null);
+    try {
+      const response = await fetch('/.netlify/functions/validate-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coupon }),
+      });
+      const data = await response.json();
+      if (response.ok && data.valid) {
+        setCouponStatus({ valid: true, discount: data.discount, promo: data.promo });
+      } else {
+        setCouponStatus({ valid: false, error: data.error || 'Invalid or expired coupon code.' });
+      }
+    } catch (err) {
+      setCouponStatus({ valid: false, error: err.message || 'Failed to validate coupon.' });
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
   const validateForm = () => {
     const contactErrors = {};
     const addressErrors = {};
@@ -187,8 +224,16 @@ export default function CheckoutScreen() {
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = subtotal * 0.1;
-  const total = subtotal + tax;
+  let discountAmount = 0;
+  if (couponStatus?.valid && couponStatus.discount) {
+    if (couponStatus.discount.type === 'percent') {
+      discountAmount = subtotal * (couponStatus.discount.value / 100);
+    } else if (couponStatus.discount.type === 'amount') {
+      discountAmount = couponStatus.discount.value;
+    }
+  }
+  const tax = (subtotal - discountAmount) * 0.1;
+  const total = Math.max(0, subtotal - discountAmount + tax);
 
   if (stripeLoading) {
     return (
@@ -269,16 +314,54 @@ export default function CheckoutScreen() {
             placeholderTextColor={colors.platinum}
           />
         </View>
+        {/* Coupon Code Input */}
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Discount Code</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginRight: 12 }]}
+              placeholder="Enter coupon code"
+              value={coupon}
+              onChangeText={setCoupon}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              placeholderTextColor={colors.platinum}
+            />
+            <Pressable
+              style={({ pressed }) => [styles.checkoutButton, applyingCoupon && styles.checkoutButtonDisabled, pressed && !applyingCoupon && { opacity: 0.93 }]}
+              onPress={handleApplyCoupon}
+              disabled={applyingCoupon}
+              accessibilityRole="button"
+              accessibilityLabel="Apply Coupon"
+            >
+              {applyingCoupon ? (
+                <ActivityIndicator color={colors.gold} style={{ marginVertical: 2 }} />
+              ) : (
+                <Text style={styles.checkoutButtonText}>Apply</Text>
+              )}
+            </Pressable>
+          </View>
+          {couponStatus && (
+            couponStatus.valid ? (
+              <Text style={[styles.successText, { marginBottom: 4 }]}>Coupon applied: {coupon.toUpperCase()} {couponStatus.discount.type === 'percent' ? `(${couponStatus.discount.value}% off)` : `(-₤${couponStatus.discount.value.toFixed(2)})`}</Text>
+            ) : (
+              <Text style={[styles.errorText, { marginBottom: 4 }]}>{couponStatus.error}</Text>
+            )
+          )}
+        </View>
         {/* Order Summary */}
         <View style={styles.orderSummarySection}>
           <Text style={styles.sectionTitle}>Order Summary</Text>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text style={styles.summaryValue}>{`₤${subtotal.toFixed(2)}`}</Text></View>
+          {couponStatus?.valid && discountAmount > 0 && (
+            <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Discount</Text><Text style={[styles.summaryValue, { color: colors.gold }]}>-₤{discountAmount.toFixed(2)}</Text></View>
+          )}
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Tax (10%)</Text><Text style={styles.summaryValue}>{`₤${tax.toFixed(2)}`}</Text></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabelTotal}>Total</Text><Text style={styles.summaryValueTotal}>{`₤${total.toFixed(2)}`}</Text></View>
         </View>
         {/* Stripe Payment */}
         {stripe && (
-          <Elements stripe={stripe}>
+          <Elements stripe={stripe} options={{ locale: 'en-GB' }}>
             <StripePaymentForm
               cart={cart}
               contact={contact}
@@ -290,6 +373,8 @@ export default function CheckoutScreen() {
               validateForm={validateForm}
               removeFromCart={removeFromCart}
               onSuccess={handleCheckoutSuccess}
+              coupon={couponStatus?.valid ? coupon : null}
+              discountAmount={discountAmount}
             />
           </Elements>
         )}
