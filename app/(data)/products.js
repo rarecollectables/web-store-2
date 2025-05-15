@@ -116,13 +116,8 @@ function ProductsDataRoute() {
   return null;
 }
 
-// Export for CommonJS
 module.exports = {
   PRODUCTS,
   LOCAL_IMAGES,
   ProductsDataRoute
 };
-
-// Export for ES modules
-export { PRODUCTS, LOCAL_IMAGES, ProductsDataRoute };
-export default ProductsDataRoute;

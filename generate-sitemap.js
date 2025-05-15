@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-// Import your product data
-const { PRODUCTS } = require('./app/(data)/products.js');
+// Import minimal product data (no image requires)
+const PRODUCTS = require('./scripts/products-sitemap-data.js');
 
 const siteUrl = 'https://rarecollectables.co.uk';
 

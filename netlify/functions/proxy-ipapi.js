@@ -17,23 +17,29 @@ exports.handler = async function(event) {
         body: JSON.stringify(cache[ip].data)
       };
     }
-    // Fetch from ipapi.co
-    const resp = await fetch('https://ipapi.co/json/');
+    // Fetch from GeoJS
+    const resp = await fetch('https://get.geojs.io/v1/ip/geo.json');
     if (!resp.ok) {
       // Return a graceful error JSON
       return {
         statusCode: 200,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: true, message: 'Failed to fetch from ipapi.co', status: resp.status, city: null, country_name: null })
+        body: JSON.stringify({ error: true, message: 'Failed to fetch from geojs', status: resp.status, city: null, country_name: null })
       };
     }
     const data = await resp.json();
+    // Normalize to match expected keys
+    const normalized = {
+      city: data.city || null,
+      country_name: data.country || null,
+      ...data
+    };
     // Cache the result
-    cache[ip] = { data, timestamp: now };
+    cache[ip] = { data: normalized, timestamp: now };
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(normalized)
     };
   } catch (err) {
     // Always return a valid JSON error
