@@ -7,9 +7,21 @@ export default function SpringPromoModal({ visible, onClose }) {
   return (
     <View style={styles.overlay}>
       <View style={styles.modal}>
-        <Text style={styles.title}>🌸 Welcome to Rare Collectables!</Text>
+        {/* Force the title to always be on one line, no wrap, no truncation */}
+        <Text
+          style={[
+            styles.title,
+            { flexShrink: 1, paddingHorizontal: 8, fontSize: 20, minWidth: 340, maxWidth: 400, textAlign: 'center', whiteSpace: 'nowrap' }
+          ]}
+          numberOfLines={1}
+        >
+          🌸 Welcome to Rare Collectables!
+        </Text>
         <Text style={styles.body}>
-          As a thank you for visiting, enjoy a special <Text style={styles.bold}>20% off</Text> your first order!
+          As a thank you for visiting
+        </Text>
+        <Text style={styles.body}>
+          Enjoy a special <Text style={styles.bold}>20% off</Text> your first order!
         </Text>
         <Text style={styles.codeLabel}>Use coupon code:</Text>
         <View style={styles.codeBox}>

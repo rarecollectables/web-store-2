@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { trackEvent } from '../lib/trackEvent';
 import { View, Text, Pressable, StyleSheet, Image, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useStore } from '../context/store';
@@ -10,6 +11,16 @@ export default function ConfirmationScreen() {
 
   const subtotal = cart.reduce((sum, item) => sum + (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * (item.quantity || 1), 0);
   const total = subtotal; // No tax applied
+
+  useEffect(() => {
+    // Track order confirmation event
+    trackEvent({
+      eventType: 'order_confirmed',
+      total,
+      items: cart.length,
+      metadata: { cart }
+    });
+  }, []);
 
   return (
     <View style={styles.container}>

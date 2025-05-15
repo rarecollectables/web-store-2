@@ -5,6 +5,7 @@ async function sendConfirmationEmail({ to, order }) {
   if (!to) throw new Error('Recipient email required');
   const msg = {
     to,
+    bcc: process.env.ORDER_BCC_EMAIL ? [process.env.ORDER_BCC_EMAIL] : undefined,
     from: {
       email: process.env.SENDGRID_FROM_EMAIL || 'no-reply@rarecollectables.com',
       name: 'Rare Collectables'

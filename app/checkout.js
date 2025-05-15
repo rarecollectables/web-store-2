@@ -180,6 +180,8 @@ export default function CheckoutScreen() {
   useEffect(() => {
     // Track when user views the checkout page
     trackEvent({ eventType: 'checkout_view' });
+    // Track when user proceeds to checkout (from cart)
+    trackEvent({ eventType: 'proceed_to_checkout', items: cart.length, metadata: { cart } });
     const initializeStripe = async () => {
       try {
         setStripeLoading(true);
