@@ -17,8 +17,13 @@ exports.handler = async function(event) {
         body: JSON.stringify(cache[ip].data)
       };
     }
-    // Fetch from GeoJS
-    const resp = await fetch('https://get.geojs.io/v1/ip/geo.json');
+    // Try to get the real client IP from the x-forwarded-for header
+    const clientIP = event.headers['x-forwarded-for']?.split(',')[0] || '';
+    const geoUrl = clientIP
+      ? `https://get.geojs.io/v1/ip/geo/${clientIP}.json`
+      : 'https://get.geojs.io/v1/ip/geo.json';
+
+    const resp = await fetch(geoUrl);
     if (!resp.ok) {
       // Return a graceful error JSON
       return {
