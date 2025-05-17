@@ -383,6 +383,20 @@ CREATE INDEX IF NOT EXISTS idx_wishlist_items_user ON wishlist_items(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_product ON reviews(product_id);
 
+-- Create checkout_attempts table
+CREATE TABLE IF NOT EXISTS checkout_attempts (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    guest_session_id TEXT NOT NULL,
+    email TEXT,
+    contact JSONB,
+    address JSONB,
+    cart JSONB,
+    status TEXT DEFAULT 'started',
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create function to update updated_at columns
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

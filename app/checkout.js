@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { useStore } from '../context/store';
+import { getGuestSession } from '../lib/supabase/client';
+import { checkoutAttemptService } from '../lib/supabase/services';
 import { z } from 'zod';
 import { storeOrder } from './components/orders-modal';
 import { trackEvent } from '../lib/trackEvent';
@@ -159,6 +161,8 @@ export default function CheckoutScreen() {
   const { cart, removeFromCart } = useStore();
   const [contact, setContact] = useState({ name: '', email: '' });
   const [address, setAddress] = useState({ line1: '', city: '', postcode: '' });
+  // Debounce timer for logging checkout attempts
+  const [debounceTimer, setDebounceTimer] = useState(null);
   const [errors, setErrors] = useState({});
   const [stripeLoading, setStripeLoading] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -205,7 +209,26 @@ export default function CheckoutScreen() {
   const handleInputChange = (type, field, value) => {
     if (type === 'contact') setContact(prev => ({ ...prev, [field]: value }));
     else if (type === 'address') setAddress(prev => ({ ...prev, [field]: value }));
+    // Debounced log to Supabase
+    if (debounceTimer) clearTimeout(debounceTimer);
+    setDebounceTimer(setTimeout(async () => {
+      try {
+        const guest_session_id = await getGuestSession();
+        await checkoutAttemptService.upsertAttempt({
+          guest_session_id,
+          email: type === 'contact' && field === 'email' ? value : contact.email,
+          contact: type === 'contact' ? { ...contact, [field]: value } : contact,
+          address: type === 'address' ? { ...address, [field]: value } : address,
+          cart,
+          status: 'started',
+          metadata: {}
+        });
+      } catch (e) {
+        // Optionally handle/log error
+      }
+    }, 600));
   };
+
 
   // Coupon validation handler
   const handleApplyCoupon = async () => {
