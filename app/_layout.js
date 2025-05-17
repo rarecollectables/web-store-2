@@ -7,6 +7,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { trackEvent } from '../lib/trackEvent';
 import { getLocationInfo } from '../lib/trackEvent';
 import HomeBanner from './components/HomeBanner';
+import CartHeaderIcon from './components/CartHeaderIcon';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -100,6 +101,12 @@ export default function RootLayout() {
       <StoreProvider>
         <SafeAreaProvider>
           <HomeBanner />
+          <CartHeaderIcon style={{
+            position: Platform.OS === 'web' ? 'absolute' : 'fixed',
+            top: 12,
+            right: 18,
+            zIndex: 2000
+          }} />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen
