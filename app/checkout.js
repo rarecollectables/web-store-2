@@ -207,28 +207,37 @@ export default function CheckoutScreen() {
   }, []);
 
   const handleInputChange = (type, field, value) => {
-    if (type === 'contact') setContact(prev => ({ ...prev, [field]: value }));
-    else if (type === 'address') setAddress(prev => ({ ...prev, [field]: value }));
-    // Debounced log to Supabase
+    // Compute the next state for contact and address
+    let nextContact = contact;
+    let nextAddress = address;
+    if (type === 'contact') {
+      nextContact = { ...contact, [field]: value };
+      setContact(nextContact);
+    } else if (type === 'address') {
+      nextAddress = { ...address, [field]: value };
+      setAddress(nextAddress);
+    }
+    // Debounced log to Supabase with the latest state
     if (debounceTimer) clearTimeout(debounceTimer);
     setDebounceTimer(setTimeout(async () => {
       try {
         const guest_session_id = await getGuestSession();
-        await checkoutAttemptService.upsertAttempt({
+        const payload = {
           guest_session_id,
-          email: type === 'contact' && field === 'email' ? value : contact.email,
-          contact: type === 'contact' ? { ...contact, [field]: value } : contact,
-          address: type === 'address' ? { ...address, [field]: value } : address,
+          email: type === 'contact' && field === 'email' ? value : nextContact.email,
+          contact: nextContact,
+          address: nextAddress,
           cart,
           status: 'started',
           metadata: {}
-        });
+        };
+        console.log('[CHECKOUT_ATTEMPT_PAYLOAD]', payload);
+        await checkoutAttemptService.upsertAttempt(payload);
       } catch (e) {
-        // Optionally handle/log error
+        console.error('Checkout attempt logging failed:', e);
       }
     }, 600));
   };
-
 
   // Coupon validation handler
   const handleApplyCoupon = async () => {
