@@ -97,7 +97,9 @@ export default function ProductDetail() {
     const imageUri = (Array.isArray(images) && images[0]?.uri) ? images[0].uri : (product?.image_url || product?.image || '');
     addToCart({
       ...product,
-      price: typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0,
+      price: typeof product.price === 'number'
+        ? product.price
+        : parseFloat(String(product.price).replace(/[£\s]/g, '')) || 0,
       image: imageUri,
       quantity: 1,
     });
