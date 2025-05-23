@@ -81,6 +81,7 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
 }
 
 import SpringPromoModal from '../components/SpringPromoModal';
+import BestSellersSection from '../components/BestSellersSection';
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
@@ -144,7 +145,10 @@ export default function HomeScreen() {
                 <Text style={styles.ctaText}>Shop Now</Text>
               </Pressable>
             </ImageBackground>
+
+            {/* Best Sellers Section */}
             <View style={styles.categoriesContainer}>
+
               {CATEGORIES.map((cat, index) => {
                 const marginRight = (index + 1) % columns === 0 ? 0 : cardSpacing;
                 const images = CATEGORY_IMAGES[cat.id] || [];
@@ -161,6 +165,8 @@ export default function HomeScreen() {
                 );
               })}
             </View>
+            {/* Best Sellers Section */}
+            <BestSellersSection cardWidth={cardSize} numColumns={columns} bestSellerIds={['ec75311c-c851-45b8-b1a5-22a364e12449', '7c01ba23-db05-43cc-b38a-eb394b379853', '1-bracelets', '2-bracelets']} />
             <View style={styles.newsletterSection}>
               <Text style={styles.newsletterTitle}>Join our newsletter</Text>
               <View style={styles.newsletterForm}>

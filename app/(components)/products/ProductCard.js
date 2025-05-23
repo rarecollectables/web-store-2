@@ -11,6 +11,7 @@ export default function ProductCard({ item, cardWidth }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [failedIndexes, setFailedIndexes] = useState([]);
   const intervalRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [isWishlisted, setIsWishlisted] = useState(() => wishlist?.some(w => w.id === item.id));
@@ -33,10 +34,13 @@ export default function ProductCard({ item, cardWidth }) {
     return images;
   };
 
-  const images = getProductImages();
-  if (typeof window !== 'undefined') {
+  let images = getProductImages();
+  // Filter out images that have failed to load
+  images = images.filter((_, idx) => !failedIndexes.includes(idx));
 
-  }
+  // If all images failed, use the branded placeholder
+  const allImagesFailed = images.length === 0;
+  const PLACEHOLDER_IMAGE = 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils//brandLogo.webp';
 
   useEffect(() => {
     if (images.length > 1) {
@@ -50,6 +54,12 @@ export default function ProductCard({ item, cardWidth }) {
       }
     };
   }, [images.length]);
+
+  // Reset failedIndexes if item changes
+  useEffect(() => {
+    setFailedIndexes([]);
+    setCurrentIndex(0);
+  }, [item.id]);
 
   const handlePress = () => {
     // Track product view event
@@ -134,10 +144,16 @@ export default function ProductCard({ item, cardWidth }) {
             <ActivityIndicator size="large" color={colors.gold} />
           </View>
         )}
-        {imageError ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Image not available</Text>
-          </View>
+        {allImagesFailed ? (
+          <ImageBackground
+            source={{ uri: PLACEHOLDER_IMAGE }}
+            style={styles.image}
+            imageStyle={styles.imageStyle}
+            onLoadStart={() => setImageLoading(true)}
+            onLoad={() => setImageLoading(false)}
+          >
+            {/* Optionally, show a logo or fallback text here */}
+          </ImageBackground>
         ) : (
           <ImageBackground
             source={typeof images[currentIndex] === 'string' && images[currentIndex].trim() !== '' ? { uri: images[currentIndex] } : undefined}
@@ -147,15 +163,19 @@ export default function ProductCard({ item, cardWidth }) {
             onLoad={() => setImageLoading(false)}
             onError={() => {
               setImageLoading(false);
-              setImageError(true);
-              // Skip to next image if available
-              if (images.length > 1) {
-
-                setTimeout(() => {
-                  setCurrentIndex((prev) => (prev + 1) % images.length);
-                  setImageError(false);
-                }, 500);
-              }
+              setFailedIndexes(prev => {
+                // Mark this index as failed
+                const failed = [...prev, currentIndex];
+                // If all images failed, show placeholder
+                if (failed.length >= getProductImages().length) {
+                  setImageError(true);
+                } else {
+                  // Instantly skip to next valid image
+                  const nextValid = getProductImages().findIndex((_, idx) => !failed.includes(idx) && idx !== currentIndex);
+                  setCurrentIndex(nextValid !== -1 ? nextValid : 0);
+                }
+                return failed;
+              });
             }}
           >
             {images.length > 1 && (

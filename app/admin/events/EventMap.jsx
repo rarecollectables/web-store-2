@@ -60,8 +60,8 @@ const EventMap = ({ events }) => {
         scrollWheelZoom={true}
       >
         <TileLayer
-          attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          // attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
+          // url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {eventsWithLocation.map(ev => (
           <Marker key={ev.id} position={[Number(ev.location.latitude), Number(ev.location.longitude)]} icon={myIcon}>

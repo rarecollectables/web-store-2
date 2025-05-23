@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, FlatList, StyleSheet, ActivityIndicator, Text, Pressable, Platform } from 'react-native';
 import { useWindowDimensions } from 'react-native';
 import { useRouter, useGlobalSearchParams } from 'expo-router';
@@ -31,36 +31,52 @@ export default function ProductsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const ITEMS_PER_PAGE = 12; // Number of items per page
+  const [sortOption, setSortOption] = useState('newest'); // Default sort by newest
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // Function to change page
+  const changePage = useCallback((newPage) => {
+    if (newPage < 1 || newPage > totalPages || loading) return;
+    
+    // Scroll to top when changing pages
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
+    
+    setPage(newPage);
+  }, [totalPages, loading]);
 
   const isMobile = width < MOBILE_BREAKPOINT;
   const isTablet = width >= MOBILE_BREAKPOINT && width < TABLET_BREAKPOINT;
   const numColumns = isMobile ? 1 : isTablet ? 2 : 4;
-  
+
   const availableWidth = width - (CONTAINER_PADDING * 2);
-  const cardWidth = isMobile 
+  const cardWidth = numColumns === 1
     ? availableWidth
     : Math.min(
         Math.max(CARD_MIN_WIDTH, (availableWidth - (GRID_GAP * (numColumns - 1))) / numColumns),
         CARD_MAX_WIDTH
       );
 
-  // New: Search and category state
+  // State for search, category, and sorting
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  
+  // Sort options
+  const SORT_OPTIONS = [
+    { value: 'newest', label: 'Newest' },
+    { value: 'price_asc', label: 'Price: Low to High' },
+    { value: 'price_desc', label: 'Price: High to Low' },
+    { value: 'name_asc', label: 'Name: A to Z' },
+    { value: 'name_desc', label: 'Name: Z to A' }
+  ];
 
-  const loadMore = () => {
-    if (!hasMore || loading) return;
-    setPage(prev => prev + 1);
-  };
+  // The loadMoreProducts function is now handled by our custom hook
 
-  useEffect(() => {
-    setPage(1);
-    setProducts([]);
-  }, [search, selectedCategory]);
-
-  useEffect(() => {
-    async function fetchProducts() {
+  // Define fetchProducts outside of useEffect so it can be called from multiple places
+  const fetchProducts = async () => {
       try {
         setLoading(true);
         setError(null);
@@ -81,11 +97,64 @@ export default function ProductsList() {
 
         console.log('Successfully connected to database');
 
-        // Build the query
+        // First, get the total count for pagination
+        let countQuery = supabase
+          .from('products')
+          .select('id', { count: 'exact' });
+          
+        // Apply category filters to count query
+        if (selectedCategory && selectedCategory !== 'All') {
+          countQuery = countQuery.eq('category', selectedCategory);
+        } else if (category) {
+          const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+          countQuery = countQuery.eq('category', formattedCategory);
+        }
+        
+        // Apply search filter to count query if needed
+        if (search.trim() !== '') {
+          const lowerSearch = search.trim().toLowerCase();
+          countQuery = countQuery.or(`name.ilike.%${lowerSearch}%,description.ilike.%${lowerSearch}%`);
+        }
+        
+        const { count, error: countError } = await countQuery;
+        
+        if (countError) {
+          console.error('Error getting count:', countError);
+          throw new Error(`Count error: ${countError.message}`);
+        }
+        
+        // Calculate total pages
+        const calculatedTotalPages = Math.ceil(count / ITEMS_PER_PAGE) || 1;
+        setTotalPages(calculatedTotalPages);
+        
+        // Build the main query
         let query = supabase
           .from('products')
-          .select('id, name, price, image_url, category, description, stock, additional_images')
-          .order('created_at', { ascending: false });
+          .select('id, name, price, image_url, category, description, stock, additional_images');
+          
+        // Apply sorting
+        console.log('Applying sort:', sortOption);
+        let sortInJs = false;
+        switch (sortOption) {
+          case 'newest':
+            query = query.order('created_at', { ascending: false });
+            break;
+          case 'price_asc':
+          case 'price_desc':
+            console.log('Sorting by price in JS');
+            query = query.not('price', 'is', null);
+            sortInJs = true;
+            break;
+          case 'name_asc':
+            query = query.order('name', { ascending: true });
+            break;
+          case 'name_desc':
+            query = query.order('name', { ascending: false });
+            break;
+          default:
+            console.log('Using default sort (newest)');
+            query = query.order('created_at', { ascending: false });
+        }
 
         // Apply selectedCategory filter (overrides URL param if not 'All')
         if (selectedCategory && selectedCategory !== 'All') {
@@ -94,9 +163,15 @@ export default function ProductsList() {
           const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
           query = query.eq('category', formattedCategory);
         }
+        
+        // Apply search filter if needed
+        if (search.trim() !== '') {
+          const lowerSearch = search.trim().toLowerCase();
+          query = query.or(`name.ilike.%${lowerSearch}%,description.ilike.%${lowerSearch}%`);
+        }
 
         // Add pagination
-        query = query.range((page - 1) * 12, page * 12 - 1);
+        query = query.range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
 
         console.log('Executing query...');
         const { data, error } = await query;
@@ -113,8 +188,38 @@ export default function ProductsList() {
 
         if (!data || data.length === 0) {
           console.log('No products found');
-          setHasMore(false);
+          setProducts([]);
           return;
+        }
+
+        // If sorting by price, sort in JS
+        let sortedData = data;
+        if (sortInJs) {
+          sortedData = [...data].sort((a, b) => {
+            const parsePrice = (p) => {
+              if (typeof p === 'number') return p;
+              if (typeof p === 'string') {
+                // Remove everything except digits, dot, and comma
+                let cleaned = p.replace(/[^\d.,-]/g, '').replace(/,/g, '.');
+                // Handle multiple dots (keep only the first as decimal)
+                const parts = cleaned.split('.');
+                if (parts.length > 2) cleaned = parts.slice(0,2).join('.') + parts.slice(2).join('');
+                const val = parseFloat(cleaned);
+                return isNaN(val) ? null : val;
+              }
+              return null;
+            };
+            const priceA = parsePrice(a.price);
+            const priceB = parsePrice(b.price);
+            // Debug log
+            console.log(`Parsed priceA: ${a.price} =>`, priceA, ' | priceB:', b.price, '=>', priceB);
+            // Place invalid or missing prices at the end
+            if (priceA === null && priceB === null) return 0;
+            if (priceA === null) return 1;
+            if (priceB === null) return -1;
+            if (sortOption === 'price_asc') return priceA - priceB;
+            return priceB - priceA;
+          });
         }
 
         console.log('Raw products data:', data);
@@ -166,12 +271,8 @@ export default function ProductsList() {
           );
         }
         console.log('Processed products:', validProducts);
-        setProducts(prevProducts => {
-          // If we're on the first page, replace products
-          // If we're on subsequent pages, append products
-          return page === 1 ? validProducts : [...prevProducts, ...validProducts];
-        });
-        setHasMore(data.length === 12); // Assuming 12 products per page
+        // Set products directly (no appending since we're using pagination)
+        setProducts(validProducts);
       } catch (err) {
         console.error('Error fetching products:', {
           message: err.message,
@@ -182,10 +283,26 @@ export default function ProductsList() {
       } finally {
         setLoading(false);
       }
-    }
+  };
 
+  useEffect(() => {
+    // Reset everything when search, category, or sort option changes
+    console.log('Filter changed - sortOption:', sortOption);
+    setPage(1);
+    setProducts([]);
+    
+    // Scroll to top when filters change
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
+    
+    // Fetch products whenever filters change
     fetchProducts();
-  }, [category, page, search, selectedCategory]);
+  }, [search, selectedCategory, sortOption]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [page, category]);
 
   const renderHeader = () => {
     if (!category) return null;
@@ -240,35 +357,114 @@ export default function ProductsList() {
     }
 
     return (
-      <FlatList
-        data={products}
-        renderItem={({ item, index }) => (
-          <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
-            <ProductCard item={item} cardWidth={cardWidth} />
+      <View style={{ flex: 1 }}>
+        {/* Product Grid */}
+        <FlatList
+          data={products}
+          style={{ flex: 1 }}
+          contentContainerStyle={[styles.contentContainer, { flexGrow: 1, paddingVertical: spacing.xl }]}
+          renderItem={({ item, index }) => (
+            <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
+              <ProductCard item={item} cardWidth={cardWidth} />
+            </View>
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          numColumns={numColumns}
+          ListHeaderComponent={renderHeader}
+          ListFooterComponent={
+            loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={colors.gold} />
+              </View>
+            ) : null
+          }
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingVertical: spacing.xl }
+          ]}
+          columnWrapperStyle={numColumns > 1 ? [
+            styles.columnWrapper,
+            { gap: GRID_GAP }
+          ] : undefined}
+          showsVerticalScrollIndicator={false}
+        />
+        
+        {/* Pagination Controls */}
+        {!loading && products.length > 0 && totalPages > 1 && (
+          <View style={styles.paginationContainer}>
+            <Pressable
+              style={[styles.paginationButton, page === 1 && styles.paginationButtonDisabled]}
+              onPress={() => changePage(1)}
+              disabled={page === 1}
+            >
+              <Text style={styles.paginationButtonText}>«</Text>
+            </Pressable>
+            
+            <Pressable
+              style={[styles.paginationButton, page === 1 && styles.paginationButtonDisabled]}
+              onPress={() => changePage(page - 1)}
+              disabled={page === 1}
+            >
+              <Text style={styles.paginationButtonText}>‹</Text>
+            </Pressable>
+            
+            {/* Page numbers */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              // Logic to show pages around current page
+              let pageNum;
+              if (totalPages <= 5) {
+                // Show all pages if 5 or fewer
+                pageNum = i + 1;
+              } else if (page <= 3) {
+                // At start, show first 5 pages
+                pageNum = i + 1;
+              } else if (page >= totalPages - 2) {
+                // At end, show last 5 pages
+                pageNum = totalPages - 4 + i;
+              } else {
+                // In middle, show current page and 2 on each side
+                pageNum = page - 2 + i;
+              }
+              
+              return (
+                <Pressable
+                  key={pageNum}
+                  style={[
+                    styles.paginationButton,
+                    page === pageNum && styles.paginationButtonActive
+                  ]}
+                  onPress={() => changePage(pageNum)}
+                >
+                  <Text 
+                    style={[
+                      styles.paginationButtonText,
+                      page === pageNum && styles.paginationButtonTextActive
+                    ]}
+                  >
+                    {pageNum}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            
+            <Pressable
+              style={[styles.paginationButton, page === totalPages && styles.paginationButtonDisabled]}
+              onPress={() => changePage(page + 1)}
+              disabled={page === totalPages}
+            >
+              <Text style={styles.paginationButtonText}>›</Text>
+            </Pressable>
+            
+            <Pressable
+              style={[styles.paginationButton, page === totalPages && styles.paginationButtonDisabled]}
+              onPress={() => changePage(totalPages)}
+              disabled={page === totalPages}
+            >
+              <Text style={styles.paginationButtonText}>»</Text>
+            </Pressable>
           </View>
         )}
-        keyExtractor={(item) => item.id}
-        numColumns={numColumns}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        ListHeaderComponent={renderHeader}
-        ListFooterComponent={
-          loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.gold} />
-            </View>
-          ) : null
-        }
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingVertical: spacing.xl }
-        ]}
-        columnWrapperStyle={numColumns > 1 ? [
-          styles.columnWrapper,
-          { gap: GRID_GAP }
-        ] : undefined}
-        showsVerticalScrollIndicator={false}
-      />
+      </View>
     );
   };
 
@@ -312,7 +508,6 @@ export default function ProductsList() {
               setSelectedCategory(cat);
               setProducts([]); // reset products
               setPage(1);
-              setHasMore(true);
             }}
             accessibilityRole="button"
             accessibilityLabel={`Filter by ${cat}`}
@@ -321,6 +516,7 @@ export default function ProductsList() {
           </Pressable>
         ))}
       </ScrollView>
+      
       {/* Search Bar */}
       <TextInput
         value={search}
@@ -328,7 +524,6 @@ export default function ProductsList() {
           setSearch(text);
           setProducts([]); // reset products
           setPage(1);
-          setHasMore(true);
           // Log search if not empty
           if (text.trim() !== '') {
             try {
@@ -362,6 +557,100 @@ export default function ProductsList() {
         returnKeyType="search"
         clearButtonMode="while-editing"
       />
+      
+      {/* Custom Sort Dropdown */}
+      <View style={{ minWidth: 180, maxWidth: width > 600 ? 220 : undefined }}>
+        <Pressable
+          style={({ pressed }) => [{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderWidth: 1,
+            borderColor: colors.gold,
+            borderRadius: 10,
+            backgroundColor: colors.white,
+            paddingVertical: 8,
+            paddingHorizontal: 14,
+            minHeight: 40,
+            shadowColor: '#000',
+            shadowOpacity: pressed ? 0.10 : 0.06,
+            shadowRadius: pressed ? 10 : 6,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: pressed ? 4 : 2,
+          }]}
+          onPress={() => setDropdownOpen((open) => !open)}
+          accessibilityRole="button"
+          accessibilityLabel="Sort products"
+        >
+          <Text style={{ color: colors.darkGray, fontSize: 15, fontWeight: '500' }}>
+            {SORT_OPTIONS.find(opt => opt.value === sortOption)?.label || 'Newest'}
+          </Text>
+          <View style={{ marginLeft: 8 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+          </View>
+        </Pressable>
+        {dropdownOpen && (
+          <>
+            {/* Overlay to close dropdown when clicking outside */}
+            <Pressable
+              onPress={() => setDropdownOpen(false)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                zIndex: 99,
+                backgroundColor: 'transparent',
+              }}
+            />
+            <View
+              style={{
+                position: 'absolute',
+                top: 48,
+                left: 0,
+                right: 0,
+                backgroundColor: colors.white,
+                borderWidth: 1,
+                borderColor: colors.gold,
+                borderRadius: 10,
+                zIndex: 100,
+                shadowColor: '#000',
+                shadowOpacity: 0.12,
+                shadowRadius: 16,
+                shadowOffset: { width: 0, height: 8 },
+                elevation: 8,
+                marginTop: 4,
+                overflow: 'hidden',
+              }}
+            >
+              {SORT_OPTIONS.map(option => (
+                <Pressable
+                  key={option.value}
+                  onPress={() => {
+                    console.log('Sort option selected:', option.value);
+                    setSortOption(option.value);
+                    setProducts([]);
+                    setPage(1);
+                    setDropdownOpen(false);
+                  }}
+                  style={({ pressed }) => [{
+                    paddingVertical: 12,
+                    paddingHorizontal: 18,
+                    backgroundColor: sortOption === option.value ? colors.gold : pressed ? colors.lightGold : 'white',
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#f0e6d2',
+                  }]}
+                >
+                  <Text style={{ color: sortOption === option.value ? 'white' : colors.darkGray, fontWeight: sortOption === option.value ? '700' : '400', fontSize: 15 }}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
+      </View>
     </View>
   );
 
@@ -377,6 +666,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.ivory,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
+  },
+  paginationButton: {
+    minWidth: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.gold,
+    paddingHorizontal: spacing.sm,
+  },
+  paginationButtonActive: {
+    backgroundColor: colors.gold,
+  },
+  paginationButtonDisabled: {
+    opacity: 0.5,
+    borderColor: colors.lightGray,
+  },
+  paginationButtonText: {
+    color: colors.gold,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  paginationButtonTextActive: {
+    color: colors.white,
   },
   // Add for mobile single-column card spacing
   mobileCardSpacing: {
