@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView } from 'react-native';
 import { colors, fontFamily, spacing } from '../theme';
+import { trackEvent } from '../lib/trackEvent';
 
 export default function Contact() {
+  useEffect(() => {
+    trackEvent({ eventType: 'view_contact_form' });
+  }, []);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');

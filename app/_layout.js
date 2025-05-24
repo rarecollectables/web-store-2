@@ -9,6 +9,8 @@ import { getLocationInfo } from '../lib/trackEvent';
 import HomeBanner from './components/HomeBanner';
 import CartHeaderIcon from './components/CartHeaderIcon';
 
+import CookieConsentBanner from './components/CookieConsentBanner';
+
 export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -100,6 +102,7 @@ export default function RootLayout() {
     <PaperProvider>
       <StoreProvider>
         <SafeAreaProvider>
+          <CookieConsentBanner />
           <HomeBanner />
           <CartHeaderIcon style={{
             position: Platform.OS === 'web' ? 'absolute' : 'fixed',
