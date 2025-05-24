@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
-import { View, Text, FlatList, StyleSheet, Pressable, Animated } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Pressable, Animated, ScrollView } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { colors, fontFamily } from '../../theme';
+import { colors, fontFamily, spacing } from '../../theme';
 import { useStore } from '../../context/store';
 import { LOCAL_IMAGES, PRODUCTS } from '../(data)/products';
 import { useRouter } from 'expo-router';
@@ -75,7 +75,8 @@ export default function WishlistScreen() {
   }
 
   return (
-    <FlatList
+    <ScrollView contentContainerStyle={styles.container}>
+      <FlatList
       data={wishlist}
       keyExtractor={item => item.id}
       contentContainerStyle={styles.listContent}
@@ -154,12 +155,53 @@ export default function WishlistScreen() {
           </Swipeable>
         );
       }}
-    />
+    />  
+      {/* Footer with compliance links */}
+      <View style={styles.footer}>
+        <Pressable onPress={() => router.push('/privacy-policy')} accessibilityRole="link" accessibilityLabel="Privacy Policy">
+          <Text style={styles.footerLink}>Privacy Policy</Text>
+        </Pressable>
+        <Text style={styles.footerSeparator}>|</Text>
+        <Pressable onPress={() => router.push('/terms-of-service')} accessibilityRole="link" accessibilityLabel="Terms of Service">
+          <Text style={styles.footerLink}>Terms of Service</Text>
+        </Pressable>
+        <Text style={styles.footerSeparator}>|</Text>
+        <Pressable onPress={() => router.push('/return-policy')} accessibilityRole="link" accessibilityLabel="Return Policy">
+          <Text style={styles.footerLink}>Return Policy</Text>
+        </Pressable>
+        <Text style={styles.footerSeparator}>|</Text>
+        <Pressable onPress={() => router.push('/contact')} accessibilityRole="link" accessibilityLabel="Contact">
+          <Text style={styles.footerLink}>Contact</Text>
+        </Pressable>
+      </View>
+    </ScrollView>  
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAF7F0', padding: 16 },
+  footer: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    backgroundColor: colors.ivory,
+    borderTopWidth: 1,
+    borderColor: colors.softGoldBorder,
+    marginTop: spacing.lg,
+  },
+  footerLink: {
+    color: colors.gold,
+    fontSize: 15,
+    fontFamily: fontFamily.sans,
+    marginHorizontal: spacing.sm,
+    textDecorationLine: 'underline',
+  },
+  footerSeparator: {
+    color: colors.onyxBlack,
+    fontSize: 16,
+    marginHorizontal: 2,
+  },
   listContent: { paddingVertical: 32, paddingHorizontal: 12, alignItems: 'center' },
   itemRow: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 12, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 8, elevation: 4, borderWidth: 1, borderColor: '#E5DCC3', width: 360 },
   image: { width: 72, height: 90, borderRadius: 12, backgroundColor: '#FAF7F0', marginRight: 16 },
@@ -185,6 +227,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 15,
-    fontFamily: fontFamily,
+    fontFamily: fontFamily.sans,
   },
 });

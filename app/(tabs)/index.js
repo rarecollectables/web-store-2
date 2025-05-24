@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, useWindowDimensions, ImageBackground, ScrollView, TextInput, Alert, Linking } from 'react-native';
+import { trackEvent } from '../../lib/trackEvent';
 import { useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -82,6 +83,7 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
 
 import SpringPromoModal from '../components/SpringPromoModal';
 import BestSellersSection from '../components/BestSellersSection';
+import ReviewsCarousel from '../components/ReviewsCarousel';
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
@@ -167,11 +169,17 @@ export default function HomeScreen() {
             </View>
             {/* Best Sellers Section */}
             <BestSellersSection cardWidth={cardSize} numColumns={columns} bestSellerIds={['ec75311c-c851-45b8-b1a5-22a364e12449', '7c01ba23-db05-43cc-b38a-eb394b379853', '1-bracelets', '2-bracelets']} />
-            <View style={styles.newsletterSection}>
-              <Text style={styles.newsletterTitle}>Join our newsletter</Text>
-              <View style={styles.newsletterForm}>
+
+            {/* Reviews Carousel */}
+            <ReviewsCarousel />
+
+             <View style={styles.newsletterSectionRedesign}>
+              <FontAwesome name="envelope-o" size={32} color={colors.gold} style={{ marginBottom: 8 }} />
+              <Text style={styles.newsletterTitleRedesign}>Join our newsletter</Text>
+              <Text style={styles.newsletterSubtitle}>Exclusive offers, new arrivals & more. Only the good stuff!</Text>
+              <View style={styles.newsletterFormRedesign}>
                 <TextInput
-                  style={styles.newsletterInput}
+                  style={styles.newsletterInputRedesign}
                   placeholder="Your email address"
                   placeholderTextColor={colors.platinumGrey}
                   keyboardType="email-address"
@@ -182,8 +190,9 @@ export default function HomeScreen() {
                   returnKeyType="done"
                 />
                 <Pressable
-                  style={({ pressed }) => [styles.newsletterButton, { opacity: pressed ? 0.8 : 1 }]}
-                  onPress={() => {
+                  style={({ pressed }) => [styles.newsletterButtonRedesign, { opacity: pressed ? 0.8 : 1 }]}
+                  onPress={async () => {
+                    await trackEvent({ eventType: 'newsletter_subscribe_click', metadata: { email } });
                     if (email.includes('@')) {
                       Alert.alert('Subscribed', `Thanks for subscribing, ${email}!`);
                       setEmail('');
@@ -194,20 +203,38 @@ export default function HomeScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Subscribe to newsletter"
                 >
-                  <Text style={styles.newsletterButtonText}>Subscribe</Text>
+                  <Text style={styles.newsletterButtonTextRedesign}>Subscribe</Text>
                 </Pressable>
               </View>
-              <View style={styles.socialRow}>
+              <View style={styles.socialRowRedesign}>
                 <Pressable onPress={() => Linking.openURL('https://www.facebook.com/profile.php?id=61573565127513')} accessibilityRole="link" accessibilityLabel="Facebook">
-                  <FontAwesome name="facebook" size={32} color="#4267B2" />
+                  <FontAwesome name="facebook" size={28} color="#4267B2" />
                 </Pressable>
-                <Pressable onPress={() => Linking.openURL('https://instagram.com/rarecollectablesshop')} style={styles.socialIcon} accessibilityRole="link" accessibilityLabel="Instagram">
-                  <FontAwesome name="instagram" size={32} color="#C13584" />
+                <Pressable onPress={() => Linking.openURL('https://instagram.com/rarecollectablesshop')} style={styles.socialIconRedesign} accessibilityRole="link" accessibilityLabel="Instagram">
+                  <FontAwesome name="instagram" size={28} color="#C13584" />
                 </Pressable>
               </View>
             </View>
           </View>
-        </ScrollView>
+        {/* Footer with compliance links */}
+        <View style={styles.footer}>
+          <Pressable onPress={() => router.push('/privacy-policy')} accessibilityRole="link" accessibilityLabel="Privacy Policy">
+            <Text style={styles.footerLink}>Privacy Policy</Text>
+          </Pressable>
+          <Text style={styles.footerSeparator}>|</Text>
+          <Pressable onPress={() => router.push('/terms-of-service')} accessibilityRole="link" accessibilityLabel="Terms of Service">
+            <Text style={styles.footerLink}>Terms of Service</Text>
+          </Pressable>
+          <Text style={styles.footerSeparator}>|</Text>
+          <Pressable onPress={() => router.push('/return-policy')} accessibilityRole="link" accessibilityLabel="Return Policy">
+            <Text style={styles.footerLink}>Return Policy</Text>
+          </Pressable>
+          <Text style={styles.footerSeparator}>|</Text>
+          <Pressable onPress={() => router.push('/contact')} accessibilityRole="link" accessibilityLabel="Contact">
+            <Text style={styles.footerLink}>Contact</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
 
       {!isChatVisible && (
         <Pressable
@@ -227,6 +254,114 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  newsletterSectionRedesign: {
+    backgroundColor: colors.ivory,
+    borderColor: colors.softGoldBorder,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    marginVertical: spacing.xl,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.09,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    maxWidth: 480,
+    alignSelf: 'center',
+    width: '95%',
+  },
+  newsletterTitleRedesign: {
+    fontSize: 22,
+    fontFamily: fontFamily.serif,
+    color: colors.onyxBlack,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  newsletterSubtitle: {
+    fontSize: 15,
+    color: colors.platinumGrey,
+    marginBottom: 18,
+    textAlign: 'center',
+    fontFamily: fontFamily.sans,
+  },
+  newsletterFormRedesign: {
+    flexDirection: 'row',
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  newsletterInputRedesign: {
+    flex: 1,
+    height: 48,
+    backgroundColor: colors.white,
+    borderColor: colors.gold,
+    borderWidth: 1.2,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    fontSize: 16,
+    fontFamily: fontFamily.sans,
+    marginRight: 8,
+  },
+  newsletterButtonRedesign: {
+    backgroundColor: colors.gold,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.gold,
+    shadowOpacity: 0.13,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  newsletterButtonTextRedesign: {
+    color: colors.white,
+    fontFamily: fontFamily.sans,
+    fontWeight: 'bold',
+    fontSize: 16,
+    letterSpacing: 0.2,
+  },
+  socialRowRedesign: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 18,
+  },
+  socialIconRedesign: {
+    marginLeft: 18,
+  },
+
+  footer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap', 
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    backgroundColor: colors.ivory,
+    borderTopWidth: 1,
+    borderColor: colors.softGoldBorder,
+    marginTop: spacing.lg,
+  },
+  footerLink: {
+    color: colors.gold,
+    fontSize: 15,
+    fontFamily: fontFamily.sans,
+    marginHorizontal: spacing.sm,
+    textDecorationLine: 'underline',
+  },
+  footerSeparator: {
+    color: colors.onyxBlack,
+    fontSize: 16,
+    marginHorizontal: 2,
+  },
   container: {
     flex: 1,
     backgroundColor: 'transparent',

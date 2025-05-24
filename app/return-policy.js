@@ -23,7 +23,7 @@ export default function ReturnPolicyScreen() {
       </Text>
       <Text style={styles.heading}>1. Eligibility for Returns</Text>
       <Text style={styles.text}>
-        We accept returns on items within 30 days of the delivery date. To be eligible for a return, your item must meet the following criteria:
+        We accept returns on items within 60 days of the delivery date. To be eligible for a return, your item must meet the following criteria:
       </Text>
       <Text style={styles.bullet}>{'•'} The jewelry must be unused, in the same condition as when you received it, and in its original packaging.</Text>
       <Text style={styles.bullet}>{'•'} Items must be free from any damage, including scratches, dents, or alterations.</Text>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Alert, Modal, TextInput } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { colors, fontFamily } from '../../theme';
+import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme';
 import OrdersModal from '../components/orders-modal';
 import AboutModal from '../components/about-modal';
 
@@ -115,7 +115,25 @@ export default function ProfileScreen() {
         <View style={styles.brandFooter}>
           <Text style={styles.brandText}>Rare Collectables • Est. 2024</Text>
         </View>
-      </ScrollView>
+        {/* Footer with compliance links */}
+      <View style={styles.footer}>
+        <Pressable onPress={() => router.push('/privacy-policy')} accessibilityRole="link" accessibilityLabel="Privacy Policy">
+          <Text style={styles.footerLink}>Privacy Policy</Text>
+        </Pressable>
+        <Text style={styles.footerSeparator}>|</Text>
+        <Pressable onPress={() => router.push('/terms-of-service')} accessibilityRole="link" accessibilityLabel="Terms of Service">
+          <Text style={styles.footerLink}>Terms of Service</Text>
+        </Pressable>
+        <Text style={styles.footerSeparator}>|</Text>
+        <Pressable onPress={() => router.push('/return-policy')} accessibilityRole="link" accessibilityLabel="Return Policy">
+          <Text style={styles.footerLink}>Return Policy</Text>
+        </Pressable>
+        <Text style={styles.footerSeparator}>|</Text>
+        <Pressable onPress={() => router.push('/contact')} accessibilityRole="link" accessibilityLabel="Contact">
+          <Text style={styles.footerLink}>Contact</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
       {/* Email prompt modal */}
       <Modal visible={showEmailPrompt} transparent animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.32)', justifyContent: 'center', alignItems: 'center' }}>
@@ -152,6 +170,28 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  footer: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    backgroundColor: colors.ivory,
+    borderTopWidth: 1,
+    borderColor: colors.softGoldBorder,
+    marginTop: spacing.lg,
+  },
+  footerLink: {
+    color: colors.gold,
+    fontSize: 15,
+    fontFamily: fontFamily.sans,
+    marginHorizontal: spacing.sm,
+    textDecorationLine: 'underline',
+  },
+  footerSeparator: {
+    color: colors.onyxBlack,
+    fontSize: 16,
+    marginHorizontal: 2,
+  },
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 24, paddingBottom: 40 },
   header: { fontSize: 28, fontWeight: '900', color: '#BFA054', marginBottom: 18, textAlign: 'center' },

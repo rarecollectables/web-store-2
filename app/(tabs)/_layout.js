@@ -4,6 +4,7 @@ import { Pressable, View, Text, Animated } from 'react-native';
 import { useStore } from '../../context/store';
 import React, { useRef, useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
+import { trackEvent } from '../../lib/trackEvent';
 
 function GoldShimmer({ children, shimmer }) {
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -112,7 +113,20 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <FontAwesome name="user" size={24} color={color} />
+          tabBarIcon: ({ color }) => <FontAwesome name="user" size={24} color={color} />,
+          tabBarButton: (props) => (
+            <Pressable
+              {...props}
+              onPress={async () => {
+                await trackEvent({ eventType: 'profile_tab_click' });
+                if (props.onPress) props.onPress();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Profile Tab"
+            >
+              {props.children}
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen

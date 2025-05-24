@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme';
 import { Image as ExpoImage } from 'expo-image';
 import { useStore } from '../../context/store';
 import { useRouter } from 'expo-router';
@@ -53,7 +54,8 @@ export default function CartScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
+
       <Text style={styles.header}>Your Cart</Text>
       <FlatList
         data={cart}
@@ -141,13 +143,53 @@ export default function CartScreen() {
       autoCloseMs={4000}
       onContinue={handleContinueShopping}
     />
-  </View>
+    {/* Footer with compliance links */}
+    <View style={styles.footer}>
+      <Pressable onPress={() => router.push('/privacy-policy')} accessibilityRole="link" accessibilityLabel="Privacy Policy">
+        <Text style={styles.footerLink}>Privacy Policy</Text>
+      </Pressable>
+      <Text style={styles.footerSeparator}>|</Text>
+      <Pressable onPress={() => router.push('/terms-of-service')} accessibilityRole="link" accessibilityLabel="Terms of Service">
+        <Text style={styles.footerLink}>Terms of Service</Text>
+      </Pressable>
+      <Text style={styles.footerSeparator}>|</Text>
+      <Pressable onPress={() => router.push('/return-policy')} accessibilityRole="link" accessibilityLabel="Return Policy">
+        <Text style={styles.footerLink}>Return Policy</Text>
+      </Pressable>
+      <Text style={styles.footerSeparator}>|</Text>
+      <Pressable onPress={() => router.push('/contact')} accessibilityRole="link" accessibilityLabel="Contact">
+        <Text style={styles.footerLink}>Contact</Text>
+      </Pressable>
+    </View>
+  </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAF7F0', padding: 16 },
   header: { fontSize: 28, fontWeight: '900', color: '#BFA054', marginBottom: 18 },
+    footer: {
+      flexDirection: 'row', flexWrap: 'wrap',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      backgroundColor: colors.ivory,
+      borderTopWidth: 1,
+      borderColor: colors.softGoldBorder,
+      marginTop: spacing.lg,
+    },
+    footerLink: {
+      color: colors.gold,
+      fontSize: 15,
+      fontFamily: fontFamily.sans,
+      marginHorizontal: spacing.sm,
+      textDecorationLine: 'underline',
+    },
+    footerSeparator: {
+      color: colors.onyxBlack,
+      fontSize: 16,
+      marginHorizontal: 2,
+    },
   itemRow: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 12, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 8, elevation: 4, borderWidth: 1, borderColor: '#E5DCC3', width: 360 },
   image: { width: 72, height: 90, borderRadius: 12, marginRight: 16, backgroundColor: '#FAF7F0' },
   itemDetails: { flex: 1, justifyContent: 'center', marginLeft: 16 },

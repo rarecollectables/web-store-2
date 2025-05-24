@@ -12,14 +12,21 @@ import { fetchProductById } from '../../lib/supabase/fetchProductById';
 import { trackEvent } from '../../lib/trackEvent';
 import LuxuryModal from '../components/LuxuryModal';
 
-function MemoCarouselImage({ item, style }) {
-  return <ExpoImage source={item} style={style} contentFit="cover" transition={300} />;
+import ZoomableImage from '../components/ZoomableImage';
+
+function MemoCarouselImage({ item, style, onPress }) {
+  return (
+    <Pressable onPress={onPress} accessibilityLabel="Zoom image" accessibilityRole="imagebutton">
+      <ExpoImage source={item} style={style} contentFit="cover" transition={300} />
+    </Pressable>
+  );
 }
 
 export default function ProductDetail() {
+  const { width } = useWindowDimensions();
+  const [carouselWidth, setCarouselWidth] = useState(width); // <-- new state
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [wishAnimating, setWishAnimating] = useState(false);
@@ -52,10 +59,22 @@ export default function ProductDetail() {
   }).current;
   const viewabilityConfig = { viewAreaCoveragePercentThreshold: 60 };
 
-  const renderCarouselImage = useCallback(
-    ({ item }) => <MemoCarouselImage item={item} style={styles.image} />, 
-    [styles.image]
-  );
+  const [zoomVisible, setZoomVisible] = useState(false);
+const [zoomImage, setZoomImage] = useState(null);
+
+const renderCarouselImage = useCallback(
+  ({ item }) => (
+    <MemoCarouselImage
+      item={item}
+      style={styles.image}
+      onPress={() => {
+        setZoomImage(item);
+        setZoomVisible(true);
+      }}
+    />
+  ),
+  [styles.image]
+);
 
   useEffect(() => {
     let isMounted = true;
@@ -206,9 +225,9 @@ export default function ProductDetail() {
       <Pressable
         style={styles.closeButton}
         onPress={() => {
-          try {
+          if (router.canGoBack && router.canGoBack()) {
             router.back();
-          } catch (e) {
+          } else {
             router.replace('/shop');
           }
         }}
@@ -220,23 +239,97 @@ export default function ProductDetail() {
         <View style={{ ...styles.container, ...desktopContainer }}>
           {/* Left: Image or Carousel */}
           <View style={{ ...styles.imageWrapper, ...desktopImageWrapper }}>
-            {images.length > 1 ? (
-              <FlatList
-                ref={flatListRef}
-                data={images}
-                renderItem={renderCarouselImage}
-                keyExtractor={(_, idx) => String(idx)}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onViewableItemsChanged={onViewableItemsChanged}
-                viewabilityConfig={viewabilityConfig}
-                style={styles.carousel}
-              />
-            ) : (
-              images[0] && <ExpoImage source={images[0]} style={styles.image} contentFit="cover" />
-            )}
+            {/* Enhanced Carousel with Arrows and Dots */}
+{images.length > 1 ? (
+  <View
+  style={styles.enhancedCarouselWrapper}
+  onLayout={e => {
+    const w = e.nativeEvent.layout.width;
+    if (w && w !== carouselWidth) setCarouselWidth(w);
+  }}
+>
+    {/* Left Arrow */}
+    <Pressable
+      style={[styles.carouselArrow, styles.carouselArrowLeft]}
+      onPress={() => {
+        if (currentIndex > 0 && flatListRef.current) {
+          flatListRef.current.scrollToIndex({ index: currentIndex - 1, animated: true });
+          setCurrentIndex(currentIndex - 1);
+        }
+      }}
+      accessibilityLabel="Previous image"
+      accessibilityRole="button"
+      disabled={currentIndex === 0}
+    >
+      <FontAwesome name="chevron-left" size={28} color={currentIndex === 0 ? '#ccc' : colors.gold} />
+    </Pressable>
+    {/* Image Carousel */}
+    <FlatList
+      ref={flatListRef}
+      data={images}
+      renderItem={renderCarouselImage}
+      keyExtractor={(_, idx) => String(idx)}
+      horizontal
+      pagingEnabled
+      showsHorizontalScrollIndicator={false}
+      onViewableItemsChanged={onViewableItemsChanged}
+      viewabilityConfig={viewabilityConfig}
+      style={[styles.carousel, { width: carouselWidth }]}
+      getItemLayout={(data, index) => ({ length: carouselWidth, offset: carouselWidth * index, index })}
+      onScrollToIndexFailed={({ index, highestMeasuredFrameIndex }) => {
+        if (flatListRef.current && highestMeasuredFrameIndex >= 0) {
+          flatListRef.current.scrollToIndex({
+            index: highestMeasuredFrameIndex,
+            animated: true,
+          });
+        }
+      }}
+      extraData={currentIndex}
+    />
+    {/* Right Arrow */}
+    <Pressable
+      style={[styles.carouselArrow, styles.carouselArrowRight]}
+      onPress={() => {
+        if (currentIndex < images.length - 1 && flatListRef.current) {
+          flatListRef.current.scrollToIndex({ index: currentIndex + 1, animated: true });
+          setCurrentIndex(currentIndex + 1);
+        }
+      }}
+      accessibilityLabel="Next image"
+      accessibilityRole="button"
+      disabled={currentIndex === images.length - 1}
+    >
+      <FontAwesome name="chevron-right" size={28} color={currentIndex === images.length - 1 ? '#ccc' : colors.gold} />
+    </Pressable>
+    {/* Dots Indicator */}
+    <View style={styles.carouselDotsWrapper}>
+      {images.map((_, idx) => (
+        <Pressable
+          key={idx}
+          style={[styles.carouselDot, currentIndex === idx && styles.carouselDotActive]}
+          onPress={() => {
+            if (flatListRef.current) {
+              flatListRef.current.scrollToIndex({ index: idx, animated: true });
+              setCurrentIndex(idx);
+            }
+          }}
+          accessibilityLabel={`Go to image ${idx + 1}`}
+          accessibilityRole="button"
+        />
+      ))}
+    </View>
+  </View>
+) : (
+  images[0] && <ExpoImage source={images[0]} style={styles.image} contentFit="cover" />
+)}
           </View>
+
+    {/* Zoomable Image Modal */}
+    <ZoomableImage
+      source={zoomImage}
+      visible={zoomVisible}
+      onClose={() => setZoomVisible(false)}
+    />
 
           {/* Right: Info */}
           <View style={{ flex: 1.5, ...desktopInfo }}>
@@ -355,12 +448,109 @@ export default function ProductDetail() {
             />
           </View>
         )}
+        {/* Footer with compliance links */}
+        <View style={styles.footer}>
+          <Pressable onPress={() => router.push('/privacy-policy')} accessibilityRole="link" accessibilityLabel="Privacy Policy">
+            <Text style={styles.footerLink}>Privacy Policy</Text>
+          </Pressable>
+          <Text style={styles.footerSeparator}>|</Text>
+          <Pressable onPress={() => router.push('/terms-of-service')} accessibilityRole="link" accessibilityLabel="Terms of Service">
+            <Text style={styles.footerLink}>Terms of Service</Text>
+          </Pressable>
+          <Text style={styles.footerSeparator}>|</Text>
+          <Pressable onPress={() => router.push('/return-policy')} accessibilityRole="link" accessibilityLabel="Return Policy">
+            <Text style={styles.footerLink}>Return Policy</Text>
+          </Pressable>
+          <Text style={styles.footerSeparator}>|</Text>
+          <Pressable onPress={() => router.push('/contact')} accessibilityRole="link" accessibilityLabel="Contact">
+            <Text style={styles.footerLink}>Contact</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  enhancedCarouselWrapper: {
+    position: 'relative',
+    width: '100%',
+    height: 320,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  carouselArrow: {
+    position: 'absolute',
+    top: '50%',
+    zIndex: 2,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 22,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    marginTop: -22,
+  },
+  carouselArrowLeft: {
+    left: 10,
+  },
+  carouselArrowRight: {
+    right: 10,
+  },
+  carouselDotsWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    zIndex: 3,
+  },
+  carouselDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#e0d6b8',
+    marginHorizontal: 4,
+    opacity: 0.5,
+    borderWidth: 1,
+    borderColor: '#bfa14a',
+  },
+  carouselDotActive: {
+    backgroundColor: '#bfa14a',
+    opacity: 1,
+    width: 16,
+    borderRadius: 8,
+  },
+
+  footer: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    justifyContent: 'center', alignItems: 'center',
+    paddingVertical: spacing.md,
+    backgroundColor: colors.ivory,
+    borderTopWidth: 1,
+    borderColor: colors.softGoldBorder,
+    marginTop: spacing.lg,
+  },
+  footerLink: {
+    color: colors.gold,
+    fontSize: 15,
+    fontFamily: fontFamily.sans,
+    marginHorizontal: spacing.sm,
+    textDecorationLine: 'underline',
+  },
+  footerSeparator: {
+    color: colors.onyxBlack,
+    fontSize: 16,
+    marginHorizontal: 2,
+  },
   imageWrapper: {
     marginTop: 24,
     marginBottom: 22,
