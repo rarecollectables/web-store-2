@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView, Pressable } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView, Pressable, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, fontFamily, spacing } from '../theme';
 import { trackEvent } from '../lib/trackEvent';
@@ -36,7 +36,7 @@ export default function Contact() {
   };
 
   return (
-    <>
+    <View style={{flex: 1}}>
       <Modal
         visible={showConfirmation}
         transparent
@@ -104,55 +104,7 @@ export default function Contact() {
         />
         <Button title="Send" onPress={handleSubmit} color={colors.gold} accessibilityLabel="Send Message" />
       </ScrollView>
-    </>
-  );
-      <Pressable
-        onPress={() => {
-          if (router.canGoBack && router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/(tabs)/shop');
-          }
-        }}
-        style={styles.backButton}
-        accessibilityLabel="Go Back"
-      >
-        <View style={styles.backButtonContent}>
-          <Text style={styles.backButtonIcon}>←</Text>
-          <Text style={styles.backButtonText}>Back</Text>
-        </View>
-      </Pressable>
-      <Text style={styles.title}>Contact Us</Text>
-      <Text style={styles.text}>Have a question or need help? Fill out the form below and we’ll get back to you soon.</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Your Name"
-        value={name}
-        onChangeText={setName}
-        accessibilityLabel="Name Input"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Your Email"
-        value={email}
-        onChangeText={handleEmailChange}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        textContentType="emailAddress"
-        autoCorrect={false}
-        accessibilityLabel="Email Input"
-      />
-      <TextInput
-        style={[styles.input, styles.textarea]}
-        placeholder="Your Message"
-        value={message}
-        onChangeText={setMessage}
-        multiline
-        numberOfLines={4}
-        accessibilityLabel="Message Input"
-      />
-      <Button title="Send" onPress={handleSubmit} color={colors.gold} accessibilityLabel="Send Message" />
-    </ScrollView>
+    </View>
   );
 }
 
