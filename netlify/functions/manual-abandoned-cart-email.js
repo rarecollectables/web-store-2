@@ -16,18 +16,22 @@ exports.handler = async function(event) {
     return { statusCode: 400, body: 'Missing to_email' };
   }
 
-  // Find a recent incomplete checkout attempt with email (simulate abandoned cart)
-  const { data: attempt } = await supabase
+  // Find one checkout_attempts row with a non-empty cart (for testing)
+  const { data: attempts, error } = await supabase
     .from('checkout_attempts')
     .select('*')
-    .eq('status', 'started')
-    .not('email', 'is', null)
+    .not('cart', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(10);
+
+  // Find the first row with at least one item in cart
+  let attempt = null;
+  if (Array.isArray(attempts)) {
+    attempt = attempts.find(a => Array.isArray(a.cart) && a.cart.length > 0);
+  }
 
   if (!attempt) {
-    return { statusCode: 404, body: 'No abandoned checkout attempts found.' };
+    return { statusCode: 404, body: 'No abandoned checkout attempts found (with non-empty cart).' };
   }
 
   // Compose a nice email
