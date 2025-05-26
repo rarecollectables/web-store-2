@@ -10,12 +10,31 @@ export default function AdminProducts() {
   const [error, setError] = useState(null);
   const [showDialog, setShowDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [form, setForm] = useState({ name: '', price: '', image_url: '', additional_images: '', category: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
+  const [form, setForm] = useState({ name: '', price: '', image_url: '', additional_images: '', category: '', shipping_label: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
+  const [search, setSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchTimeout, setSearchTimeout] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (!search) {
+      setSearchResults(products);
+      return;
+    }
+    if (searchTimeout) clearTimeout(searchTimeout);
+    setSearchTimeout(setTimeout(() => {
+      const s = search.trim().toLowerCase();
+      setSearchResults(products.filter(p =>
+        (p.name && p.name.toLowerCase().includes(s)) ||
+        (p.category && p.category.toLowerCase().includes(s)) ||
+        (p.description && p.description.toLowerCase().includes(s))
+      ));
+    }, 200));
+  }, [search, products]);
 
   async function fetchProducts() {
     setLoading(true);
@@ -42,8 +61,9 @@ export default function AdminProducts() {
       material: product.material || '',
       stone: product.stone || '',
       size: product.size || '',
-      length: product.length || ''
-    } : { name: '', price: '', image_url: '', additional_images: '', category: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
+      length: product.length || '',
+      shipping_label: product.shipping_label || ''
+    } : { name: '', price: '', image_url: '', additional_images: '', category: '', shipping_label: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
     setShowDialog(true);
   }
 
@@ -64,6 +84,7 @@ export default function AdminProducts() {
       price: String(price).trim(),
       image_url: image_url?.trim() || null,
       category: category?.trim() || null,
+      shipping_label: shipping_label?.trim() || null,
       description: description?.trim() || null,
       stock: stock === '' ? null : parseInt(stock),
       additional_images: additional_images ? additional_images.split(',').map(s => s.trim()).filter(Boolean) : [],
@@ -115,9 +136,18 @@ export default function AdminProducts() {
         <Appbar.Content title="Manage Products" />
         <Appbar.Action icon="plus" onPress={() => openDialog()} />
       </Appbar.Header>
+      <TextInput
+        label="Search Products"
+        value={search}
+        onChangeText={setSearch}
+        style={{ margin: 16, marginBottom: 0 }}
+        placeholder="Search by name, category, or description"
+        autoCorrect={false}
+        autoCapitalize="none"
+      />
       {loading ? <ActivityIndicator style={{ marginTop: 30 }} /> : (
         <FlatList
-          data={products}
+          data={search ? searchResults : products}
           keyExtractor={item => item.id.toString()}
           renderItem={({ item }) => (
             <Card style={styles.card}>
@@ -163,6 +193,12 @@ export default function AdminProducts() {
               label="Category"
               value={form.category}
               onChangeText={text => setForm(f => ({ ...f, category: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Shipping Label (e.g. next_day)"
+              value={form.shipping_label}
+              onChangeText={text => setForm(f => ({ ...f, shipping_label: text }))}
               style={styles.input}
             />
             <TextInput

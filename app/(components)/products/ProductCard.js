@@ -93,8 +93,15 @@ export default function ProductCard({ item, cardWidth }) {
       quantity: 1,
     });
     
-    Alert.alert('Added to Cart', `${item.name} has been added to your cart.`);
+    Alert.alert('Added to Cart', `${item.name} has been added to your cart.`, [
+      {
+        text: 'Go to Cart',
+        onPress: () => router.push({ pathname: '/(tabs)/cart', params: { from: 'detail', productId: item.id } })
+      },
+      { text: 'Continue Shopping', style: 'cancel' }
+    ]);
   };
+
 
   const formatPrice = (price) => {
     const numericPrice = typeof price === 'number' ? price : 

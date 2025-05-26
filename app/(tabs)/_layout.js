@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter, usePathname } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { Pressable, View, Text, Animated } from 'react-native';
 import { useStore } from '../../context/store';
@@ -80,7 +80,9 @@ function TabBarIconWithBadge({ name, color, count, animate }) {
 }
 
 export default function TabsLayout() {
-  const { cart = [], wishlist = [], lastAddedToCart, lastAddedToWishlist } = useStore();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { cart = [], wishlist = [], lastAddedToCart, lastAddedToWishlist, setLastVisitedRoute } = useStore();
   const cartCount = Array.isArray(cart) ? cart.length : 0;
   const wishlistCount = Array.isArray(wishlist) ? wishlist.length : 0;
 
@@ -90,14 +92,44 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <FontAwesome name="home" size={24} color={color} />
+          tabBarIcon: ({ color }) => <FontAwesome name="home" size={24} color={color} />,
+          tabBarButton: (props) => (
+            <Pressable
+              {...props}
+              onPress={async () => {
+                await trackEvent({ eventType: 'home_tab_click' });
+                setLastVisitedRoute(pathname);
+                props.navigation?.push('index');
+                if (props.onPress) props.onPress();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Home Tab"
+            >
+              {props.children}
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen
         name="shop"
         options={{
           title: 'Shop',
-          tabBarIcon: ({ color }) => <FontAwesome name="shopping-bag" size={24} color={color} />
+          tabBarIcon: ({ color }) => <FontAwesome name="shopping-bag" size={24} color={color} />,
+          tabBarButton: (props) => (
+            <Pressable
+              {...props}
+              onPress={async () => {
+                await trackEvent({ eventType: 'shop_tab_click' });
+                setLastVisitedRoute(pathname);
+                props.navigation?.push('shop');
+                if (props.onPress) props.onPress();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Shop Tab"
+            >
+              {props.children}
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen
@@ -106,7 +138,22 @@ export default function TabsLayout() {
           title: 'Wishlist',
           tabBarIcon: ({ color }) => (
             <TabBarIconWithBadge name="heart" color={color} count={wishlistCount} animate={!!lastAddedToWishlist} />
-          )
+          ),
+          tabBarButton: (props) => (
+            <Pressable
+              {...props}
+              onPress={async () => {
+                await trackEvent({ eventType: 'wishlist_tab_click' });
+                setLastVisitedRoute(pathname);
+                props.navigation?.push('wishlist');
+                if (props.onPress) props.onPress();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Wishlist Tab"
+            >
+              {props.children}
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen
@@ -119,6 +166,8 @@ export default function TabsLayout() {
               {...props}
               onPress={async () => {
                 await trackEvent({ eventType: 'profile_tab_click' });
+                setLastVisitedRoute(pathname);
+                props.navigation?.push('profile');
                 if (props.onPress) props.onPress();
               }}
               accessibilityRole="button"
@@ -135,7 +184,22 @@ export default function TabsLayout() {
           title: 'Cart',
           tabBarIcon: ({ color }) => (
             <TabBarIconWithBadge name="shopping-cart" color={color} count={cartCount} animate={!!lastAddedToCart} />
-          )
+          ),
+          tabBarButton: (props) => (
+            <Pressable
+              {...props}
+              onPress={async () => {
+                await trackEvent({ eventType: 'cart_tab_click' });
+                setLastVisitedRoute(pathname);
+                props.navigation?.push('cart');
+                if (props.onPress) props.onPress();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Cart Tab"
+            >
+              {props.children}
+            </Pressable>
+          ),
         }}
       />
     </Tabs>

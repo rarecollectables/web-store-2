@@ -3,7 +3,7 @@ import { View, Text, FlatList, Pressable, StyleSheet, ScrollView } from 'react-n
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme';
 import { Image as ExpoImage } from 'expo-image';
 import { useStore } from '../../context/store';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PRODUCTS } from '../(data)/products';
 import { trackEvent } from '../../lib/trackEvent';
 
@@ -20,7 +20,8 @@ import CheckoutModal from '../components/CheckoutModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function CartScreen() {
-  const { cart, updateCartItem, removeFromCart } = useStore();
+  const params = useLocalSearchParams();
+  const { cart, updateCartItem, removeFromCart, lastVisitedRoute } = useStore();
   const router = useRouter();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
@@ -45,8 +46,8 @@ export default function CartScreen() {
     }
     return sum + price * item.quantity;
   }, 0);
-  const shipping = 0.0; // Free UK shipping
-  const total = subtotal + shipping;
+  // Shipping is selected at checkout, not shown here
+  const total = subtotal;
 
   React.useEffect(() => {
     // Track cart view event
@@ -55,6 +56,31 @@ export default function CartScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <Pressable
+        onPress={() => {
+          try {
+            if (lastVisitedRoute) {
+              router.push(lastVisitedRoute);
+            } else if (router.canGoBack && router.canGoBack()) {
+              router.back();
+            } else if (params.from === 'detail' && params.productId) {
+              router.push(`/product/${params.productId}`);
+            } else {
+              router.push('/(tabs)/shop');
+            }
+          } catch {
+            router.push('/(tabs)/shop');
+          }
+        }}
+        style={({ pressed }) => [
+          { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, backgroundColor: pressed ? colors.platinum : 'transparent' }
+        ]}
+        accessibilityLabel="Go back"
+        accessibilityRole="button"
+      >
+        <Text style={{ fontSize: 20, color: colors.gold, marginRight: 6 }}>←</Text>
+        <Text style={{ color: colors.gold, fontSize: 16, fontWeight: '600' }}>Back</Text>
+      </Pressable>
 
       <Text style={styles.header}>Your Cart</Text>
       <FlatList
@@ -115,7 +141,7 @@ export default function CartScreen() {
       />
       <View style={styles.summary}>
         <View style={styles.summaryRow}><Text style={styles.label}>Subtotal</Text><Text style={styles.value}>{`₤${subtotal.toFixed(2)}`}</Text></View>
-        <View style={styles.summaryRow}><Text style={styles.label}>Shipping (UK)</Text><Text style={styles.value}>{`₤${shipping.toFixed(2)}`}</Text></View>
+        {/* <View style={styles.summaryRow}><Text style={styles.label}>Shipping (UK)</Text><Text style={styles.value}>{`₤${shipping.toFixed(2)}`}</Text></View> */}
         <View style={styles.summaryRow}><Text style={styles.labelTotal}>Total</Text><Text style={styles.valueTotal}>{`₤${total.toFixed(2)}`}</Text></View>
         <Pressable
           style={styles.checkoutBtn}

@@ -85,6 +85,29 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1 }}>
+      <Pressable
+        onPress={() => {
+          try {
+            if (lastVisitedRoute) {
+              router.push(lastVisitedRoute);
+            } else if (router.canGoBack && router.canGoBack()) {
+              router.back();
+            } else {
+              router.push('/(tabs)/shop');
+            }
+          } catch {
+            router.push('/(tabs)/shop');
+          }
+        }}
+        style={({ pressed }) => [
+          { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginLeft: 10, marginBottom: 8, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, backgroundColor: pressed ? colors.platinum : 'transparent' }
+        ]}
+        accessibilityLabel="Go back"
+        accessibilityRole="button"
+      >
+        <Text style={{ fontSize: 20, color: colors.gold, marginRight: 6 }}>←</Text>
+        <Text style={{ color: colors.gold, fontSize: 16, fontWeight: '600' }}>Back</Text>
+      </Pressable>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.header}>My Profile</Text>
         {SECTIONS.map((section) => (

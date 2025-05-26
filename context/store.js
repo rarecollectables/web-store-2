@@ -6,6 +6,9 @@ import { supabase } from '../lib/supabase/client';
 // Initialize store context with error handling
 const StoreContext = createContext();
 
+// Track last visited non-tab route (not persisted)
+let lastVisitedRoute = null;
+
 // Generate a unique session ID
 const generateSessionId = () => {
   return `guest_${Math.random().toString(36).substring(2)}_${Date.now()}`;
@@ -226,8 +229,11 @@ export function StoreProvider({ children }) {
     addToWishlist: (product) => dispatch({ type: 'ADD_TO_WISHLIST', product }),
     removeFromWishlist: (id) => dispatch({ type: 'REMOVE_FROM_WISHLIST', id }),
     updateCartItem: (id, quantity) => dispatch({ type: 'UPDATE_CART_ITEM', id, quantity }),
-    updateWishlistItem: (id, quantity) => dispatch({ type: 'UPDATE_WISHLIST_ITEM', id, quantity })
+    updateWishlistItem: (id, quantity) => dispatch({ type: 'UPDATE_WISHLIST_ITEM', id, quantity }),
+    lastVisitedRoute,
+    setLastVisitedRoute: (route) => { lastVisitedRoute = route; }
   };
+
 
   return (
     <StoreContext.Provider value={value}>

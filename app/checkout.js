@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { useStore } from '../context/store';
+// import { PRODUCTS } from './(data)/products';
+import { fetchProductsShipping } from '../lib/supabase/products';
 import { getGuestSession } from '../lib/supabase/client';
 import { checkoutAttemptService } from '../lib/supabase/services';
 import { z } from 'zod';
@@ -276,6 +278,41 @@ export default function CheckoutScreen() {
     return Object.keys(contactErrors).length === 0 && Object.keys(addressErrors).length === 0;
   };
 
+  // Shipping selection: 'free' or 'next_day'
+  const [shippingOption, setShippingOption] = useState('free');
+  // Dynamic shipping eligibility from Supabase
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [allNextDayEligible, setAllNextDayEligible] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchShipping = async () => {
+      if (cart.length === 0) {
+        setAllNextDayEligible(false);
+        return;
+      }
+      setShippingLoading(true);
+      try {
+        const shippingData = await fetchProductsShipping(cart.map(item => item.id));
+        if (!cancelled) {
+          const eligible = shippingData.length > 0 && shippingData.every(product => product.shipping_label === 'next_day');
+          setAllNextDayEligible(eligible);
+        }
+      } catch (e) {
+        if (!cancelled) setAllNextDayEligible(false);
+      } finally {
+        if (!cancelled) setShippingLoading(false);
+      }
+    };
+    fetchShipping();
+    return () => { cancelled = true; };
+  }, [cart]);
+
+  const SHIPPING_OPTIONS = [
+    { key: 'free', label: 'Free Shipping (2-4 business days)', cost: 0 },
+    ...(allNextDayEligible ? [{ key: 'next_day', label: 'Next Day Delivery (£3.99)', cost: 3.99 }] : [])
+  ];
+
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   let discountAmount = 0;
   if (couponStatus?.valid && couponStatus.discount) {
@@ -285,7 +322,9 @@ export default function CheckoutScreen() {
       discountAmount = couponStatus.discount.value;
     }
   }
-  const total = Math.max(0, subtotal - discountAmount);
+  // Calculate shipping cost
+  const shippingCost = SHIPPING_OPTIONS.find(opt => opt.key === shippingOption)?.cost || 0;
+  const total = Math.max(0, subtotal - discountAmount + shippingCost);
 
   if (stripeLoading) {
     return (
@@ -311,6 +350,7 @@ export default function CheckoutScreen() {
         <Text style={styles.subHeader}>Please fill in your details to complete your order</Text>
 
         {/* Contact & Address */}
+        {/* Rendered ONCE below payment section */}
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Contact Information</Text>
           <Text style={styles.sectionSubtitle}>Required for order confirmation</Text>
@@ -401,6 +441,34 @@ export default function CheckoutScreen() {
             )
           )}
         </View>
+        {/* Shipping Options */}
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Shipping Options</Text>
+          {shippingLoading ? (
+            <ActivityIndicator color={colors.gold} style={{ marginVertical: 8 }} />
+          ) : (
+            SHIPPING_OPTIONS.map(opt => (
+              <Pressable
+                key={opt.key}
+                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+                onPress={() => setShippingOption(opt.key)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: shippingOption === opt.key }}
+              >
+                <View style={{
+                  width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+                  borderColor: shippingOption === opt.key ? colors.gold : colors.platinum,
+                  alignItems: 'center', justifyContent: 'center', marginRight: 10
+                }}>
+                  {shippingOption === opt.key && (
+                    <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.gold }} />
+                  )}
+                </View>
+                <Text style={{ color: colors.text, fontSize: 16 }}>{opt.label}</Text>
+              </Pressable>
+            ))
+          )}
+        </View>
         {/* Order Summary */}
         <View style={styles.orderSummarySection}>
           <Text style={styles.sectionTitle}>Order Summary</Text>
@@ -408,6 +476,7 @@ export default function CheckoutScreen() {
           {couponStatus?.valid && discountAmount > 0 && (
             <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Discount</Text><Text style={[styles.summaryValue, { color: colors.gold }]}>-₤{discountAmount.toFixed(2)}</Text></View>
           )}
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Shipping</Text><Text style={styles.summaryValue}>{shippingCost === 0 ? 'Free' : `₤${shippingCost.toFixed(2)}`}</Text></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabelTotal}>Total</Text><Text style={styles.summaryValueTotal}>{`₤${total.toFixed(2)}`}</Text></View>
         </View>
         {/* Stripe Payment */}
@@ -429,6 +498,7 @@ export default function CheckoutScreen() {
             />
           </Elements>
         )}
+      
         {/* Confirmation Modal */}
         <ConfirmationModal
           open={confirmationOpen}
