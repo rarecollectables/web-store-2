@@ -41,7 +41,39 @@ exports.handler = async (event) => {
           from: fromEmail || email, // Prefer fromEmail if set
           subject: `Thank you for contacting Rare Collectables` ,
           text: `Dear ${name || 'Customer'},\n\nThank you for reaching out to Rare Collectables. We have received your message and will get back to you as soon as possible.\n\nYour message:\n${message}\n\nBest regards,\nRare Collectables Team`,
-          html: `<h2>Thank you for contacting Rare Collectables</h2><p>Dear ${name || 'Customer'},</p><p>We have received your message and will get back to you as soon as possible.</p><p><strong>Your message:</strong><br/>${message}</p><p>Best regards,<br/>Rare Collectables Team</p>`
+          html: `<!DOCTYPE html>
+<html>
+  <body style="background:#faf6e8;margin:0;padding:0;font-family:sans-serif;">
+    <table width="100%" bgcolor="#faf6e8" cellpadding="0" cellspacing="0" style="padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table width="100%" style="max-width:480px;background:#fff;border-radius:14px;box-shadow:0 2px 12px #bfa14a22;padding:32px 24px;">
+            <tr>
+              <td align="center" style="padding-bottom:16px">
+                <img src="https://rarecollectables.co.uk/logo-gold.png" alt="Rare Collectables" style="width:88px;height:auto;margin-bottom:8px;"/>
+                <h2 style="color:#bfa14a;margin:0 0 4px 0;font-size:26px;font-weight:700;">Thank you for contacting Rare Collectables</h2>
+              </td>
+            </tr>
+            <tr>
+              <td style="color:#333;font-size:17px;padding-bottom:18px;">
+                <p style="margin:0 0 10px 0;">Dear <strong>${name || 'Customer'}</strong>,</p>
+                <p style="margin:0 0 10px 0;">We have received your message and will get back to you as soon as possible.</p>
+                <div style="background:#faf6e8;border-left:4px solid #bfa14a;padding:14px 18px 12px 18px;border-radius:7px;margin-bottom:16px;">
+                  <div style="font-size:15px;color:#bfa14a;font-weight:600;margin-bottom:6px;">Your message:</div>
+                  <div style="font-size:16px;color:#444;white-space:pre-line;">${message}</div>
+                </div>
+                <p style="margin:0 0 12px 0;">Best regards,<br/>Rare Collectables Team</p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="font-size:13px;color:#bfa14a;padding-top:12px;">&copy; ${new Date().getFullYear()} Rare Collectables</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`
         });
       }
     } catch (mailErr) {
