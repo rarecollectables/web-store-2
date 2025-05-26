@@ -22,7 +22,7 @@ exports.handler = async function(event) {
     .select('*')
     .not('cart', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(1);
 
   // Find the first row with at least one item in cart
   let attempt = null;
