@@ -17,22 +17,14 @@ exports.handler = async function(event) {
   }
 
   // Find one checkout_attempts row with a non-empty cart (for testing)
+  // DEBUG: Get the 5 most recent checkout_attempts rows, no cart filter
   const { data: attempts, error } = await supabase
     .from('checkout_attempts')
     .select('*')
-    .not('cart', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(1);
+    .limit(5);
 
-  // Find the first row with at least one item in cart
-  let attempt = null;
-  if (Array.isArray(attempts)) {
-    attempt = attempts.find(a => Array.isArray(a.cart) && a.cart.length > 0);
-  }
-
-  if (!attempt) {
-    return { statusCode: 404, body: 'No abandoned checkout attempts found (with non-empty cart). Raw attempts: ' + JSON.stringify(attempts, null, 2) };
-  }
+  return { statusCode: 200, body: 'Raw attempts: ' + JSON.stringify(attempts, null, 2) };
 
   // Compose a nice email
   // Fetch cart products details from Supabase for accurate image/name/link
