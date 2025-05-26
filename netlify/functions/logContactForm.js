@@ -29,21 +29,19 @@ exports.handler = async (event) => {
     try {
       const sgMail = require('@sendgrid/mail');
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      const toEmail = process.env.SENDGRID_TO_EMAIL;
       const fromEmail = process.env.SENDGRID_FROM_EMAIL;
       const { name, email, message } = payload;
-      console.log('SENDGRID_TO_EMAIL:', toEmail);
       console.log('SENDGRID_FROM_EMAIL:', fromEmail);
       console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
-      if (!toEmail) {
-        console.error('SENDGRID_TO_EMAIL environment variable is missing. Email will not be sent.');
+      if (!email) {
+        console.error('User email from contact form is missing. Email will not be sent.');
       } else {
         await sgMail.send({
-          to: toEmail,
-          from: fromEmail || toEmail, // Prefer fromEmail if set
-          subject: `New Contact Form Submission from ${name || 'Unknown'}`,
-          text: `You received a new contact form submission.\n\nName: ${name}\nEmail: ${email}\nMessage: ${message}`,
-          html: `<h2>New Contact Form Submission</h2><p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong><br/>${message}</p>`
+          to: email,
+          from: fromEmail || email, // Prefer fromEmail if set
+          subject: `Thank you for contacting Rare Collectables` ,
+          text: `Dear ${name || 'Customer'},\n\nThank you for reaching out to Rare Collectables. We have received your message and will get back to you as soon as possible.\n\nYour message:\n${message}\n\nBest regards,\nRare Collectables Team`,
+          html: `<h2>Thank you for contacting Rare Collectables</h2><p>Dear ${name || 'Customer'},</p><p>We have received your message and will get back to you as soon as possible.</p><p><strong>Your message:</strong><br/>${message}</p><p>Best regards,<br/>Rare Collectables Team</p>`
         });
       }
     } catch (mailErr) {

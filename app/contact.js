@@ -13,13 +13,11 @@ export default function Contact() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
-  const [lastLoggedEmail, setLastLoggedEmail] = useState('');
-  const [emailDebounceTimeout, setEmailDebounceTimeout] = useState(null);
+
 
   const handleSubmit = async () => {
-    // Store the email, name, and message in the database
+    // Store the email, name, and message in the database and send email
     await contactFormService.logSubmission({ name, email, message });
-    // Track the email and form submission event
     await trackEvent({
       eventType: 'contact_form_submit',
       metadata: {
@@ -28,7 +26,6 @@ export default function Contact() {
         message
       }
     });
-    // You can implement actual submission logic here (e.g., API call)
     Alert.alert('Thank you!', 'Your message has been sent.');
     setName('');
     setEmail('');
@@ -37,15 +34,6 @@ export default function Contact() {
 
   const handleEmailChange = (newEmail) => {
     setEmail(newEmail);
-    if (emailDebounceTimeout) {
-      clearTimeout(emailDebounceTimeout);
-    }
-    setEmailDebounceTimeout(setTimeout(async () => {
-      if (newEmail !== lastLoggedEmail && newEmail !== '') {
-        await contactFormService.logSubmission({ name, email: newEmail, message });
-        setLastLoggedEmail(newEmail);
-      }
-    }, 1000));
   };
 
   return (
@@ -78,9 +66,12 @@ export default function Contact() {
       <TextInput
         style={styles.input}
         placeholder="Your Email"
-        keyboardType="email-address"
         value={email}
         onChangeText={handleEmailChange}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        textContentType="emailAddress"
+        autoCorrect={false}
         accessibilityLabel="Email Input"
       />
       <TextInput
