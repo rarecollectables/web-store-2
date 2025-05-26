@@ -7,6 +7,22 @@ export default function PrivacyPolicy() {
   const router = useRouter();
   return (
     <ScrollView contentContainerStyle={styles.container} accessibilityLabel="Privacy Policy Page">
+      <Pressable
+        onPress={() => {
+          if (router.canGoBack && router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)/shop');
+          }
+        }}
+        style={styles.backButton}
+        accessibilityLabel="Go Back"
+      >
+        <View style={styles.backButtonContent}>
+          <Text style={styles.backButtonIcon}>←</Text>
+          <Text style={styles.backButtonText}>Back</Text>
+        </View>
+      </Pressable>
       <Text style={styles.title}>Privacy Policy</Text>
       <Text style={styles.text}>
         At Rare Collectables, your privacy is important to us. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and make purchases.
@@ -62,6 +78,34 @@ export default function PrivacyPolicy() {
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 16,
+    marginLeft: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(191, 160, 84, 0.08)',
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonIcon: {
+    fontSize: 18,
+    color: colors.gold,
+    marginRight: 6,
+    fontWeight: 'bold',
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: colors.gold,
+    fontFamily: fontFamily.sans,
+    fontWeight: '600',
+  },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',

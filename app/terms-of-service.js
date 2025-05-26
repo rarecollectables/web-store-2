@@ -1,10 +1,28 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { colors, fontFamily, spacing } from '../theme';
 
+import { useRouter } from 'expo-router';
 export default function TermsOfService() {
+  const router = useRouter();
   return (
     <ScrollView contentContainerStyle={styles.container} accessibilityLabel="Terms of Service Page">
+      <Pressable
+        onPress={() => {
+          if (router.canGoBack && router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)/shop');
+          }
+        }}
+        style={styles.backButton}
+        accessibilityLabel="Go Back"
+      >
+        <View style={styles.backButtonContent}>
+          <Text style={styles.backButtonIcon}>←</Text>
+          <Text style={styles.backButtonText}>Back</Text>
+        </View>
+      </Pressable>
       <Text style={styles.title}>Terms of Service</Text>
       <Text style={styles.text}>
         By using Rare Collectables, you agree to the following terms and conditions. Please read them carefully before making a purchase or using our website.
@@ -46,6 +64,34 @@ export default function TermsOfService() {
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 16,
+    marginLeft: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(191, 160, 84, 0.08)',
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonIcon: {
+    fontSize: 18,
+    color: colors.gold,
+    marginRight: 6,
+    fontWeight: 'bold',
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: colors.gold,
+    fontFamily: fontFamily.sans,
+    fontWeight: '600',
+  },
   container: {
     padding: spacing.lg,
     backgroundColor: '#fff',

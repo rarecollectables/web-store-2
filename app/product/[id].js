@@ -254,7 +254,7 @@ const renderCarouselImage = useCallback(
       onPress={() => {
         if (currentIndex > 0 && flatListRef.current) {
           flatListRef.current.scrollToIndex({ index: currentIndex - 1, animated: true });
-          setCurrentIndex(currentIndex - 1);
+          setCurrentIndex(idx => Math.max(0, idx - 1));
         }
       }}
       accessibilityLabel="Previous image"
@@ -267,7 +267,18 @@ const renderCarouselImage = useCallback(
     <FlatList
       ref={flatListRef}
       data={images}
-      renderItem={renderCarouselImage}
+      renderItem={({ item, index }) => (
+        <View style={{ marginHorizontal: 8 }}>
+          <MemoCarouselImage
+            item={item}
+            style={[styles.image, { width: carouselWidth - 32, marginHorizontal: 0 }]}
+            onPress={() => {
+              setZoomImage(item);
+              setZoomVisible(true);
+            }}
+          />
+        </View>
+      )}
       keyExtractor={(_, idx) => String(idx)}
       horizontal
       pagingEnabled
@@ -285,6 +296,9 @@ const renderCarouselImage = useCallback(
         }
       }}
       extraData={currentIndex}
+      contentContainerStyle={{ paddingHorizontal: 0 }}
+      snapToInterval={carouselWidth}
+      decelerationRate={Platform.OS === 'ios' ? 0 : 0.98}
     />
     {/* Right Arrow */}
     <Pressable
@@ -292,7 +306,7 @@ const renderCarouselImage = useCallback(
       onPress={() => {
         if (currentIndex < images.length - 1 && flatListRef.current) {
           flatListRef.current.scrollToIndex({ index: currentIndex + 1, animated: true });
-          setCurrentIndex(currentIndex + 1);
+          setCurrentIndex(idx => Math.min(images.length - 1, idx + 1));
         }
       }}
       accessibilityLabel="Next image"

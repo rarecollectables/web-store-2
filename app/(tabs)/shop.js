@@ -5,8 +5,10 @@ import { useStore } from '../../context/store';
 import ProductsList from '../(components)/products/ProductsList';
 import SpringPromoModal from '../components/SpringPromoModal';
 import { trackEvent } from '../../lib/trackEvent';
+import { useRouter } from 'expo-router';
 
 export default function ShopScreen() {
+  const router = useRouter();
   const { addToCart } = useStore();
   const [showPromo, setShowPromo] = useState(false);
 

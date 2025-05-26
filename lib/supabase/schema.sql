@@ -20,6 +20,16 @@ CREATE TABLE IF NOT EXISTS guest_sessions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create contact_form_submissions table
+CREATE TABLE IF NOT EXISTS contact_form_submissions (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    message TEXT NOT NULL,
+    metadata JSONB,
+    submitted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create chat_archive table
 CREATE TABLE IF NOT EXISTS chat_archive (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
