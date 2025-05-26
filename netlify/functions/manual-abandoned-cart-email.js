@@ -31,7 +31,7 @@ exports.handler = async function(event) {
   }
 
   if (!attempt) {
-    return { statusCode: 404, body: 'No abandoned checkout attempts found (with non-empty cart).' };
+    return { statusCode: 404, body: 'No abandoned checkout attempts found (with non-empty cart). Raw attempts: ' + JSON.stringify(attempts, null, 2) };
   }
 
   // Compose a nice email
