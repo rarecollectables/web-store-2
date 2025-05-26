@@ -41,7 +41,7 @@ export default function AdminProducts() {
     setError(null);
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, price, image_url, additional_images, category, description, stock, material, stone, size, length')
+      .select('id, name, price, image_url, additional_images, category, shipping_label, description, stock, material, stone, size, length')
       .order('created_at', { ascending: false });
     if (error) {
       setError('Failed to fetch products');
@@ -70,11 +70,11 @@ export default function AdminProducts() {
   function closeDialog() {
     setShowDialog(false);
     setEditingProduct(null);
-    setForm({ name: '', price: '', image_url: '', additional_images: '', category: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
+    setForm({ name: '', price: '', image_url: '', additional_images: '', category: '', shipping_label: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
   }
 
   async function handleSave() {
-    const { name, price, image_url, additional_images, category, description, stock, material, stone, size, length } = form;
+    const { name, price, image_url, additional_images, category, shipping_label, description, stock, material, stone, size, length } = form;
     if (!name || !price) return Alert.alert('Validation', 'Name and price are required');
     setLoading(true);
     let result;
