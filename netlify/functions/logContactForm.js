@@ -30,14 +30,22 @@ exports.handler = async (event) => {
       const sgMail = require('@sendgrid/mail');
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       const toEmail = process.env.SENDGRID_TO_EMAIL;
+      const fromEmail = process.env.SENDGRID_FROM_EMAIL;
       const { name, email, message } = payload;
-      await sgMail.send({
-        to: toEmail,
-        from: toEmail, // or a verified sender
-        subject: `New Contact Form Submission from ${name || 'Unknown'}`,
-        text: `You received a new contact form submission.\n\nName: ${name}\nEmail: ${email}\nMessage: ${message}`,
-        html: `<h2>New Contact Form Submission</h2><p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong><br/>${message}</p>`
-      });
+      console.log('SENDGRID_TO_EMAIL:', toEmail);
+      console.log('SENDGRID_FROM_EMAIL:', fromEmail);
+      console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
+      if (!toEmail) {
+        console.error('SENDGRID_TO_EMAIL environment variable is missing. Email will not be sent.');
+      } else {
+        await sgMail.send({
+          to: toEmail,
+          from: fromEmail || toEmail, // Prefer fromEmail if set
+          subject: `New Contact Form Submission from ${name || 'Unknown'}`,
+          text: `You received a new contact form submission.\n\nName: ${name}\nEmail: ${email}\nMessage: ${message}`,
+          html: `<h2>New Contact Form Submission</h2><p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong><br/>${message}</p>`
+        });
+      }
     } catch (mailErr) {
       // Log but do not fail the function if email fails
       console.error('SendGrid email error:', mailErr);
