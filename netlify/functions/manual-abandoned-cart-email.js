@@ -94,7 +94,7 @@ exports.handler = async function(event) {
 
   await sgMail.send({
     to: to_email,
-    from: 'no-reply@rarecollectables.co.uk',
+    from: 'carecentre@rarecollectables.co.uk',
     subject: 'You left something in your cart! 🛒',
     html
   });
