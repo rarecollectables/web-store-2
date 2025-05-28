@@ -52,7 +52,7 @@ const EventMap = ({ events }) => {
       alignItems: 'stretch',
     }}>
       <div style={{fontWeight: 600, fontSize: 18, marginBottom: 12, color: '#2a3b7e'}}>Event Locations Map</div>
-      <div style={{ width: '100%', height: 320, borderRadius: 12, overflow: 'hidden', background: '#e5e5e5' }}>
+      <div style={{ width: '100%', height: 320, borderRadius: 12, overflow: 'hidden', background: '#e5e5e5', position: 'relative' }}>
         <MapContainer
         style={{ width: '100%', height: '100%' }}
         center={defaultCenter}
@@ -60,8 +60,8 @@ const EventMap = ({ events }) => {
         scrollWheelZoom={true}
       >
         <TileLayer
-          // attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
-          // url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
         />
         {eventsWithLocation.map(ev => (
           <Marker key={ev.id} position={[Number(ev.location.latitude), Number(ev.location.longitude)]} icon={myIcon}>

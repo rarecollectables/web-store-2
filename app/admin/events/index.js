@@ -20,6 +20,7 @@ const EVENT_TYPES = [
 
 
 const AdminEvents = () => {
+  const router = useRouter();
   // All useState hooks first!
   const [showTotalEventsModal, setShowTotalEventsModal] = useState(false);
   const [showEventsTodayModal, setShowEventsTodayModal] = useState(false);
@@ -188,10 +189,7 @@ const AdminEvents = () => {
 
   // Tab bar UI
   return (
-    <>
-      {/* Render EventMap only on web */}
-      {typeof window !== 'undefined' && <EventMap events={events} />}
-      <View style={styles.container}>
+    <View style={styles.container}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Admin Events</Text>
           <Pressable style={styles.homeBtn} onPress={() => router.push('/admin')}>
@@ -213,24 +211,18 @@ const AdminEvents = () => {
             <Text style={[styles.tabText, activeTab === 'dashboard' && styles.activeTabText]}>Dashboard</Text>
           </Pressable>
         </View>
-      </View>
-      {/* Tab Bar */}
-      <View style={styles.tabBar}>
-        <Pressable
-          style={[styles.tabBtn, activeTab === 'events' && styles.activeTabBtn]}
-          onPress={() => setActiveTab('events')}
-        >
-          <Text style={[styles.tabText, activeTab === 'events' && styles.activeTabText]}>Events</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tabBtn, activeTab === 'dashboard' && styles.activeTabBtn]}
-          onPress={() => setActiveTab('dashboard')}
-        >
-          <Text style={[styles.tabText, activeTab === 'dashboard' && styles.activeTabText]}>Dashboard</Text>
-        </Pressable>
-      </View>
-
       {/* Tab Content */}
+      {activeTab === 'dashboard' && typeof window !== 'undefined' && (
+        <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', paddingBottom: 40 }}>
+          {/* Events Per Day Graph goes here */}
+          {/* <EventsPerDayGraph data={...} /> */}
+          <EventMap events={events} />
+
+
+
+          {/* Add other dashboard widgets/components here, below the map, so they scroll together */}
+        </ScrollView>
+      )}
       {activeTab === 'events' ? (
         eventsToShow.length ? (
           <ScrollView>
@@ -244,62 +236,6 @@ const AdminEvents = () => {
                   value={search}
                   onChangeText={setSearch}
                 />
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ marginRight: 6 }}>From:</Text>
-                  {Platform.OS === 'web' ? (
-                    <input
-                      type="date"
-                      style={{ width: 120, marginRight: 8, height: 36, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', padding: 6 }}
-                      value={startDate}
-                      onChange={e => setStartDate(e.target.value)}
-                    />
-                  ) : (
-                    <Pressable onPress={() => setShowStartPicker(true)} style={[styles.input, { width: 120, marginRight: 8, justifyContent: 'center' }]}> 
-                      <Text>{startDate ? new Date(startDate).toLocaleDateString() : 'Select date'}</Text>
-                    </Pressable>
-                  )}
-                  {showStartPicker && Platform.OS !== 'web' && (
-                    <DateTimePicker
-                      value={startDate ? new Date(startDate) : startPickerDate}
-                      mode="date"
-                      display="default"
-                      onChange={(event, selectedDate) => {
-                        setShowStartPicker(false);
-                        if (selectedDate) {
-                          setStartDate(selectedDate.toISOString().slice(0,10));
-                          setStartPickerDate(selectedDate);
-                        }
-                      }}
-                    />
-                  )}
-                  <Text style={{ marginRight: 6 }}>To:</Text>
-                  {Platform.OS === 'web' ? (
-                    <input
-                      type="date"
-                      style={{ width: 120, height: 36, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', padding: 6 }}
-                      value={endDate}
-                      onChange={e => setEndDate(e.target.value)}
-                    />
-                  ) : (
-                    <Pressable onPress={() => setShowEndPicker(true)} style={[styles.input, { width: 120, justifyContent: 'center' }]}> 
-                      <Text>{endDate ? new Date(endDate).toLocaleDateString() : 'Select date'}</Text>
-                    </Pressable>
-                  )}
-                  {showEndPicker && Platform.OS !== 'web' && (
-                    <DateTimePicker
-                      value={endDate ? new Date(endDate) : endPickerDate}
-                      mode="date"
-                      display="default"
-                      onChange={(event, selectedDate) => {
-                        setShowEndPicker(false);
-                        if (selectedDate) {
-                          setEndDate(selectedDate.toISOString().slice(0,10));
-                          setEndPickerDate(selectedDate);
-                        }
-                      }}
-                    />
-                  )}
-                </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                   <Text style={{ marginRight: 6 }}>From:</Text>
                   {Platform.OS === 'web' ? (
@@ -372,30 +308,51 @@ const AdminEvents = () => {
                   </ScrollView>
                 </View>
               </View>
-              {eventsToShow.map((item) => (
-                <View key={item.id} style={styles.eventCard}>
-                  <Text style={styles.eventType}>{item.event_type}</Text>
-                  <Text>ID: {item.id}</Text>
-                  <Text>User: {item.user_id || 'Guest'}</Text>
-                  <Text>Guest Session: {item.guest_session_id || '-'}</Text>
-                  <Text>Product: {item.product_id || '-'}</Text>
-                  <Text>Qty: {item.quantity ?? (item.metadata?.quantity ?? '-')}</Text>
-                  <Text>Country: {item.location?.country || '-'}</Text>
-                  <Text>City: {item.location?.city || '-'}</Text>
-                  <Text>Device: {item.device?.slice(0, 32) || '-'}</Text>
-                  <Text>Referrer: {item.referrer || '-'}</Text>
-                  <Text>Date: {new Date(item.created_at).toLocaleString()}</Text>
-                  {item.metadata && <Text>Metadata: {JSON.stringify(item.metadata)}</Text>}
+              {/* User Events Table (rows & columns) */}
+              <ScrollView horizontal style={{ width: '100%' }}>
+                <View>
+                  {/* Header Row */}
+                  <View style={[tableStyles.row, { backgroundColor: '#f7f7f7', borderTopWidth: 1, borderBottomWidth: 2, borderColor: '#ddd' }]}> 
+                    <Text style={[tableStyles.cell, tableStyles.header]}>Event Type</Text>
+                    <Text style={[tableStyles.cell, tableStyles.cellId, tableStyles.header]}>ID</Text>
+                    <Text style={[tableStyles.cell, tableStyles.header]}>User</Text>
+                    <Text style={[tableStyles.cell, tableStyles.header]}>Guest Session</Text>
+                    <Text style={[tableStyles.cell, tableStyles.header]}>Product</Text>
+                    <Text style={[tableStyles.cell, tableStyles.header]}>Qty</Text>
+                    <Text style={[tableStyles.cell, tableStyles.header]}>Country</Text>
+                    <Text style={[tableStyles.cell, tableStyles.header]}>City</Text>
+                    <Text style={[tableStyles.cell, tableStyles.header]}>Device</Text>
+                    <Text style={[tableStyles.cell, tableStyles.header]}>Referrer</Text>
+                    <Text style={[tableStyles.cell, tableStyles.cellDate, tableStyles.header]}>Date</Text>
+                    <Text style={[tableStyles.cell, tableStyles.cellMetadata, tableStyles.header]}>Metadata</Text>
+                  </View>
+                  {/* Data Rows */}
+                  {eventsToShow.length > 0 ? (
+                    eventsToShow.map((item) => (
+                      <View key={item.id} style={[tableStyles.row, { backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eee' }]}> 
+                        <Text style={tableStyles.cell} numberOfLines={1} ellipsizeMode="tail">{String(item.event_type).length > 60 ? String(item.event_type).slice(0, 57) + '...' : String(item.event_type)}</Text>
+                        <Text style={[tableStyles.cell, tableStyles.cellId]} numberOfLines={1} ellipsizeMode="tail">{String(item.id).length > 60 ? String(item.id).slice(0, 57) + '...' : String(item.id)}</Text>
+                        <Text style={tableStyles.cell} numberOfLines={1} ellipsizeMode="tail">{String(item.user_id || 'Guest').length > 60 ? String(item.user_id || 'Guest').slice(0, 57) + '...' : String(item.user_id || 'Guest')}</Text>
+                        <Text style={tableStyles.cell} numberOfLines={1} ellipsizeMode="tail">{String(item.guest_session_id || '-').length > 60 ? String(item.guest_session_id || '-').slice(0, 57) + '...' : String(item.guest_session_id || '-')}</Text>
+                        <Text style={tableStyles.cell} numberOfLines={1} ellipsizeMode="tail">{String(item.product_id || '-').length > 60 ? String(item.product_id || '-').slice(0, 57) + '...' : String(item.product_id || '-')}</Text>
+                        <Text style={tableStyles.cell} numberOfLines={1} ellipsizeMode="tail">{String(item.quantity ?? (item.metadata?.quantity ?? '-')).length > 60 ? String(item.quantity ?? (item.metadata?.quantity ?? '-')).slice(0, 57) + '...' : String(item.quantity ?? (item.metadata?.quantity ?? '-'))}</Text>
+                        <Text style={tableStyles.cell} numberOfLines={1} ellipsizeMode="tail">{String(item.location?.country || '-').length > 60 ? String(item.location?.country || '-').slice(0, 57) + '...' : String(item.location?.country || '-')}</Text>
+                        <Text style={tableStyles.cell} numberOfLines={1} ellipsizeMode="tail">{String(item.location?.city || '-').length > 60 ? String(item.location?.city || '-').slice(0, 57) + '...' : String(item.location?.city || '-')}</Text>
+                        <Text style={tableStyles.cell} numberOfLines={1} ellipsizeMode="tail">{String(item.device || '-').length > 60 ? String(item.device || '-').slice(0, 57) + '...' : String(item.device || '-')}</Text>
+                        <Text style={tableStyles.cell} numberOfLines={1} ellipsizeMode="tail">{String(item.referrer || '-').length > 60 ? String(item.referrer || '-').slice(0, 57) + '...' : String(item.referrer || '-')}</Text>
+                        <Text style={[tableStyles.cell, tableStyles.cellDate]} numberOfLines={1} ellipsizeMode="tail">{String(new Date(item.created_at).toLocaleString()).length > 60 ? String(new Date(item.created_at).toLocaleString()).slice(0, 57) + '...' : String(new Date(item.created_at).toLocaleString())}</Text>
+                        <Text style={[tableStyles.cell, tableStyles.cellMetadata]} numberOfLines={1} ellipsizeMode="tail">{item.metadata ? (JSON.stringify(item.metadata).length > 60 ? JSON.stringify(item.metadata).slice(0, 57) + '...' : JSON.stringify(item.metadata)) : '-'}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={{ padding: 12 }}><Text>No events found.</Text></View>
+                  )}
                 </View>
-              ))}
+              </ScrollView>
             </View>
           </ScrollView>
         ) : (
           <ScrollView style={styles.dashboardPanel}>
-           {/* TEST PRESSABLE FOR DEBUGGING */}
-           <Pressable onPress={() => {console.log('Test Pressable at top pressed');}} style={{backgroundColor: '#ffeb3b', padding: 14, marginBottom: 12, borderRadius: 8, alignItems: 'center'}}>
-             <Text style={{fontWeight: 'bold'}}>[TEST] Press me! (Should log to console)</Text>
-           </Pressable>
             {/* Date Filter UI for Dashboard */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ marginRight: 6 }}>From:</Text>
@@ -1048,7 +1005,7 @@ const AdminEvents = () => {
           />
         </ScrollView>
       )}
-    </>
+    </View>
   );
 };
 
@@ -1236,5 +1193,44 @@ const styles = StyleSheet.create({
     color: 'red',
   },
   });
+
+const tableStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 36,
+  },
+  cell: {
+    flex: 1,
+    minWidth: 15,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRightWidth: 1,
+    borderColor: '#eee',
+    fontSize: 13,
+    color: '#333',
+    textAlign: 'center',
+  },
+  cellId: {
+    flex: 1,
+    minWidth: 15,
+    textAlign: 'center',
+  },
+  cellMetadata: {
+    flex: 1,
+    minWidth: 80,
+    textAlign: 'center',
+  },
+  cellDate: {
+    flex: 1,
+    minWidth: 80,
+    textAlign: 'center',
+  },
+  header: {
+    fontWeight: 'bold',
+    backgroundColor: '#f3f3f3',
+    color: '#222',
+  },
+});
 
 export default AdminEvents;

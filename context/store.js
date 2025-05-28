@@ -70,6 +70,7 @@ const initializeStore = async () => {
 //   removeFromWishlist: (id: string) => void;
 //   updateCartItem: (id: string, quantity: number) => void;
 //   updateWishlistItem: (id: string, quantity: number) => void;
+//   setCart: (cartItems: Product[]) => void;
 // }
 
 const STORAGE_KEY = 'RARE_COLLECTABLES_STORE';
@@ -231,8 +232,10 @@ export function StoreProvider({ children }) {
     updateCartItem: (id, quantity) => dispatch({ type: 'UPDATE_CART_ITEM', id, quantity }),
     updateWishlistItem: (id, quantity) => dispatch({ type: 'UPDATE_WISHLIST_ITEM', id, quantity }),
     lastVisitedRoute,
-    setLastVisitedRoute: (route) => { lastVisitedRoute = route; }
+    setLastVisitedRoute: (route) => { lastVisitedRoute = route; },
+    setCart: (cartItems) => dispatch({ type: 'HYDRATE', payload: { cart: cartItems, wishlist: ensureArray(state.wishlist) } })
   };
+
 
 
   return (

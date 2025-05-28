@@ -19,10 +19,74 @@ function parsePrice(val) {
 import CheckoutModal from '../components/CheckoutModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 
+import { supabase } from '../../lib/supabase/client';
+
 export default function CartScreen() {
   const params = useLocalSearchParams();
-  const { cart, updateCartItem, removeFromCart, lastVisitedRoute } = useStore();
+  const { cart, updateCartItem, removeFromCart, lastVisitedRoute, addToCart } = useStore();
   const router = useRouter();
+
+  React.useEffect(() => {
+    if (!cart || cart.length === 0) {
+      const sessionId = params.session;
+      if (sessionId) {
+        (async () => {
+          const { data: attempts, error } = await supabase
+            .from('checkout_attempts')
+            .select('*')
+            .eq('guest_session_id', sessionId)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          if (error || !attempts || attempts.length === 0) {
+            return;
+          }
+
+          let cartAttempt = null;
+          let cartIds = [];
+          for (const att of attempts) {
+            try {
+              cartIds = Array.isArray(att.cart)
+                ? att.cart.map(item => item.id)
+                : (att.cart ? Object.keys(att.cart) : []);
+            } catch (e) {
+              cartIds = [];
+            }
+            if (cartIds.length) {
+              cartAttempt = att;
+              break;
+            }
+          }
+          if (!cartAttempt) {
+            return;
+          }
+
+          const { data: products } = await supabase
+            .from('products')
+            .select('id, name, price, image_url')
+            .in('id', cartIds);
+
+          let cartItems = [];
+          if (Array.isArray(cartAttempt.cart)) {
+            cartItems = cartAttempt.cart.map(item => {
+              const prod = products.find(p => p.id === item.id);
+              return prod ? { ...prod, quantity: item.quantity || 1 } : null;
+            }).filter(Boolean);
+          } else if (cartAttempt.cart && typeof cartAttempt.cart === 'object') {
+            cartItems = Object.entries(cartAttempt.cart).map(([id, qty]) => {
+              const prod = products.find(p => p.id === id);
+              return prod ? { ...prod, quantity: qty || 1 } : null;
+            }).filter(Boolean);
+          }
+
+          // Use addToCart for each item to trigger all add-to-cart logic
+          cartItems.forEach(item => {
+            addToCart(item);
+          });
+        })();
+      }
+    }
+  }, [params.session, addToCart, cart]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [contact, setContact] = useState({ name: '', email: '' });
@@ -94,7 +158,7 @@ export default function CartScreen() {
           }
           return (
             <View style={styles.itemRow}>
-              <ExpoImage source={item.image} style={styles.image} contentFit="cover" />
+              <ExpoImage source={item.image_url || item.image || require('../../assets/images/rare-collectables-logo.png')} style={styles.image} contentFit="cover" />
               <View style={styles.itemDetails}>
                 <Text style={styles.title}>{item.title}</Text>
                 <Text style={styles.price}>{`₤${price > 0 ? (price * item.quantity).toFixed(2) : 'N/A'}`}</Text>
