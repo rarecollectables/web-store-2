@@ -7,7 +7,10 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { FontAwesome } from '@expo/vector-icons';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme/index.js';
 import ChatScreen from '../chat/index.js';
-
+import AnnaWelcomePopup from '../components/AnnaWelcomePopup';
+import SpringPromoModal from '../components/SpringPromoModal';
+import BestSellersSection from '../components/BestSellersSection';
+import ReviewsCarousel from '../components/ReviewsCarousel';
 
 // Category definitions for homepage
 const CATEGORIES = [
@@ -81,10 +84,6 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
   );
 }
 
-import SpringPromoModal from '../components/SpringPromoModal';
-import BestSellersSection from '../components/BestSellersSection';
-import ReviewsCarousel from '../components/ReviewsCarousel';
-
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -94,6 +93,7 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [email, setEmail] = useState('');
   const [isChatVisible, setIsChatVisible] = useState(false);
+  const [pendingPopupMessage, setPendingPopupMessage] = useState(null);
   const [showPromo, setShowPromo] = useState(false);
 
   useEffect(() => {
@@ -118,6 +118,13 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      {/* AnnaWelcomePopup appears after delay, opens chat with message if sent */}
+      <AnnaWelcomePopup
+        onOpenChat={(msg) => {
+          setPendingPopupMessage(msg);
+          setIsChatVisible(true);
+        }}
+      />
 
       <SpringPromoModal visible={showPromo} onClose={handleClosePromo} />
       <ScrollView
@@ -247,7 +254,11 @@ export default function HomeScreen() {
         </Pressable>
       )}
       {isChatVisible && (
-        <ChatScreen isChatVisible={isChatVisible} setIsChatVisible={setIsChatVisible} />
+        <ChatScreen
+          isChatVisible={isChatVisible}
+          setIsChatVisible={setIsChatVisible}
+          initialMessage={pendingPopupMessage}
+        />
       )}
     </View>
   );

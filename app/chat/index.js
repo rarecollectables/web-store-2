@@ -13,7 +13,7 @@ const styles = StyleSheet.create({
     bottom: Platform.OS === 'web' ? 32 : '10%',
     left: Platform.OS === 'web' ? 32 : spacing.xl,
     // Remove left and centering margins for mobile
-    left: undefined,
+
     marginLeft: undefined,
     marginRight: undefined,
     marginHorizontal: undefined,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
 
 import { useRouter } from 'expo-router';
 
-const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
+const ChatScreen = ({ isChatVisible, setIsChatVisible, initialMessage, ...props }) => {
   const router = useRouter();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -335,6 +335,25 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
   }, [messages]);
 
   // Initialize chat session and get session ID
+  // Handle initialMessage from AnnaWelcomePopup
+  // Only send initialMessage ONCE per mount
+  const initialMessageSent = useRef(false);
+  useEffect(() => {
+    if (
+      initialMessage &&
+      initialMessage.trim() &&
+      !initialMessageSent.current &&
+      isChatVisible &&
+      sessionId // <-- only send if sessionId is ready
+    ) {
+      initialMessageSent.current = true;
+      handleSend(initialMessage);
+      setMessage('');
+      if (typeof props.onInitialMessageHandled === 'function') props.onInitialMessageHandled();
+    }
+    // eslint-disable-next-line
+  }, [initialMessage, isChatVisible, sessionId]);
+
   useEffect(() => {
     const initializeChat = async () => {
       try {
@@ -353,21 +372,6 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
         }
         setSessionId(sid);
         setIsInitialized(true);
-        // Load initial messages
-        await loadMessages();
-        // Greet the user if there are no previous messages
-        setTimeout(() => {
-          setMessages(prev => {
-            if (!prev || prev.length === 0) {
-              return [{
-                id: 'anna-greeting',
-                sender: 'assistant',
-                text: "Hello, I'm Anna! Welcome to Rare Collectables. How can I brighten your day or help you find something special?"
-              }];
-            }
-            return prev;
-          });
-        }, 400);
       } catch (error) {
         console.error('Error initializing chat:', error);
         setError('Failed to initialize chat session');
@@ -376,9 +380,17 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
     initializeChat();
   }, []);
 
+  // Only load messages from Supabase if local messages are empty
+  useEffect(() => {
+    if (sessionId && messages.length === 0) {
+      loadMessages();
+    }
+  }, [sessionId]);
+
   // Load messages from chat history
   const loadMessages = async () => {
     try {
+      console.log('loadMessages sessionId', sessionId);
       const { data, error: loadError } = await supabase
         .from('chat_history')
         .select('*')
@@ -392,12 +404,25 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
       }
 
       if (data) {
-        const formattedMessages = data.map(msg => ({
-          text: msg.message || msg.response,
-          sender: msg.message ? 'user' : 'assistant',
-          timestamp: msg.created_at,
-          productInfo: msg.product_info ? JSON.parse(msg.product_info) : null
-        }));
+        console.log('loadMessages data', data);
+        const formattedMessages = [];
+        for (const msg of data) {
+          // User message
+          formattedMessages.push({
+            text: msg.message,
+            sender: 'user',
+            timestamp: msg.created_at,
+          });
+          // Assistant reply
+          if (msg.response) {
+            formattedMessages.push({
+              text: msg.response,
+              sender: 'assistant',
+              timestamp: msg.created_at,
+              productInfo: null,
+            });
+          }
+        }
         setMessages(formattedMessages);
       }
     } catch (error) {
@@ -407,16 +432,20 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
   };
 
   // Handle sending messages with improved error handling and animations
-  const handleSend = async () => {
-    if (!message.trim()) return;
-
+  const handleSend = async (msgOverride) => {
+    const msgToSend = typeof msgOverride === 'string' ? msgOverride : message;
+    if (!msgToSend.trim()) return;
+    if (!sessionId) {
+      setError('Chat session is not ready. Please try again.');
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);
 
       // Add user message immediately
       const userMessage = {
-        text: message,
+        text: msgToSend,
         sender: 'user',
         timestamp: new Date().toISOString()
       };
@@ -426,26 +455,33 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
       // Show typing indicator
       setIsTyping(true);
 
-      // Always use chatService.generateResponse for assistant replies
-      let productInfo = await chatService.getRelevantProductInfo(message);
-      const response = await chatService.generateResponse(message, messages, productInfo);
-      // Add assistant response
-      const assistantMessage = {
-        text: response,
-        sender: 'assistant',
-        timestamp: new Date().toISOString(),
-        productInfo: productInfo
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+      // Store user message in database immediately
+      console.log('handleSend sessionId', sessionId);
+      // Generate product info and assistant reply
+      const productInfo = await chatService.getRelevantProductInfo(msgToSend);
+      const response = await chatService.generateResponse(msgToSend, messages, productInfo);
 
-      // Store messages in database
-      await chatService.storeMessage(message, null, response, sessionId);
+      // Insert a single row with both message and response
+      const { error: insertError } = await supabase.from('chat_history').insert({
+        session_id: sessionId,
+        message: msgToSend,
+        response: response,
+        created_at: new Date().toISOString(),
+      });
+      if (insertError) {
+        setError('Failed to save your message. Please try again.');
+        console.error('Chat insert error:', insertError);
+        return;
+      }
+
+      // Reload all messages from Supabase to ensure both prompt and reply are shown
+      await loadMessages();
 
       // Track analytics
       if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
         console.warn('Skipping analytics: Invalid sessionId', sessionId);
       } else {
-        await trackChatAnalytics(message, response, productInfo, sessionId);
+        await trackChatAnalytics(msgToSend, response, productInfo, sessionId);
       }
     } catch (error) {
       handleErrorMessage(error);
@@ -539,18 +575,14 @@ const ChatScreen = ({ isChatVisible, setIsChatVisible, ...props }) => {
         session_id: sessionId,
         query,
         response,
-        product_info: JSON.stringify(productInfo),
-        intent: productInfo?.[0]?.intent || 'UNKNOWN',
-        entities: JSON.stringify(productInfo?.[0]?.entities || {}),
-        created_at: new Date(),
-        updated_at: new Date()
+        created_at: new Date().toISOString()
       });
     } catch (error) {
       console.error('Error tracking chat analytics:', error);
     }
   };
 
-  // Handle keyboard submit
+// ...
   const handleSubmit = () => {
     if (message.trim() && !isLoading) {
       handleSend();

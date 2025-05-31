@@ -151,19 +151,29 @@ export default function ProductCard({ item, cardWidth }) {
             <ActivityIndicator size="large" color={colors.gold} />
           </View>
         )}
-        {allImagesFailed ? (
+        {/* Always use a valid image source, fallback to placeholder if missing/invalid */}
+        {allImagesFailed || !images[currentIndex] || typeof images[currentIndex] !== 'string' || images[currentIndex].trim() === '' ? (
           <ImageBackground
             source={{ uri: PLACEHOLDER_IMAGE }}
             style={styles.image}
             imageStyle={styles.imageStyle}
             onLoadStart={() => setImageLoading(true)}
             onLoad={() => setImageLoading(false)}
+            onError={() => {
+              // If even the placeholder fails, show a local asset fallback (optional)
+              setImageError(true);
+            }}
           >
             {/* Optionally, show a logo or fallback text here */}
+            {imageError && (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: colors.gold, fontSize: 18 }}>Image unavailable</Text>
+              </View>
+            )}
           </ImageBackground>
         ) : (
           <ImageBackground
-            source={typeof images[currentIndex] === 'string' && images[currentIndex].trim() !== '' ? { uri: images[currentIndex] } : undefined}
+            source={{ uri: images[currentIndex] }}
             style={styles.image}
             imageStyle={styles.imageStyle}
             onLoadStart={() => setImageLoading(true)}
@@ -374,3 +384,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
   },
 });
+  
