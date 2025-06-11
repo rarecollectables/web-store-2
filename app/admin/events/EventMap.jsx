@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import '../custom-circle-marker.css';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -14,16 +15,10 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Custom marker icon using default Leaflet PNG
-const myIcon = new L.Icon({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-  className: ''
+// Custom circular marker icon using divIcon
+const circleIcon = L.divIcon({
+  className: 'custom-circle-marker',
+  iconSize: [24, 24]
 });
 
 /**
@@ -64,7 +59,7 @@ const EventMap = ({ events }) => {
           attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
         />
         {eventsWithLocation.map(ev => (
-          <Marker key={ev.id} position={[Number(ev.location.latitude), Number(ev.location.longitude)]} icon={myIcon}>
+          <Marker key={ev.id} position={[Number(ev.location.latitude), Number(ev.location.longitude)]} icon={circleIcon}>
             <Popup>
               <div>
                 <div><b>Event:</b> {ev.event_type}</div>

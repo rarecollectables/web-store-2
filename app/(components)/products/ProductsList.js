@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { trackEvent } from '../../../lib/trackEvent';
 import { View, FlatList, StyleSheet, ActivityIndicator, Text, Pressable, Platform } from 'react-native';
 import { useWindowDimensions } from 'react-native';
 import { useRouter, useGlobalSearchParams } from 'expo-router';
@@ -48,6 +49,7 @@ export default function ProductsList() {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const ITEMS_PER_PAGE = 12; // Number of items per page
   const [sortOption, setSortOption] = useState('newest'); // Default sort by newest
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -130,6 +132,7 @@ export default function ProductsList() {
         // Calculate total pages
         const calculatedTotalPages = Math.ceil(count / ITEMS_PER_PAGE) || 1;
         setTotalPages(calculatedTotalPages);
+        setTotalCount(count);
         
         // Build the main query
         let query = supabase
@@ -163,7 +166,7 @@ export default function ProductsList() {
         // Apply selectedCategory filter (overrides URL param if not 'All')
         if (selectedCategory && selectedCategory !== 'All') {
           query = query.eq('category', selectedCategory);
-        } else if (category) {
+        } else if (!selectedCategory && category) {
           const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
           query = query.eq('category', formattedCategory);
         }
@@ -309,16 +312,29 @@ export default function ProductsList() {
   }, [page, category]);
 
   const renderHeader = () => {
-    if (!category) return null;
-    
-    const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
+    // Prefer selectedCategory if not 'All', else fallback to URL param
+    const activeCategory =
+      selectedCategory && selectedCategory !== 'All'
+        ? selectedCategory
+        : category;
+
+    let categoryTitle;
+    if (!activeCategory || activeCategory === 'All') {
+      categoryTitle = 'All Products';
+    } else {
+      categoryTitle = activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1);
+    }
+
     const headerTitleFontSize = Platform.OS === 'web' ? 48 : 32;
     const headerSubtitleFontSize = Platform.OS === 'web' ? 22 : 18;
+
     return (
       <View style={styles.headerContainer}>
-        <Text style={[styles.headerTitle, { fontSize: headerTitleFontSize }]}>{categoryTitle}</Text>
+        <Text style={[styles.headerTitle, { fontSize: headerTitleFontSize }]}>
+          {categoryTitle}
+        </Text>
         <Text style={[styles.headerSubtitle, { fontSize: headerSubtitleFontSize }]}>
-          {products.length} {products.length === 1 ? 'item' : 'items'} available
+          {totalCount} {totalCount === 1 ? 'item' : 'items'} available
         </Text>
       </View>
     );
