@@ -6,6 +6,7 @@ export default function SpringPromoModal({ visible, onClose }) {
   if (!visible) return null;
   return (
     <View style={styles.overlay}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       <View style={styles.modal}>
         {/* Force the title to always be on one line, no wrap, no truncation */}
         <Text

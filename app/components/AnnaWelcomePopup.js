@@ -19,7 +19,7 @@ export default function AnnaWelcomePopup({ onOpenChat }) {
         duration: 350,
         useNativeDriver: true,
       }).start();
-    }, 7000);
+    }, 5000);
     return () => clearTimeout(openTimer);
   }, []);
 
@@ -30,7 +30,7 @@ export default function AnnaWelcomePopup({ onOpenChat }) {
     if (!input.trim()) {
       closeTimer = setTimeout(() => {
         setVisible(false);
-      }, 8000);
+      }, 7000);
     }
     return () => closeTimer && clearTimeout(closeTimer);
   }, [visible, input]);

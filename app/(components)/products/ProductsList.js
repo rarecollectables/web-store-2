@@ -6,12 +6,10 @@ import { supabase } from '../../../lib/supabase/client';
 import ProductCard from './ProductCard';
 import { colors, spacing, borderRadius, fontFamily, shadows } from '../../../theme';
 
-const CARD_MIN_WIDTH = 280;
-const CARD_MAX_WIDTH = 320;
-const CONTAINER_PADDING = 32;
-const GRID_GAP = 32;
 const MOBILE_BREAKPOINT = 768;
 const TABLET_BREAKPOINT = 1024;
+
+
 
 import { TextInput, ScrollView } from 'react-native';
 
@@ -26,6 +24,24 @@ const CATEGORY_OPTIONS = [
 
 export default function ProductsList() {
   const { width } = useWindowDimensions();
+
+  // Improved density for mobile
+  const CARD_MIN_WIDTH = width < MOBILE_BREAKPOINT ? 160 : 280;
+  const CARD_MAX_WIDTH = 320;
+  const CONTAINER_PADDING = width < MOBILE_BREAKPOINT ? 8 : 32;
+  const GRID_GAP = width < MOBILE_BREAKPOINT ? 16 : 32;
+
+  const isMobile = width < MOBILE_BREAKPOINT;
+  const isTablet = width >= MOBILE_BREAKPOINT && width < TABLET_BREAKPOINT;
+  // For mobile, always use 2 columns
+  const numColumns = isMobile ? 2 : isTablet ? 2 : 4;
+
+  const availableWidth = width - (CONTAINER_PADDING * 2);
+  const cardWidth = Math.min(
+    Math.max(CARD_MIN_WIDTH, (availableWidth - (GRID_GAP * (numColumns - 1))) / numColumns),
+    CARD_MAX_WIDTH
+  );
+
   const { category } = useGlobalSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,18 +63,6 @@ export default function ProductsList() {
     
     setPage(newPage);
   }, [totalPages, loading]);
-
-  const isMobile = width < MOBILE_BREAKPOINT;
-  const isTablet = width >= MOBILE_BREAKPOINT && width < TABLET_BREAKPOINT;
-  const numColumns = isMobile ? 1 : isTablet ? 2 : 4;
-
-  const availableWidth = width - (CONTAINER_PADDING * 2);
-  const cardWidth = numColumns === 1
-    ? availableWidth
-    : Math.min(
-        Math.max(CARD_MIN_WIDTH, (availableWidth - (GRID_GAP * (numColumns - 1))) / numColumns),
-        CARD_MAX_WIDTH
-      );
 
   // State for search, category, and sorting
   const [search, setSearch] = useState('');
@@ -362,7 +366,6 @@ export default function ProductsList() {
         <FlatList
           data={products}
           style={{ flex: 1 }}
-          contentContainerStyle={[styles.contentContainer, { flexGrow: 1, paddingVertical: spacing.xl }]}
           renderItem={({ item, index }) => (
             <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
               <ProductCard item={item} cardWidth={cardWidth} />
@@ -380,11 +383,11 @@ export default function ProductsList() {
           }
           contentContainerStyle={[
             styles.contentContainer,
-            { paddingVertical: spacing.xl }
+            { paddingHorizontal: CONTAINER_PADDING, paddingVertical: spacing.xl }
           ]}
           columnWrapperStyle={numColumns > 1 ? [
             styles.columnWrapper,
-            { gap: GRID_GAP }
+            { marginBottom: GRID_GAP }
           ] : undefined}
           showsVerticalScrollIndicator={false}
         />
@@ -505,10 +508,14 @@ export default function ProductsList() {
               }
             ]}
             onPress={() => {
-              setSelectedCategory(cat);
-              setProducts([]); // reset products
-              setPage(1);
-            }}
+               trackEvent({
+                 eventType: 'category_click',
+                 metadata: { categoryId: cat, source: 'shop' }
+               });
+               setSelectedCategory(cat);
+               setProducts([]); // reset products
+               setPage(1);
+             }}
             accessibilityRole="button"
             accessibilityLabel={`Filter by ${cat}`}
           >
@@ -703,11 +710,9 @@ const styles = StyleSheet.create({
   },
   // Add for mobile single-column card spacing
   mobileCardSpacing: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.xl * 2, // Increased spacing for mobile rows
   },
   contentContainer: {
-    paddingHorizontal: CONTAINER_PADDING,
-    paddingVertical: spacing.xl,
     backgroundColor: colors.ivory,
     maxWidth: 1600,
     alignSelf: 'center',
@@ -716,7 +721,6 @@ const styles = StyleSheet.create({
   columnWrapper: {
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: GRID_GAP,
   },
   headerContainer: {
     marginBottom: spacing.xl,

@@ -169,7 +169,13 @@ export default function HomeScreen() {
                     cardSize={cardSize}
                     marginRight={marginRight}
                     images={images}
-                    onPress={() => router.push(`/shop?category=${cat.id}`)}
+                    onPress={() => {
+  trackEvent({
+    eventType: 'category_click',
+    metadata: { categoryId: cat.id, categoryTitle: cat.title, source: 'home' }
+  });
+  router.push(`/shop?category=${cat.id}`);
+}}
                   />
                 );
               })}

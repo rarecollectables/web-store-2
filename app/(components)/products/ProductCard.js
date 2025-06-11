@@ -61,15 +61,15 @@ export default function ProductCard({ item, cardWidth }) {
     setCurrentIndex(0);
   }, [item.id]);
 
-  const handlePress = () => {
-    // Track product view event
-    trackEvent({
+  const handlePress = async () => {
+    await trackEvent({
       eventType: 'product_view',
       productId: item.id,
       metadata: { productName: item.name }
     });
     router.push(`/product/${item.id}`);
   };
+
 
   const handleAddToCart = () => {
     Animated.sequence([
