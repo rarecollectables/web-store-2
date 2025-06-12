@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import PaymentMethodsRow from './(components)/PaymentMethodsRow';
 import { useStore } from '../context/store';
 // import { PRODUCTS } from './(data)/products';
 import { fetchProductsShipping } from '../lib/supabase/products';

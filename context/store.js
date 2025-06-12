@@ -167,8 +167,13 @@ function reducer(state, action) {
 
 const getItem = async (key) => {
   try {
-    const value = await SecureStore.getItemAsync(key);
-    return value;
+    if (Platform.OS === 'web') {
+      const value = window.localStorage.getItem(key);
+      return value;
+    } else {
+      const value = await SecureStore.getItemAsync(key)
+      return value;
+    }
   } catch (error) {
     console.error('Error getting item:', error);
     return null;
@@ -177,7 +182,12 @@ const getItem = async (key) => {
 
 const setItem = async (key, value) => {
   try {
-    await SecureStore.setItemAsync(key, JSON.stringify(value));
+    const toSave = typeof value === 'string' ? value : JSON.stringify(value);
+    if (Platform.OS === 'web') {
+      window.localStorage.setItem(key, toSave);
+    } else {
+      await SecureStore.setItemAsync(key, toSave);
+    }
   } catch (error) {
     console.error('Error setting item:', error);
   }
@@ -192,7 +202,13 @@ export function StoreProvider({ children }) {
       try {
         const data = await getItem(STORAGE_KEY);
         if (data) {
-          const parsedData = JSON.parse(data);
+          let parsedData;
+          try {
+            parsedData = JSON.parse(data);
+          } catch (parseErr) {
+            console.error('[store.js] Error parsing stored data:', parseErr, data);
+            parsedData = {};
+          }
           dispatch({ 
             type: 'HYDRATE', 
             payload: {

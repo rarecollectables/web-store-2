@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, useWindowDimensions, ImageBackground, ScrollView, TextInput, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, useWindowDimensions, ImageBackground, ScrollView, TextInput, Alert, Linking, Animated } from 'react-native';
 import { trackEvent } from '../../lib/trackEvent';
 import { useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { FontAwesome } from '@expo/vector-icons';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme/index.js';
 import ChatScreen from '../chat/index.js';
+import PaymentMethodsRow from '../(components)/PaymentMethodsRow';
 import AnnaWelcomePopup from '../components/AnnaWelcomePopup';
 import SpringPromoModal from '../components/SpringPromoModal';
 import BestSellersSection from '../components/BestSellersSection';
@@ -85,6 +86,7 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
 }
 
 export default function HomeScreen() {
+  const [discountBubbleScale] = useState(new Animated.Value(0.7));
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -95,19 +97,54 @@ export default function HomeScreen() {
   const [isChatVisible, setIsChatVisible] = useState(false);
   const [pendingPopupMessage, setPendingPopupMessage] = useState(null);
   const [showPromo, setShowPromo] = useState(false);
+  const [showDiscountBubble, setShowDiscountBubble] = useState(false);
 
   useEffect(() => {
-    // Only show promo if not previously shown (per device)
+    // Always show the promo bubble on every load
     const seen = typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('springPromoSeen');
-    if (!seen) setShowPromo(true);
+    if (!seen) {
+      setShowPromo(true);
+      setShowDiscountBubble(true);
+    } else {
+      setShowDiscountBubble(true);
+    }
   }, []);
+
+  // Bounce animation for discount bubble
+  useEffect(() => {
+    if (showDiscountBubble) {
+      Animated.sequence([
+        Animated.timing(discountBubbleScale, {
+          toValue: 1.08,
+          duration: 280,
+          useNativeDriver: true,
+        }),
+        Animated.spring(discountBubbleScale, {
+          toValue: 1,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [showDiscountBubble]);
 
   const handleClosePromo = () => {
     setShowPromo(false);
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem('springPromoSeen', '1');
+      // Show the bubble after closing the promo modal, unless the user already dismissed it
+      if (!window.localStorage.getItem('springPromoBubbleDismissed')) {
+        setShowDiscountBubble(true);
+      }
     }
   };
+
+  const handleCloseBubble = () => {
+    setShowDiscountBubble(false);
+    // No longer persist dismissal; bubble will always return on reload
+  };
+
+
 
   // Responsive columns for category grid
   const columns = width > 900 ? 4 : width > 600 ? 3 : 2;
@@ -247,8 +284,43 @@ export default function HomeScreen() {
             <Text style={styles.footerLink}>Contact</Text>
           </Pressable>
         </View>
+        <View style={styles.paymentFooter}>
+          <Text style={styles.paymentFooterLabel}>We accept</Text>
+          <PaymentMethodsRow iconSize={38} pop style={{ marginBottom: 4 }} />
+        </View>
       </ScrollView>
 
+      {/* Persistent Promo Bubble: Shows after modal closes, brings modal back when clicked */}
+      {showDiscountBubble && (
+         <View style={styles.discountBubbleContainer}>
+           <Animated.View
+             style={[
+               styles.discountBubble,
+               { transform: [{ scale: discountBubbleScale }] }
+             ]}
+           >
+             <Pressable
+               style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+               onPress={() => setShowPromo(true)}
+               accessibilityRole="button"
+               accessibilityLabel="Show discount details"
+             >
+               <Text style={{ fontSize: 24, marginRight: 8 }} role="img" aria-label="Gift">🎁</Text>
+               <Text style={styles.discountBubbleText}>
+                 <Text style={{ fontWeight: 'bold', color: colors.gold }}>Welcome!</Text> 20% off for you
+               </Text>
+             </Pressable>
+             <Pressable
+               style={styles.discountBubbleClose}
+               onPress={handleCloseBubble}
+               accessibilityRole="button"
+               accessibilityLabel="Dismiss discount bubble"
+             >
+               <FontAwesome name="close" size={16} color={colors.onyxBlack} />
+             </Pressable>
+           </Animated.View>
+         </View>
+      )}
       {!isChatVisible && (
         <Pressable
           style={styles.chatButton}
@@ -271,6 +343,72 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  discountBubbleContainer: {
+    position: 'absolute',
+    bottom: spacing.xl + 10,
+    left: spacing.xl + 10,
+    zIndex: 1100,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  discountBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'linear-gradient(90deg, #FFE8B2 0%, #FFD580 100%)', // fallback for web, can use gradient lib for native
+    borderRadius: 999,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+    borderWidth: 1.5,
+    borderColor: colors.softGoldBorder,
+    zIndex: 1100,
+    minWidth: 200,
+    maxWidth: 320,
+    marginBottom: 8,
+    gap: 10,
+    // Bounce animation will be added inline in the component
+  },
+  discountBubbleText: {
+    color: colors.onyxBlack,
+    fontFamily: fontFamily.sans,
+    fontWeight: 'bold',
+    fontSize: 17,
+    letterSpacing: 0.2,
+    marginRight: 0,
+    flexShrink: 1,
+  },
+  discountBubbleClose: {
+    marginLeft: 10,
+    backgroundColor: 'rgba(30, 30, 30, 0.10)',
+    borderRadius: 999,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.softGoldBorder,
+    shadowColor: colors.onyxBlack,
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  paymentFooter: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    borderTopWidth: 1,
+    borderColor: colors.softGoldBorder,
+  },
+  paymentFooterLabel: {
+    fontSize: 13,
+    color: colors.platinum,
+    marginBottom: 6,
+    fontFamily: fontFamily.sans || fontFamily,
+  },
   newsletterSectionRedesign: {
     backgroundColor: colors.ivory,
     borderColor: colors.softGoldBorder,

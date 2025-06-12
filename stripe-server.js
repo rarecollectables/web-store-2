@@ -26,7 +26,7 @@ app.post('/create-checkout-session', async (req, res) => {
     }));
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'apple_pay', 'google_pay'],
+      payment_method_types: ['card'],
       mode: 'payment',
       line_items,
       customer_email: customer_email || undefined,

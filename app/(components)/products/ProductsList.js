@@ -69,6 +69,22 @@ export default function ProductsList() {
   // State for search, category, and sorting
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+
+  // Sync selectedCategory with URL param on mount and whenever category param changes
+  useEffect(() => {
+    if (
+      category &&
+      CATEGORY_OPTIONS.includes(
+        category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()
+      ) &&
+      (selectedCategory === 'All' || selectedCategory.toLowerCase() !== category.toLowerCase())
+    ) {
+      setSelectedCategory(
+        category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()
+      );
+    }
+  }, [category]);
+
   
   // Sort options
   const SORT_OPTIONS = [
@@ -111,9 +127,6 @@ export default function ProductsList() {
         // Apply category filters to count query
         if (selectedCategory && selectedCategory !== 'All') {
           countQuery = countQuery.eq('category', selectedCategory);
-        } else if (category) {
-          const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
-          countQuery = countQuery.eq('category', formattedCategory);
         }
         
         // Apply search filter to count query if needed

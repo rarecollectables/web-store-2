@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme';
+import PaymentMethodsRow from '../(components)/PaymentMethodsRow';
 import { Image as ExpoImage } from 'expo-image';
 import { useStore } from '../../context/store';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -250,6 +251,10 @@ export default function CartScreen() {
       <Pressable onPress={() => router.push('/contact')} accessibilityRole="link" accessibilityLabel="Contact">
         <Text style={styles.footerLink}>Contact</Text>
       </Pressable>
+    </View>
+    <View style={styles.paymentFooter}>
+      <Text style={styles.paymentFooterLabel}>We accept</Text>
+      <PaymentMethodsRow iconSize={38} pop style={{ marginBottom: 4 }} />
     </View>
   </ScrollView>
   );
