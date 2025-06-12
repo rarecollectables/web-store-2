@@ -3,6 +3,14 @@ const fs = require('fs');
 const path = require('path');
 const handlebars = require('handlebars');
 
+// DEBUG: Log contents of function directory
+try {
+  console.log('Function directory contents:', fs.readdirSync(__dirname));
+} catch (e) {
+  console.log('Could not read function directory:', e.message);
+}
+
+
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Load and compile the email template once
