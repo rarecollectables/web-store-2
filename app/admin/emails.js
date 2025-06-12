@@ -26,7 +26,7 @@ export default function AdminEmailsPage() {
         subject,
         data: orderData ? JSON.parse(orderData) : {},
       };
-      const res = await fetch('/api/sendAdminEmail', {
+      const res = await fetch('/.netlify/functions/sendAdminEmail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
