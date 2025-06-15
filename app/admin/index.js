@@ -11,6 +11,19 @@ export default function AdminDashboard() {
       <Appbar.Header>
         <Appbar.Content title="Admin Dashboard" />
       </Appbar.Header>
+      {/* Web-only: Embedded iframe visual */}
+      {typeof window !== 'undefined' && (
+        <div style={{ width: '100%', height: 400, marginBottom: 24, borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+          <iframe
+            src="https://www.example.com" // TODO: Replace with your visual's URL
+            title="Admin Visual"
+            width="100%"
+            height="100%"
+            style={{ border: 'none', borderRadius: 8 }}
+            allowFullScreen
+          />
+        </div>
+      )}
       <ScrollView contentContainerStyle={styles.content}>
         <Card style={styles.card} onPress={() => router.push('/admin/products')}>
           <Card.Title title="Manage Products" />

@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS products (
     material TEXT,
     stone TEXT,
     size TEXT,
+    size_options TEXT[],
     length TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

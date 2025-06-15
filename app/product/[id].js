@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchProductById } from '../../lib/supabase/fetchProductById';
 import { trackEvent } from '../../lib/trackEvent';
 import LuxuryModal from '../components/LuxuryModal';
+import CollapsibleSection from '../components/CollapsibleSection';
 
 import ZoomableImage from '../components/ZoomableImage';
 
@@ -35,6 +36,8 @@ export default function ProductDetail() {
   const flatListRef = useRef(null);
   const addCartAnim = useRef(new Animated.Value(1));
   const { addToCart, addToWishlist } = useStore();
+  // --- Ring size state ---
+  const [selectedSize, setSelectedSize] = useState('');
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -66,14 +69,19 @@ const renderCarouselImage = useCallback(
   ({ item }) => (
     <MemoCarouselImage
       item={item}
-      style={styles.image}
+      style={[
+        styles.image,
+        width < 600
+          ? { width: carouselWidth - 32, maxHeight: 230, resizeMode: 'contain', aspectRatio: undefined }
+          : {}
+      ]}
       onPress={() => {
         setZoomImage(item);
         setZoomVisible(true);
       }}
     />
   ),
-  [styles.image]
+  [styles.image, width, carouselWidth]
 );
 
   useEffect(() => {
@@ -109,6 +117,11 @@ const renderCarouselImage = useCallback(
   }, [images.length]);
 
   function handleAddToCart() {
+    // For rings, require a size selection
+    if (product.category === 'Rings' && Array.isArray(product.size_options) && product.size_options.length > 0 && !selectedSize) {
+      Alert.alert('Please select a ring size before adding to cart.');
+      return;
+    }
     Animated.sequence([
       Animated.timing(addCartAnim.current, { toValue: 1.15, duration: 120, useNativeDriver: true }),
       Animated.spring(addCartAnim.current, { toValue: 1, friction: 3, useNativeDriver: true })
@@ -116,6 +129,7 @@ const renderCarouselImage = useCallback(
     const imageUri = (Array.isArray(images) && images[0]?.uri) ? images[0].uri : (product?.image_url || product?.image || '');
     addToCart({
       ...product,
+      selectedSize: product.category === 'Rings' ? selectedSize : undefined,
       price: typeof product.price === 'number'
         ? product.price
         : parseFloat(String(product.price).replace(/[£\s]/g, '')) || 0,
@@ -126,7 +140,7 @@ const renderCarouselImage = useCallback(
       eventType: 'add_to_cart',
       productId: product?.id,
       quantity: 1,
-      metadata: { productName: product?.title || product?.name, price: product?.price }
+      metadata: { productName: product?.title || product?.name, price: product?.price, selectedSize: product.category === 'Rings' ? selectedSize : undefined }
     });
     Alert.alert('Added to Cart', `${product?.title || 'Product'} has been added to your cart.`);
   }
@@ -236,181 +250,375 @@ const renderCarouselImage = useCallback(
         <FontAwesome name="close" size={26} color="#bfa14a" />
       </Pressable>
       <ScrollView>
-        <View style={{ ...styles.container, ...desktopContainer }}>
-          {/* Left: Image or Carousel */}
+        <View style={{ ...styles.container, ...desktopContainer, marginBottom: 8 }}>
+          {/* --- Product Media Section --- */}
           <View style={{ ...styles.imageWrapper, ...desktopImageWrapper }}>
             {/* Enhanced Carousel with Arrows and Dots */}
-{images.length > 1 ? (
-  <View
-  style={styles.enhancedCarouselWrapper}
-  onLayout={e => {
-    const w = e.nativeEvent.layout.width;
-    if (w && w !== carouselWidth) setCarouselWidth(w);
-  }}
->
-    {/* Left Arrow */}
-    <Pressable
-      style={[styles.carouselArrow, styles.carouselArrowLeft]}
-      onPress={() => {
-        if (currentIndex > 0 && flatListRef.current) {
-          flatListRef.current.scrollToIndex({ index: currentIndex - 1, animated: true });
-          setCurrentIndex(idx => Math.max(0, idx - 1));
-        }
-      }}
-      accessibilityLabel="Previous image"
-      accessibilityRole="button"
-      disabled={currentIndex === 0}
-    >
-      <FontAwesome name="chevron-left" size={28} color={currentIndex === 0 ? '#ccc' : colors.gold} />
-    </Pressable>
-    {/* Image Carousel */}
-    <FlatList
-      ref={flatListRef}
-      data={images}
-      renderItem={({ item, index }) => (
-        <View style={{ marginHorizontal: 8 }}>
-          <MemoCarouselImage
-            item={item}
-            style={[styles.image, { width: carouselWidth - 32, marginHorizontal: 0 }]}
-            onPress={() => {
-              setZoomImage(item);
-              setZoomVisible(true);
-            }}
-          />
-        </View>
-      )}
-      keyExtractor={(_, idx) => String(idx)}
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      onViewableItemsChanged={onViewableItemsChanged}
-      viewabilityConfig={viewabilityConfig}
-      style={[styles.carousel, { width: carouselWidth }]}
-      getItemLayout={(data, index) => ({ length: carouselWidth, offset: carouselWidth * index, index })}
-      onScrollToIndexFailed={({ index, highestMeasuredFrameIndex }) => {
-        if (flatListRef.current && highestMeasuredFrameIndex >= 0) {
-          flatListRef.current.scrollToIndex({
-            index: highestMeasuredFrameIndex,
-            animated: true,
-          });
-        }
-      }}
-      extraData={currentIndex}
-      contentContainerStyle={{ paddingHorizontal: 0 }}
-      snapToInterval={carouselWidth}
-      decelerationRate={Platform.OS === 'ios' ? 0 : 0.98}
-    />
-    {/* Right Arrow */}
-    <Pressable
-      style={[styles.carouselArrow, styles.carouselArrowRight]}
-      onPress={() => {
-        if (currentIndex < images.length - 1 && flatListRef.current) {
-          flatListRef.current.scrollToIndex({ index: currentIndex + 1, animated: true });
-          setCurrentIndex(idx => Math.min(images.length - 1, idx + 1));
-        }
-      }}
-      accessibilityLabel="Next image"
-      accessibilityRole="button"
-      disabled={currentIndex === images.length - 1}
-    >
-      <FontAwesome name="chevron-right" size={28} color={currentIndex === images.length - 1 ? '#ccc' : colors.gold} />
-    </Pressable>
-    {/* Dots Indicator */}
-    <View style={styles.carouselDotsWrapper}>
-      {images.map((_, idx) => (
-        <Pressable
-          key={idx}
-          style={[styles.carouselDot, currentIndex === idx && styles.carouselDotActive]}
-          onPress={() => {
-            if (flatListRef.current) {
-              flatListRef.current.scrollToIndex({ index: idx, animated: true });
-              setCurrentIndex(idx);
-            }
-          }}
-          accessibilityLabel={`Go to image ${idx + 1}`}
-          accessibilityRole="button"
-        />
-      ))}
-    </View>
-  </View>
-) : (
-  images[0] && <ExpoImage source={images[0]} style={styles.image} contentFit="cover" />
-)}
+            {images.length > 1 ? (
+              <View
+                style={styles.enhancedCarouselWrapper}
+                onLayout={e => {
+                  const w = e.nativeEvent.layout.width;
+                  if (w && w !== carouselWidth) setCarouselWidth(w);
+                }}
+              >
+                {/* Left Arrow */}
+                <Pressable
+                  style={[styles.carouselArrow, styles.carouselArrowLeft]}
+                  onPress={() => {
+                    if (currentIndex > 0 && flatListRef.current) {
+                      flatListRef.current.scrollToIndex({ index: currentIndex - 1, animated: true });
+                      setCurrentIndex(idx => Math.max(0, idx - 1));
+                    }
+                  }}
+                  accessibilityLabel="Previous image"
+                  accessibilityRole="button"
+                  disabled={currentIndex === 0}
+                >
+                  <FontAwesome name="chevron-left" size={28} color={currentIndex === 0 ? '#ccc' : colors.gold} />
+                </Pressable>
+                {/* Image Carousel */}
+                <FlatList
+                  ref={flatListRef}
+                  data={images}
+                  renderItem={({ item, index }) => (
+                    <View style={{ marginHorizontal: 8 }}>
+                      <MemoCarouselImage
+                        item={item}
+                        style={[
+                          styles.image,
+                          width < 600
+                            ? { width: carouselWidth - 32, maxHeight: 230, resizeMode: 'contain', aspectRatio: undefined }
+                            : { width: carouselWidth - 32 }
+                        ]}
+                        onPress={() => {
+                          setZoomImage(item);
+                          setZoomVisible(true);
+                        }}
+                      />
+                    </View>
+                  )}
+                  keyExtractor={(_, idx) => String(idx)}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onViewableItemsChanged={onViewableItemsChanged}
+                  viewabilityConfig={viewabilityConfig}
+                  style={[styles.carousel, { width: carouselWidth }]}
+                  getItemLayout={(data, index) => ({ length: carouselWidth, offset: carouselWidth * index, index })}
+                  onScrollToIndexFailed={({ index, highestMeasuredFrameIndex }) => {
+                    if (flatListRef.current && highestMeasuredFrameIndex >= 0) {
+                      flatListRef.current.scrollToIndex({
+                        index: highestMeasuredFrameIndex,
+                        animated: true,
+                      });
+                    }
+                  }}
+                  extraData={currentIndex}
+                  contentContainerStyle={{ paddingHorizontal: 0 }}
+                  snapToInterval={carouselWidth}
+                  decelerationRate={Platform.OS === 'ios' ? 0 : 0.98}
+                />
+                {/* Right Arrow */}
+                <Pressable
+                  style={[styles.carouselArrow, styles.carouselArrowRight]}
+                  onPress={() => {
+                    if (currentIndex < images.length - 1 && flatListRef.current) {
+                      flatListRef.current.scrollToIndex({ index: currentIndex + 1, animated: true });
+                      setCurrentIndex(idx => Math.min(images.length - 1, idx + 1));
+                    }
+                  }}
+                  accessibilityLabel="Next image"
+                  accessibilityRole="button"
+                  disabled={currentIndex === images.length - 1}
+                >
+                  <FontAwesome name="chevron-right" size={28} color={currentIndex === images.length - 1 ? '#ccc' : colors.gold} />
+                </Pressable>
+                {/* Dots Indicator */}
+                <View style={styles.carouselDotsWrapper}>
+                  {images.map((_, idx) => (
+                    <Pressable
+                      key={idx}
+                      style={[styles.carouselDot, currentIndex === idx && styles.carouselDotActive]}
+                      onPress={() => {
+                        if (flatListRef.current) {
+                          flatListRef.current.scrollToIndex({ index: idx, animated: true });
+                          setCurrentIndex(idx);
+                        }
+                      }}
+                      accessibilityLabel={`Go to image ${idx + 1}`}
+                      accessibilityRole="button"
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : (
+              images[0] && <ExpoImage source={images[0]} style={styles.image} contentFit="cover" />
+            )}
           </View>
 
-    {/* Zoomable Image Modal */}
-    <ZoomableImage
-      source={zoomImage}
-      visible={zoomVisible}
-      onClose={() => setZoomVisible(false)}
-    />
-
-          {/* Right: Info */}
-          <View style={{ flex: 1.5, ...desktopInfo }}>
-            {/* Title */}
-            <Text style={{ ...styles.title, ...desktopTitle }}>{product?.title || product?.name || 'Untitled Product'}</Text>
-            {/* Price */}
-            <View style={styles.pricePillWrapper}>
-              <Text style={{ ...styles.price, ...desktopPrice }}>{product?.price}</Text>
+          {/* --- Main Info Section --- */}
+          <View style={[
+            { flex: 1.5 },
+            width < 600
+              ? { paddingHorizontal: 16, width: '100%', alignSelf: 'center', boxSizing: 'border-box' }
+              : desktopInfo
+          ]}>
+            {/* --- Product Summary Section --- */}
+            <View style={{ marginBottom: 18, width: '100%' }}>
+              {/* Title & Brand */}
+              <Text
+                style={[
+                  styles.title,
+                  {
+                    fontSize: width < 600 ? 17 : 22,
+                    fontWeight: 'bold',
+                    marginBottom: 4,
+                    textAlign: width >= 1024 ? 'left' : 'center',
+                    marginLeft: width >= 1024 ? 0 : undefined,
+                  },
+                ]}
+                accessibilityRole="header"
+              >
+                {product?.title || product?.name || 'Untitled Product'}
+              </Text>
+              {/* Brand Placeholder */}
+              {/* <Text style={{ color: '#888', fontSize: 14, marginBottom: 4 }}>Brand: {product?.brand || 'N/A'}</Text> */}
+              {/* Star Ratings Placeholder */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', width: '100%' }}>
+                {/* Placeholder stars */}
+                {[1,2,3,4,5].map(i => (
+                  <FontAwesome key={i} name="star" size={16} color={i <= 4 ? '#FFD700' : '#ccc'} style={{ marginRight: 2 }} />
+                ))}
+                <Text style={{ color: '#888', fontSize: 13, marginLeft: 6 }}>(12 reviews)</Text>
+              </View>
+              {/* Short Description */}
+              <Text style={{ color: '#555', fontSize: 16, marginBottom: 8, width: '100%', flexShrink: 1 }} numberOfLines={2}>{product?.short_description || 'A rare and unique collectable item.'}</Text>
+              {/* Price & Shipping Info */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 12, flexWrap: 'wrap', width: '100%' }}>
+                <Text style={[styles.price, { fontSize: 19, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, marginRight: 8, backgroundColor: colors.gold, color: colors.white, borderWidth: 1, borderColor: colors.softGoldBorder, ...desktopPrice }]}>{product?.price}</Text>
+                <Text style={{ fontSize: 14, color: '#4caf50', fontWeight: '600' }}>Free shipping & Free returns</Text>
+              </View>
             </View>
-            {/* Description */}
-            <Text style={{ ...styles.description, ...desktopDescription }}>{product?.description}</Text>
-            {/* Action Buttons */}
-            <View style={{ ...styles.actionContainer, ...desktopActionContainer }}>
-              <Pressable style={{ ...styles.button, ...desktopButton }} onPress={handleAddToCart}>
+
+            {/* --- Purchase Actions Section --- */}
+            {/* On mobile, render size selector above actions; on desktop, keep inline */}
+            {width < 600 && product.category === 'Rings' && Array.isArray(product.size_options) && product.size_options.length > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={{ fontSize: 15, marginRight: 6 }}>Size</Text>
+                <View style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, minWidth: 36, alignItems: 'center', backgroundColor: '#fff' }}>
+                  <select
+                    value={selectedSize}
+                    onChange={e => setSelectedSize(e.target.value)}
+                    style={{ fontSize: 15, border: 'none', background: 'transparent', outline: 'none' }}
+                  >
+                    <option value="">Select</option>
+                    {product.size_options.map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                </View>
+              </View>
+            )}
+            <View style={{
+              width: '100%',
+              flexDirection: width < 600 ? 'row' : 'row',
+              alignItems: 'center',
+              gap: width < 600 ? 8 : 18,
+              marginTop: 0,
+              marginBottom: 24,
+              paddingBottom: 0,
+              borderBottomWidth: 0,
+              ...desktopActionContainer
+            }}>
+              {/* Ring Size Selector for Rings (desktop/tablet only) */}
+              {width >= 600 && product.category === 'Rings' && Array.isArray(product.size_options) && product.size_options.length > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 18, flexShrink: 1, marginBottom: 0 }}>
+                  <Text style={{ fontSize: 15, marginRight: 6 }}>Size</Text>
+                  <View style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, minWidth: 36, alignItems: 'center', backgroundColor: '#fff' }}>
+                    <select
+                      value={selectedSize}
+                      onChange={e => setSelectedSize(e.target.value)}
+                      style={{ fontSize: 15, border: 'none', background: 'transparent', outline: 'none' }}
+                    >
+                      <option value="">Select</option>
+                      {product.size_options.map(size => (
+                        <option key={size} value={size}>{size}</option>
+                      ))}
+                    </select>
+                  </View>
+                </View>
+              )}
+              {/* Quantity Selector */}
+              {/* Quantity Selector */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: width < 600 ? 8 : 18, flexShrink: 1, marginBottom: 0 }}>
+                <Text style={{ fontSize: 15, marginRight: 6 }}>Qty</Text>
+                <View style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, minWidth: 36, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 15 }}>1</Text>
+                </View>
+              </View>
+              {/* Add to Cart Button */}
+              <Pressable
+                style={{
+                  ...styles.button,
+                  ...desktopButton,
+                  flex: 1,
+                  marginRight: 0,
+                  minWidth: width < 600 ? 0 : 140,
+                  paddingHorizontal: width < 600 ? 0 : 24,
+                  justifyContent: 'center',
+                }}
+                onPress={handleAddToCart}
+                accessibilityLabel="Add to cart"
+              >
                 <Text style={styles.buttonText}>Add to Cart</Text>
               </Pressable>
-              <Pressable style={{ ...styles.button, ...desktopButton }} onPress={handleWishlist}>
-                <FontAwesome name={isWishlisted ? 'heart' : 'heart-o'} size={24} color={colors.onyxBlack} />
+              {/* Wishlist Button */}
+              <Pressable
+                style={{
+                  height: 48,
+                  width: 48,
+                  borderRadius: 24,
+                  backgroundColor: '#fff',
+                  borderWidth: 1.5,
+                  borderColor: colors.gold,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginLeft: width < 600 ? 8 : 12,
+                  shadowColor: '#000',
+                  shadowOpacity: 0.07,
+                  shadowRadius: 4,
+                  elevation: 2,
+                  position: 'relative',
+                  zIndex: 2,
+                }}
+                onPress={handleWishlist}
+                accessibilityLabel="Add to wishlist"
+              >
+                <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                  <FontAwesome name={isWishlisted ? 'heart' : 'heart-o'} size={24} color={colors.gold} />
+                </Animated.View>
               </Pressable>
             </View>
-          </View>
-        </View>
-        {/* Product Features Table (below main info) */}
-        {(() => {
-          const features = [];
-          const category = (product?.category || '').toLowerCase();
-          const labels = {
-            material:
-              category.includes('necklace') ? 'Necklace Material' :
-              category.includes('bracelet') ? 'Bracelet Material' :
-              category.includes('ring') ? 'Ring Material' :
-              'Material',
-            stone: 'Stone',
-            size:
-              category.includes('necklace') ? 'Pendant Size' :
-              category.includes('bracelet') ? 'Bracelet Size' :
-              category.includes('ring') ? 'Ring Size' :
-              'Size',
-            length:
-              category.includes('necklace') ? 'Chain Length' :
-              category.includes('bracelet') ? 'Bracelet Length' :
-              category.includes('ring') ? 'Ring Length' :
-              'Length',
-          };
-          if (product?.material) features.push({ label: labels.material, value: product.material });
-          if (product?.stone) features.push({ label: labels.stone, value: product.stone });
-          if (product?.size) features.push({ label: labels.size, value: product.size });
-          if (product?.length) features.push({ label: labels.length, value: product.length });
-          if (features.length === 0) return null;
-          return (
-            <View style={{ marginTop: 18, marginBottom: 10, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#eee', alignSelf: 'center', maxWidth: 420, width: '90%' }}>
-              <Text style={{ fontWeight: 'bold', fontSize: 16, padding: 10, backgroundColor: '#faf6e8', color: '#bfa14a' }}>Product Features</Text>
-              {features.map((f, idx) => (
-                <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 14, borderBottomWidth: idx === features.length - 1 ? 0 : 1, borderBottomColor: '#f5e9c8' }}>
-                  <Text style={{ color: '#bfa14a', fontWeight: '500', fontSize: 15 }}>{f.label}</Text>
-                  <Text style={{ color: '#444', fontSize: 15 }}>{f.value}</Text>
-                </View>
-              ))}
-            </View>
-          );
-        })()}
 
-        {/* Related Products Section */}
+            </View>
+          </View>
+          {/* Feature Tiles */}
+          <View style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            gap: 18,
+            marginBottom: 24,
+            maxWidth: width >= 1024 ? 900 : '100%',
+            alignSelf: width >= 1024 ? 'center' : 'stretch',
+            width: '100%',
+          }}>
+            {/* Waterproof, sweat and heat-resistant */}
+            <View style={{ flex: 1, minWidth: 170, maxWidth: 220, flexDirection: 'column', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 18, marginHorizontal: 6, marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,.04)', borderWidth: 1, borderColor: '#f1e7d0' }}>
+              <FontAwesome name="tint" size={28} color="#bfa14a" style={{ marginBottom: 8 }} />
+              <Text style={{ fontWeight: '600', fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 2 }}>Waterproof, sweat and heat-resistant</Text>
+            </View>
+            {/* 2 year warranty and 100 day returns */}
+            <View style={{ flex: 1, minWidth: 170, maxWidth: 220, flexDirection: 'column', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 18, marginHorizontal: 6, marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,.04)', borderWidth: 1, borderColor: '#f1e7d0' }}>
+              <FontAwesome name="shield" size={28} color="#bfa14a" style={{ marginBottom: 8 }} />
+              <Text style={{ fontWeight: '600', fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 2 }}>Lifetime warranty & 60 day returns</Text>
+            </View>
+            {/* High-quality plating means no tarnishing */}
+            <View style={{ flex: 1, minWidth: 170, maxWidth: 220, flexDirection: 'column', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 18, marginHorizontal: 6, marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,.04)', borderWidth: 1, borderColor: '#f1e7d0' }}>
+              <FontAwesome name="diamond" size={28} color="#bfa14a" style={{ marginBottom: 8 }} />
+              <Text style={{ fontWeight: '600', fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 2 }}>High-quality plating means no tarnishing</Text>
+            </View>
+            {/* Luxury gift packaging */}
+            <View style={{ flex: 1, minWidth: 170, maxWidth: 220, flexDirection: 'column', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 18, marginHorizontal: 6, marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,.04)', borderWidth: 1, borderColor: '#f1e7d0' }}>
+              <FontAwesome name="gift" size={28} color="#bfa14a" style={{ marginBottom: 8 }} />
+              <Text style={{ fontWeight: '600', fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 2 }}>Luxury gift packaging</Text>
+            </View>
+          </View>
+        {/* --- Detailed Product Info Section --- */}
+        <View style={{ maxWidth: 900, width: '100%', alignSelf: 'center', backgroundColor: '#f8f8f8', borderRadius: 18, padding: 28, marginTop: 16, marginBottom: 32, gap: 16, boxShadow: '0 4px 24px rgba(0,0,0,.04)' }}>
+
+          {/* Description */}
+          <CollapsibleSection title="Description" initiallyCollapsed={false}>
+            <Text style={{ fontSize: 16, color: '#444', marginBottom: 8 }}>{product?.description}</Text>
+          </CollapsibleSection>
+          {/* Features */}
+          <CollapsibleSection title="Product Features">
+            {Array.isArray(product?.features) ? (
+              <View style={{ marginTop: 2 }}>
+                {product.features.map((f, idx) => (
+                  <View key={idx} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 }}>
+                    <Text style={{ color: '#bfa14a', fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>•</Text>
+                    <Text style={{ color: '#444', fontSize: 15, flex: 1 }}>{f}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : product?.features ? (
+              <Text style={{ color: '#444', fontSize: 15 }}>{product.features}</Text>
+            ) : null}
+
+            {/* --- Structured Features Table --- */}
+            {(() => {
+               const sizeLabel = product.category === 'Rings'
+                 ? 'Ring Size'
+                 : product.category === 'Bracelets'
+                 ? 'Bracelet Size'
+                 : 'Size';
+               const rows = [
+                 product.material && { label: 'Material', value: product.material },
+                 product.size && { label: sizeLabel, value: product.size },
+                 product.length && { label: 'Length', value: product.length },
+                 product.stone && { label: 'Stone', value: product.stone },
+               ].filter(Boolean);
+              if (!rows.length) return null;
+              return (
+                <View style={{ marginTop: 16, marginBottom: 2, borderWidth: 1, borderColor: '#e5dec7', borderRadius: 10, overflow: 'hidden' }}>
+                  {rows.map((row, idx) => (
+                    <View
+                      key={idx}
+                      style={{
+                        flexDirection: 'row',
+                        backgroundColor: idx % 2 === 0 ? '#faf8f3' : '#fff',
+                        paddingVertical: 10,
+                        paddingHorizontal: 14,
+                        borderBottomWidth: idx !== rows.length - 1 ? 1 : 0,
+                        borderBottomColor: '#eee5c2',
+                      }}
+                    >
+                      <Text style={{ flex: 1.2, color: '#bfa14a', fontWeight: '600', fontSize: 15 }}>{row.label}</Text>
+                      <Text style={{ flex: 2, color: '#444', fontSize: 15 }}>{row.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
+          </CollapsibleSection>
+
+          {/* Packaging */}
+          <CollapsibleSection title="Packaging">
+            <Text style={{ color: '#444', fontSize: 15 }}>
+              {product?.packaging || 'Each item is carefully packaged in our signature luxury gift box, ready for gifting or safe storage.'}
+            </Text>
+          </CollapsibleSection>
+          {/* Shipping */}
+          <CollapsibleSection title="Shipping">
+            <Text style={{ color: '#444', fontSize: 15 }}>
+              {product?.shipping || 'Free shipping and returns on all orders. Orders are dispatched within 1-2 business days and include tracking.'}
+            </Text>
+          </CollapsibleSection>
+        </View>
+
+        {/* --- Customer Reviews Section (Placeholder) --- */}
+        {/* <View style={{ maxWidth: 900, width: '100%', alignSelf: 'center', marginBottom: 32, backgroundColor: '#fff', borderRadius: 18, padding: 28, gap: 16, borderWidth: 1, borderColor: '#f1e7d0', boxShadow: '0 2px 12px rgba(0,0,0,.03)' }}>
+          <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#bfa14a', marginBottom: 8 }}>Customer Reviews</Text>
+          <Text style={{ color: '#888', fontStyle: 'italic' }}>No reviews yet. Be the first to review this product!</Text>
+        </View> */}
+
+        {/* --- Related Products Section --- */}
         {product && product.category && (
-          <View style={{ marginTop: 32, marginBottom: 24 }}>
+          <View style={{ maxWidth: 900, width: '100%', alignSelf: 'center', marginTop: 8, marginBottom: 40, backgroundColor: '#fff', borderRadius: 18, padding: 28, borderWidth: 1, borderColor: '#f1e7d0', boxShadow: '0 2px 12px rgba(0,0,0,.03)' }}>
             <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#bfa14a', marginLeft: 10, marginBottom: 10 }}>
-              Related Products
+              Similar Collectables You'd Love 💎🫶
             </Text>
             <FlatList
               data={PRODUCTS.filter(
@@ -462,28 +670,43 @@ const renderCarouselImage = useCallback(
             />
           </View>
         )}
-        {/* Footer with compliance links */}
-        <View style={styles.footer}>
+
+    
+    <View style={{ width: '100%', backgroundColor: '#faf8f3', borderTopWidth: 1, borderTopColor: '#eee', paddingVertical: 24, paddingHorizontal: 0, alignItems: 'center', marginTop: 0 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
           <Pressable onPress={() => router.push('/privacy-policy')} accessibilityRole="link" accessibilityLabel="Privacy Policy">
-            <Text style={styles.footerLink}>Privacy Policy</Text>
+            <Text style={{ color: '#bfa14a', fontWeight: '600', fontSize: 15, marginHorizontal: 8, marginVertical: 2 }}>Privacy Policy</Text>
           </Pressable>
-          <Text style={styles.footerSeparator}>|</Text>
+          <Text style={{ color: '#bbb', fontSize: 18, marginHorizontal: 2 }}>|</Text>
           <Pressable onPress={() => router.push('/terms-of-service')} accessibilityRole="link" accessibilityLabel="Terms of Service">
-            <Text style={styles.footerLink}>Terms of Service</Text>
+            <Text style={{ color: '#bfa14a', fontWeight: '600', fontSize: 15, marginHorizontal: 8, marginVertical: 2 }}>Terms of Service</Text>
           </Pressable>
-          <Text style={styles.footerSeparator}>|</Text>
+          <Text style={{ color: '#bbb', fontSize: 18, marginHorizontal: 2 }}>|</Text>
           <Pressable onPress={() => router.push('/return-policy')} accessibilityRole="link" accessibilityLabel="Return Policy">
-            <Text style={styles.footerLink}>Return Policy</Text>
+            <Text style={{ color: '#bfa14a', fontWeight: '600', fontSize: 15, marginHorizontal: 8, marginVertical: 2 }}>Return Policy</Text>
           </Pressable>
-          <Text style={styles.footerSeparator}>|</Text>
+          <Text style={{ color: '#bbb', fontSize: 18, marginHorizontal: 2 }}>|</Text>
           <Pressable onPress={() => router.push('/contact')} accessibilityRole="link" accessibilityLabel="Contact">
-            <Text style={styles.footerLink}>Contact</Text>
+            <Text style={{ color: '#bfa14a', fontWeight: '600', fontSize: 15, marginHorizontal: 8, marginVertical: 2 }}>Contact</Text>
           </Pressable>
         </View>
+      </View>
       </ScrollView>
+      <ZoomableImage
+        visible={zoomVisible}
+        image={zoomImage}
+        onClose={() => setZoomVisible(false)}
+      />
     </View>
   );
 }
+
+// Move this footer JSX inside the ScrollView, just before <ZoomableImage />
+// Find the end of your ScrollView content and add:
+// <View style={{ width: '100%', backgroundColor: '#faf8f3', borderTopWidth: 1, borderTopColor: '#eee', paddingVertical: 24, paddingHorizontal: 0, alignItems: 'center', marginTop: 0 }}>
+//   ...footer links...
+// </View>
+
 
 const styles = StyleSheet.create({
   enhancedCarouselWrapper: {

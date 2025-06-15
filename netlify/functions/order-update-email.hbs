@@ -43,13 +43,20 @@
           <table class="order-table">
             <thead>
               <tr>
-                <th>Product</th><th>Qty</th><th>Price</th>
+                <th>Product</th><th>Image</th><th>Qty</th><th>Price</th>
               </tr>
             </thead>
             <tbody>
               {{#each items}}
               <tr>
                 <td>{{name}}</td>
+                <td>
+                  {{#if image}}
+                    <img src="{{image}}" alt="{{name}}" style="max-width: 48px; max-height: 48px; border-radius: 6px;"/>
+                  {{else}}
+                    &mdash;
+                  {{/if}}
+                </td>
                 <td>{{quantity}}</td>
                 <td>£{{price}}</td>
               </tr>

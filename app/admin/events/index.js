@@ -212,17 +212,188 @@ const AdminEvents = () => {
           </Pressable>
         </View>
       {/* Tab Content */}
-      {activeTab === 'dashboard' && typeof window !== 'undefined' && (
-        <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', paddingBottom: 40 }}>
-          {/* Events Per Day Graph goes here */}
-          {/* <EventsPerDayGraph data={...} /> */}
-          <EventMap events={events} />
-
-
-
-          {/* Add other dashboard widgets/components here, below the map, so they scroll together */}
-        </ScrollView>
+      {activeTab === 'dashboard' && (
+  <ScrollView style={styles.dashboardPanel} contentContainerStyle={{ alignItems: 'center', paddingBottom: 40 }}>
+    {/* Date Filter UI for Dashboard */}
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+      <Text style={{ marginRight: 6 }}>From:</Text>
+      {Platform.OS === 'web' ? (
+        <input
+          type="date"
+          style={{ width: 120, marginRight: 8, height: 36, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', padding: 6 }}
+          value={startDate}
+          onChange={e => setStartDate(e.target.value)}
+        />
+      ) : (
+        <Pressable onPress={() => setShowStartPicker(true)} style={[styles.input, { width: 120, marginRight: 8, justifyContent: 'center' }]}> 
+          <Text>{startDate ? new Date(startDate).toLocaleDateString() : 'Select date'}</Text>
+        </Pressable>
       )}
+      <Text style={{ marginRight: 6 }}>To:</Text>
+      {Platform.OS === 'web' ? (
+        <input
+          type="date"
+          style={{ width: 120, height: 36, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', padding: 6 }}
+          value={endDate}
+          onChange={e => setEndDate(e.target.value)}
+        />
+      ) : (
+        <Pressable onPress={() => setShowEndPicker(true)} style={[styles.input, { width: 120, justifyContent: 'center' }]}> 
+          <Text>{endDate ? new Date(endDate).toLocaleDateString() : 'Select date'}</Text>
+        </Pressable>
+      )}
+      {showStartPicker && Platform.OS !== 'web' && (
+        <DateTimePicker
+          value={startDate ? new Date(startDate) : startPickerDate}
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowStartPicker(false);
+            if (selectedDate) {
+              setStartDate(selectedDate.toISOString().slice(0,10));
+              setStartPickerDate(selectedDate);
+            }
+          }}
+        />
+      )}
+      {showEndPicker && Platform.OS !== 'web' && (
+        <DateTimePicker
+          value={endDate ? new Date(endDate) : endPickerDate}
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowEndPicker(false);
+            if (selectedDate) {
+              setEndDate(selectedDate.toISOString().slice(0,10));
+              setEndPickerDate(selectedDate);
+            }
+          }}
+        />
+      )}
+    </View>
+    {/* Power BI iframe (web only) */}
+    {Platform.OS === 'web' && (
+      <div style={{ width: '100%', maxWidth: 900, height: 400, margin: '24px 0', borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+        <iframe title="rc_analytics" width="100%" height="400" src="https://app.powerbi.com/view?r=eyJrIjoiZGMyNDMyMTktM2RjMy00NjAxLTk0YmUtZTRkZTEzMDQ1NjM3IiwidCI6IjUxYTBhNjljLTBlNGYtNGIzZC1iNjQyLTEyZTAxMzE5ODYzNSIsImMiOjh9" frameBorder="0" allowFullScreen />
+      </div>
+    )}
+    {/* KPI Cards Row 1 */}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16, width: '100%', justifyContent: 'center' }}>
+      <Pressable style={[styles.kpiBox, { backgroundColor: '#E5E9F9', borderRadius: 14, marginRight: 12, marginBottom: 12 }]} onPress={() => setKpiModal('total')}>
+        <Text style={styles.kpiLabel}>Total Events</Text>
+        <Text style={styles.kpiValue}>{dashboardEvents.length}</Text>
+      </Pressable>
+      <Pressable style={[styles.kpiBox, { backgroundColor: '#E5E9F9', borderRadius: 14, marginRight: 12, marginBottom: 12 }]} onPress={() => setShowSessionsModal(true)}>
+        <Text style={styles.kpiLabel}>Unique Sessions</Text>
+        <Text style={styles.kpiValue}>{uniqueSessions}</Text>
+      </Pressable>
+      <Pressable style={[styles.kpiBox, { backgroundColor: '#E5F7F9', borderRadius: 14, marginRight: 12, marginBottom: 12 }]} onPress={() => setKpiModal('today')}>
+        <Text style={styles.kpiLabel}>Events Today</Text>
+        <Text style={styles.kpiValue}>{dashboardEvents.filter(ev => (new Date(ev.created_at)).toDateString() === (new Date()).toDateString()).length}</Text>
+      </Pressable>
+      <Pressable style={[styles.kpiBox, { backgroundColor: '#F9E5E5', borderRadius: 14, marginRight: 12, marginBottom: 12 }]} onPress={() => setKpiModal('last7')}>
+        <Text style={styles.kpiLabel}>Events Last 7 Days</Text>
+        <Text style={styles.kpiValue}>{dashboardEvents.filter(ev => (new Date(ev.created_at)) >= new Date(Date.now() - 7*24*60*60*1000)).length}</Text>
+      </Pressable>
+    </View>
+    {/* KPI Cards Row 2 */}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16, width: '100%', justifyContent: 'center' }}>
+      <View style={[styles.kpiBox, { backgroundColor: '#E5F7F9', borderRadius: 14, marginRight: 12, marginBottom: 12 }]}> 
+        <Text style={styles.kpiLabel}>Most Active Session</Text>
+        <Text style={styles.kpiValue}>{(() => {
+          const sessionCounts = dashboardEvents.reduce((acc, ev) => {
+            acc[ev.guest_session_id] = (acc[ev.guest_session_id] || 0) + 1;
+            return acc;
+          }, {});
+          let maxSession = null, maxCount = 0;
+          for (let sid in sessionCounts) {
+            if (sessionCounts[sid] > maxCount) {
+              maxCount = sessionCounts[sid];
+              maxSession = sid;
+            }
+          }
+          return maxSession ? `${maxSession.slice(0, 6)}... (${maxCount})` : 'N/A';
+        })()}</Text>
+      </View>
+      <View style={[styles.kpiBox, { backgroundColor: '#F9F7E5', borderRadius: 14, marginRight: 12, marginBottom: 12 }]}> 
+        <Text style={styles.kpiLabel}>Most Viewed Product</Text>
+        <Text style={styles.kpiValue}>{(() => {
+          const productCounts = dashboardEvents.filter(ev => ev.product_id).reduce((acc, ev) => {
+            acc[ev.product_id] = (acc[ev.product_id] || 0) + 1;
+            return acc;
+          }, {});
+          let maxProduct = null, maxCount = 0;
+          for (let pid in productCounts) {
+            if (productCounts[pid] > maxCount) {
+              maxCount = productCounts[pid];
+              maxProduct = pid;
+            }
+          }
+          return maxProduct ? `${maxProduct.slice(0, 8)}... (${maxCount})` : 'N/A';
+        })()}</Text>
+      </View>
+      <View style={[styles.kpiBox, { backgroundColor: '#E5F9E8', borderRadius: 14, marginRight: 12, marginBottom: 12 }]}> 
+        <Text style={styles.kpiLabel}>Conversion Rate</Text>
+        <Text style={styles.kpiValue}>{eventTypeCounts['product_view'] ? ((eventTypeCounts['add_to_cart'] || 0) / eventTypeCounts['product_view'] * 100).toFixed(1) + '%' : 'N/A'}</Text>
+      </View>
+    </View>
+    {/* Bar Chart */}
+    <Text style={[styles.kpiLabel, { marginTop: 16, marginBottom: 6 }]}>Event Type Distribution</Text>
+    <BarChart
+      data={{
+        labels: Object.keys(eventTypeCounts),
+        datasets: [{ data: Object.values(eventTypeCounts) }],
+      }}
+      width={Dimensions.get('window').width - 48}
+      height={220}
+      fromZero
+      showValuesOnTopOfBars
+      chartConfig={{
+        backgroundGradientFrom: '#fff',
+        backgroundGradientTo: '#fff',
+        decimalPlaces: 0,
+        color: (opacity = 1) => `rgba(44, 62, 80, ${opacity})`,
+        labelColor: (opacity = 1) => `rgba(44, 62, 80, ${opacity})`,
+        style: { borderRadius: 8 },
+        propsForBackgroundLines: { stroke: '#eee' },
+      }}
+      style={{ borderRadius: 8, marginBottom: 24 }}
+    />
+    {/* Line Chart */}
+    <Text style={[styles.kpiLabel, {marginTop: 16, marginBottom: 6}]}>Events per Day (Last 7 Days)</Text>
+    <LineChart
+      data={{
+        labels: Array.from({length: 7}, (_, i) => {
+          const d = new Date(Date.now() - (6-i)*24*60*60*1000);
+          return `${d.getMonth()+1}/${d.getDate()}`;
+        }),
+        datasets: [{
+          data: Array.from({length: 7}, (_, i) => {
+            const day = new Date(Date.now() - (6-i)*24*60*60*1000);
+            const dayStr = day.toISOString().slice(0,10);
+            return dashboardEvents.filter(ev => ev.created_at.slice(0,10) === dayStr).length;
+          })
+        }]
+      }}
+      width={Dimensions.get('window').width - 48}
+      height={220}
+      fromZero
+      chartConfig={{
+        backgroundGradientFrom: '#fff',
+        backgroundGradientTo: '#fff',
+        decimalPlaces: 0,
+        color: (opacity = 1) => `rgba(44, 62, 80, ${opacity})`,
+        labelColor: (opacity = 1) => `rgba(44, 62, 80, ${opacity})`,
+        style: { borderRadius: 8 },
+        propsForBackgroundLines: { stroke: '#eee' },
+      }}
+      style={{ borderRadius: 8, marginBottom: 24 }}
+    />
+    {/* Map Widget */}
+    <Text style={[styles.kpiLabel, { marginTop: 16, marginBottom: 6 }]}>Event Locations Map</Text>
+    <EventMap events={dashboardEvents} />
+  </ScrollView>
+)}
       {activeTab === 'events' ? (
         eventsToShow.length ? (
           <ScrollView>
@@ -409,7 +580,7 @@ const AdminEvents = () => {
                   }}
                 />
               )}
-              <Pressable
+              {/* <Pressable
                 style={[
                   styles.kpiBox,
                   {
@@ -471,7 +642,7 @@ const AdminEvents = () => {
               >
                 <Text style={styles.kpiLabel}>Events Today</Text>
                 <Text style={styles.kpiValue}>{events.filter(ev => (new Date(ev.created_at)).toDateString() === (new Date()).toDateString()).length}</Text>
-              </Pressable>
+              </Pressable> */}
               <Pressable
                 style={[
                   styles.kpiBox,
@@ -620,389 +791,7 @@ const AdminEvents = () => {
         )
       ) : (
         <ScrollView style={styles.dashboardPanel}>
-          {/* Date Filter UI for Dashboard */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-            <Text style={{ marginRight: 6 }}>From:</Text>
-            {Platform.OS === 'web' ? (
-              <input
-                type="date"
-                style={{ width: 120, marginRight: 8, height: 36, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', padding: 6 }}
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-              />
-            ) : (
-              <Pressable onPress={() => setShowStartPicker(true)} style={[styles.input, { width: 120, marginRight: 8, justifyContent: 'center' }]}> 
-                <Text>{startDate ? new Date(startDate).toLocaleDateString() : 'Select date'}</Text>
-              </Pressable>
-            )}
-            <Text style={{ marginRight: 6 }}>To:</Text>
-            {Platform.OS === 'web' ? (
-              <input
-                type="date"
-                style={{ width: 120, height: 36, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', padding: 6 }}
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-              />
-            ) : (
-              <Pressable onPress={() => setShowEndPicker(true)} style={[styles.input, { width: 120, justifyContent: 'center' }]}> 
-                <Text>{endDate ? new Date(endDate).toLocaleDateString() : 'Select date'}</Text>
-              </Pressable>
-            )}
-            {showStartPicker && Platform.OS !== 'web' && (
-              <DateTimePicker
-                value={startDate ? new Date(startDate) : startPickerDate}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowStartPicker(false);
-                  if (selectedDate) {
-                    setStartDate(selectedDate.toISOString().slice(0,10));
-                    setStartPickerDate(selectedDate);
-                  }
-                }}
-              />
-            )}
-            {showEndPicker && Platform.OS !== 'web' && (
-              <DateTimePicker
-                value={endDate ? new Date(endDate) : endPickerDate}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowEndPicker(false);
-                  if (selectedDate) {
-                    setEndDate(selectedDate.toISOString().slice(0,10));
-                    setEndPickerDate(selectedDate);
-                  }
-                }}
-              />
-            )}
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
-            <Pressable
-              style={[
-                styles.kpiBox,
-                {
-                  backgroundColor: '#FFF9E5',
-                }
-              ]}
-              onPress={() => {console.log('Total Events card pressed'); setShowTotalEventsModal(true);}}
-            >
-              <Text style={styles.kpiLabel}>Total Events</Text>
-              <Text style={styles.kpiValue}>{totalEvents}</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.kpiBox,
-                {
-                  backgroundColor: '#ffeb3b',
-                }
-              ]}
-              onPress={() => {console.log('Unique Sessions card pressed'); setShowSessionsModal(true);}}
-            >
-              <Text style={styles.kpiLabel}>Unique Sessions</Text>
-              <Text style={styles.kpiValue}>{uniqueSessions}</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.kpiBox,
-                {
-                  backgroundColor: '#E5E9F9',
-                }
-              ]}
-              onPress={() => {console.log('Events Today card pressed'); setShowEventsTodayModal(true);}}
-            >
-              <Text style={styles.kpiLabel}>Events Today</Text>
-              <Text style={styles.kpiValue}>{events.filter(ev => (new Date(ev.created_at)).toDateString() === (new Date()).toDateString()).length}</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.kpiBox,
-                {
-                  backgroundColor: '#F9E5E5',
-                }
-              ]}
-              onPress={() => {console.log('Events Last 7 Days card pressed'); setShowEventsLast7DaysModal(true);}}
-            >
-              <Text style={styles.kpiLabel}>Events Last 7 Days</Text>
-              <Text style={styles.kpiValue}>{events.filter(ev => (new Date(ev.created_at)) >= new Date(Date.now() - 7*24*60*60*1000)).length}</Text>
-            </Pressable>
-          </View>
-
-          {/* Modals for KPI cards */}
-          <Modal
-            visible={showTotalEventsModal}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setShowTotalEventsModal(false)}
-          >
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
-              <View style={{ width: '95%', backgroundColor: '#fff', borderRadius: 12, padding: 18, maxHeight: '85%' }}>
-                <Pressable onPress={() => setShowTotalEventsModal(false)} style={{ position: 'absolute', top: 10, right: 16, zIndex: 10 }}>
-                  <Text style={{ fontSize: 20, color: '#888' }}>×</Text>
-                </Pressable>
-                <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>All Events</Text>
-                <View style={{ height: 400 }}>
-                  <ScrollView horizontal>
-                    <View style={{ minWidth: 900 }}>
-                      <View style={{ flexDirection: 'row', backgroundColor: '#f0f0f0', borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
-                        {['ID','Event Type','Date','User','Guest Session','Product','City','Country','Referrer'].map((label, i) => (
-                          <Text key={label} style={{ fontWeight: 'bold', padding: 8, minWidth: [80,80,120,80,120,80,80,80,120][i], flex: 1 }}>{label}</Text>
-                        ))}
-                      </View>
-                      <ScrollView style={{ maxHeight: 360 }}>
-                        {events.length === 0 ? (
-                          <View style={{ padding: 24 }}><Text>No events found.</Text></View>
-                        ) : (
-                          events.map(ev => (
-                            <View key={ev.id} style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee', alignItems: 'center' }}>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }} numberOfLines={1} ellipsizeMode="middle">{ev.id}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.event_type || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 120, flex: 1 }}>{ev.created_at ? new Date(ev.created_at).toLocaleString() : '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.user_id || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 120, flex: 1 }}>{ev.guest_session_id || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.product_id || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.location?.city || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.location?.country || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 120, flex: 1 }} numberOfLines={1} ellipsizeMode="tail">{ev.referrer || '-'}</Text>
-                            </View>
-                          ))
-                        )}
-                      </ScrollView>
-                    </View>
-                  </ScrollView>
-                </View>
-              </View>
-            </View>
-          </Modal>
-          <Modal
-            visible={showSessionsModal}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setShowSessionsModal(false)}
-          >
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
-              <View style={{ width: '95%', backgroundColor: '#fff', borderRadius: 12, padding: 18, maxHeight: '85%' }}>
-                <Pressable onPress={() => setShowSessionsModal(false)} style={{ position: 'absolute', top: 10, right: 16, zIndex: 10 }}>
-                  <Text style={{ fontSize: 20, color: '#888' }}>×</Text>
-                </Pressable>
-                <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Unique Sessions</Text>
-                <View style={{ height: 400 }}>
-                  <ScrollView horizontal>
-                    <View style={{ minWidth: 900 }}>
-                      <View style={{ flexDirection: 'row', backgroundColor: '#f0f0f0', borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
-                        {['ID','Event Type','Date','User','Guest Session','Product','City','Country','Referrer'].map((label, i) => (
-                          <Text key={label} style={{ fontWeight: 'bold', padding: 8, minWidth: [80,80,120,80,120,80,80,80,120][i], flex: 1 }}>{label}</Text>
-                        ))}
-                      </View>
-                      <ScrollView style={{ maxHeight: 360 }}>
-                        {(() => {
-                          const sessionIds = Array.from(new Set(events.map(ev => ev.guest_session_id)));
-                          if (sessionIds.length === 0) return (<View style={{ padding: 24 }}><Text>No sessions found.</Text></View>);
-                          return sessionIds.map(sessionId => {
-                            const sessionEvents = events.filter(ev => ev.guest_session_id === sessionId);
-                            return sessionEvents.map(ev => (
-                              <View key={ev.id} style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee', alignItems: 'center' }}>
-                                <Text style={{ padding: 8, minWidth: 80, flex: 1 }} numberOfLines={1} ellipsizeMode="middle">{ev.id}</Text>
-                                <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.event_type || '-'}</Text>
-                                <Text style={{ padding: 8, minWidth: 120, flex: 1 }}>{ev.created_at ? new Date(ev.created_at).toLocaleString() : '-'}</Text>
-                                <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.user_id || '-'}</Text>
-                                <Text style={{ padding: 8, minWidth: 120, flex: 1 }}>{ev.guest_session_id || '-'}</Text>
-                                <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.product_id || '-'}</Text>
-                                <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.location?.city || '-'}</Text>
-                                <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.location?.country || '-'}</Text>
-                                <Text style={{ padding: 8, minWidth: 120, flex: 1 }} numberOfLines={1} ellipsizeMode="tail">{ev.referrer || '-'}</Text>
-                              </View>
-                            ));
-                          });
-                        })()}
-                      </ScrollView>
-                    </View>
-                  </ScrollView>
-                </View>
-              </View>
-            </View>
-          </Modal>
-          <Modal
-            visible={showEventsTodayModal}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setShowEventsTodayModal(false)}
-          >
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
-              <View style={{ width: '95%', backgroundColor: '#fff', borderRadius: 12, padding: 18, maxHeight: '85%' }}>
-                <Pressable onPress={() => setShowEventsTodayModal(false)} style={{ position: 'absolute', top: 10, right: 16, zIndex: 10 }}>
-                  <Text style={{ fontSize: 20, color: '#888' }}>×</Text>
-                </Pressable>
-                <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Events Today</Text>
-                <View style={{ height: 400 }}>
-                  <ScrollView horizontal>
-                    <View style={{ minWidth: 900 }}>
-                      <View style={{ flexDirection: 'row', backgroundColor: '#f0f0f0', borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
-                        {['ID','Event Type','Date','User','Guest Session','Product','City','Country','Referrer'].map((label, i) => (
-                          <Text key={label} style={{ fontWeight: 'bold', padding: 8, minWidth: [80,80,120,80,120,80,80,80,120][i], flex: 1 }}>{label}</Text>
-                        ))}
-                      </View>
-                      <ScrollView style={{ maxHeight: 360 }}>
-                        {events.filter(ev => (new Date(ev.created_at)).toDateString() === (new Date()).toDateString()).length === 0 ? (
-                          <View style={{ padding: 24 }}><Text>No events found for today.</Text></View>
-                        ) : (
-                          events.filter(ev => (new Date(ev.created_at)).toDateString() === (new Date()).toDateString()).map(ev => (
-                            <View key={ev.id} style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee', alignItems: 'center' }}>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }} numberOfLines={1} ellipsizeMode="middle">{ev.id}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.event_type || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 120, flex: 1 }}>{ev.created_at ? new Date(ev.created_at).toLocaleString() : '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.user_id || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 120, flex: 1 }}>{ev.guest_session_id || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.product_id || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.location?.city || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.location?.country || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 120, flex: 1 }} numberOfLines={1} ellipsizeMode="tail">{ev.referrer || '-'}</Text>
-                            </View>
-                          ))
-                        )}
-                      </ScrollView>
-                    </View>
-                  </ScrollView>
-                </View>
-              </View>
-            </View>
-          </Modal>
-          <Modal
-            visible={showEventsLast7DaysModal}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setShowEventsLast7DaysModal(false)}
-          >
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
-              <View style={{ width: '95%', backgroundColor: '#fff', borderRadius: 12, padding: 18, maxHeight: '85%' }}>
-                <Pressable onPress={() => setShowEventsLast7DaysModal(false)} style={{ position: 'absolute', top: 10, right: 16, zIndex: 10 }}>
-                  <Text style={{ fontSize: 20, color: '#888' }}>×</Text>
-                </Pressable>
-                <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Events Last 7 Days</Text>
-                <View style={{ height: 400 }}>
-                  <ScrollView horizontal>
-                    <View style={{ minWidth: 900 }}>
-                      <View style={{ flexDirection: 'row', backgroundColor: '#f0f0f0', borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
-                        {['ID','Event Type','Date','User','Guest Session','Product','City','Country','Referrer'].map((label, i) => (
-                          <Text key={label} style={{ fontWeight: 'bold', padding: 8, minWidth: [80,80,120,80,120,80,80,80,120][i], flex: 1 }}>{label}</Text>
-                        ))}
-                      </View>
-                      <ScrollView style={{ maxHeight: 360 }}>
-                        {events.filter(ev => (new Date(ev.created_at)) >= new Date(Date.now() - 7*24*60*60*1000)).length === 0 ? (
-                          <View style={{ padding: 24 }}><Text>No events found for last 7 days.</Text></View>
-                        ) : (
-                          events.filter(ev => (new Date(ev.created_at)) >= new Date(Date.now() - 7*24*60*60*1000)).map(ev => (
-                            <View key={ev.id} style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee', alignItems: 'center' }}>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }} numberOfLines={1} ellipsizeMode="middle">{ev.id}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.event_type || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 120, flex: 1 }}>{ev.created_at ? new Date(ev.created_at).toLocaleString() : '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.user_id || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 120, flex: 1 }}>{ev.guest_session_id || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.product_id || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.location?.city || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 80, flex: 1 }}>{ev.location?.country || '-'}</Text>
-                              <Text style={{ padding: 8, minWidth: 120, flex: 1 }} numberOfLines={1} ellipsizeMode="tail">{ev.referrer || '-'}</Text>
-                            </View>
-                          ))
-                        )}
-                      </ScrollView>
-                    </View>
-                  </ScrollView>
-                </View>
-              </View>
-            </View>
-          </Modal>
-
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
-            <View style={[styles.kpiBox, {backgroundColor: '#E5F7F9'}]}>
-              <Text style={styles.kpiLabel}>Most Active Session</Text>
-              <Text style={styles.kpiValue}>{(() => {
-                const sessionCounts = events.reduce((acc, ev) => {
-                  acc[ev.guest_session_id] = (acc[ev.guest_session_id] || 0) + 1;
-                  return acc;
-                }, {});
-                let maxSession = null, maxCount = 0;
-                for (let sid in sessionCounts) {
-                  if (sessionCounts[sid] > maxCount) {
-                    maxCount = sessionCounts[sid];
-                    maxSession = sid;
-                  }
-                }
-                return maxSession ? `${maxSession.slice(0, 6)}... (${maxCount})` : 'N/A';
-              })()}</Text>
-            </View>
-            <View style={[styles.kpiBox, {backgroundColor: '#F9F7E5'}]}>
-              <Text style={styles.kpiLabel}>Most Viewed Product</Text>
-              <Text style={styles.kpiValue}>{(() => {
-                const productCounts = events.filter(ev => ev.product_id).reduce((acc, ev) => {
-                  acc[ev.product_id] = (acc[ev.product_id] || 0) + 1;
-                  return acc;
-                }, {});
-                let maxProduct = null, maxCount = 0;
-                for (let pid in productCounts) {
-                  if (productCounts[pid] > maxCount) {
-                    maxCount = productCounts[pid];
-                    maxProduct = pid;
-                  }
-                }
-                return maxProduct ? `${maxProduct.slice(0, 8)}... (${maxCount})` : 'N/A';
-              })()}</Text>
-            </View>
-            <View style={[styles.kpiBox, {backgroundColor: '#E5F9E8'}]}>
-              <Text style={styles.kpiLabel}>Conversion Rate</Text>
-              <Text style={styles.kpiValue}>{eventTypeCounts['product_view'] ? ((eventTypeCounts['add_to_cart'] || 0) / eventTypeCounts['product_view'] * 100).toFixed(1) + '%' : 'N/A'}</Text>
-            </View>
-          </View>
-          <Text style={[styles.kpiLabel, {marginTop: 16, marginBottom: 6}]}>Event Type Distribution</Text>
-          <BarChart
-            data={{
-              labels: Object.keys(eventTypeCounts),
-              datasets: [{ data: Object.values(eventTypeCounts) }],
-            }}
-            width={Dimensions.get('window').width - 48}
-            height={220}
-            fromZero
-            showValuesOnTopOfBars
-            chartConfig={{
-              backgroundGradientFrom: '#fff',
-              backgroundGradientTo: '#fff',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(44, 62, 80, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(44, 62, 80, ${opacity})`,
-              style: { borderRadius: 8 },
-              propsForBackgroundLines: { stroke: '#eee' },
-            }}
-            style={{ borderRadius: 8, marginBottom: 24 }}
-          />
-          <Text style={[styles.kpiLabel, {marginTop: 16, marginBottom: 6}]}>Events per Day (Last 7 Days)</Text>
-          <LineChart
-            data={{
-              labels: Array.from({length: 7}, (_, i) => {
-                const d = new Date(Date.now() - (6-i)*24*60*60*1000);
-                return `${d.getMonth()+1}/${d.getDate()}`;
-              }),
-              datasets: [{
-                data: Array.from({length: 7}, (_, i) => {
-                  const day = new Date(Date.now() - (6-i)*24*60*60*1000);
-                  const dayStr = day.toISOString().slice(0,10);
-                  return events.filter(ev => ev.created_at.slice(0,10) === dayStr).length;
-                })
-              }]
-            }}
-            width={Dimensions.get('window').width - 48}
-            height={220}
-            fromZero
-            chartConfig={{
-              backgroundGradientFrom: '#fff',
-              backgroundGradientTo: '#fff',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(44, 62, 80, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(44, 62, 80, ${opacity})`,
-              style: { borderRadius: 8 },
-              propsForBackgroundLines: { stroke: '#eee' },
-            }}
-            style={{ borderRadius: 8, marginBottom: 24 }}
-          />
+          
         </ScrollView>
       )}
     </View>

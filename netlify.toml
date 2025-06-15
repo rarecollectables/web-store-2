@@ -10,6 +10,7 @@
     CANCEL_URL = "https://rarecollectables.co.uk/cart"
 
 [functions]
+included_files = ["netlify/functions/order-update-email.hbs"]
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
