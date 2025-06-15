@@ -81,13 +81,14 @@ export default function BestSellersSection({ cardWidth, numColumns, bestSellerId
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
-            <ProductCard item={item} cardWidth={cardWidth} />
+            <ProductCard item={item} cardWidth={cardWidth} disableImageCycling={true} />
           </View>
         )}
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, { paddingLeft: horizontalPadding, paddingRight: horizontalPadding }]}
         columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
+        removeClippedSubviews={false}
       />
     </View>
   );

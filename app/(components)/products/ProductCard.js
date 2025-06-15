@@ -5,7 +5,7 @@ import { colors, spacing, borderRadius, fontFamily } from '../../../theme';
 import { useStore } from '../../../context/store';
 import { trackEvent } from '../../../lib/trackEvent';
 
-export default function ProductCard({ item, cardWidth }) {
+export default function ProductCard({ item, cardWidth, disableImageCycling }) {
   const router = useRouter();
   const { addToCart, addToWishlist, removeFromWishlist, wishlist } = useStore();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -23,37 +23,36 @@ export default function ProductCard({ item, cardWidth }) {
 
   // Get all images for the product
   // Combine main image and additional_images (TEXT[]), filter for valid strings
-  const getProductImages = () => {
-    const images = [];
+  const images = React.useMemo(() => {
+    const imgs = [];
     if (typeof item.image_url === 'string' && item.image_url.trim() !== '') {
-      images.push(item.image_url);
+      imgs.push(item.image_url);
     }
     if (Array.isArray(item.additional_images)) {
-      images.push(...item.additional_images.filter(img => typeof img === 'string' && img.trim() !== ''));
+      imgs.push(...item.additional_images.filter(img => typeof img === 'string' && img.trim() !== ''));
     }
-    return images;
-  };
-
-  let images = getProductImages();
-  // Filter out images that have failed to load
-  images = images.filter((_, idx) => !failedIndexes.includes(idx));
+    // Filter out images that have failed to load
+    return imgs.filter((_, idx) => !failedIndexes.includes(idx));
+  }, [item.image_url, item.additional_images, failedIndexes]);
 
   // If all images failed, use the branded placeholder
   const allImagesFailed = images.length === 0;
   const PLACEHOLDER_IMAGE = 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils//brandLogo.webp';
 
   useEffect(() => {
-    if (images.length > 1) {
+    if (!disableImageCycling && images.length > 1) {
+      console.log('Setting interval for product:', item.id);
       intervalRef.current = setInterval(() => {
         setCurrentIndex((prev) => (prev + 1) % images.length);
       }, 3200);
     }
     return () => {
       if (intervalRef.current) {
+        console.log('Clearing interval for product:', item.id);
         clearInterval(intervalRef.current);
       }
     };
-  }, [images.length]);
+  }, [images.length, item.id, disableImageCycling]);
 
   // Reset failedIndexes if item changes
   useEffect(() => {
@@ -71,6 +70,18 @@ export default function ProductCard({ item, cardWidth }) {
   };
 
 
+  const parsePrice = (p) => {
+    if (typeof p === 'number') return p;
+    if (typeof p === 'string') {
+      let cleaned = p.replace(/[^\d.,-]/g, '').replace(/,/g, '.');
+      const parts = cleaned.split('.');
+      if (parts.length > 2) cleaned = parts.slice(0,2).join('.') + parts.slice(2).join('');
+      const val = parseFloat(cleaned);
+      return isNaN(val) ? 0 : val;
+    }
+    return 0;
+  };
+
   const handleAddToCart = () => {
     Animated.sequence([
       Animated.timing(scaleAnim, { toValue: 1.15, duration: 120, useNativeDriver: true }),
@@ -78,7 +89,7 @@ export default function ProductCard({ item, cardWidth }) {
     ]).start();
 
     const imageUri = images[0] || '';
-    const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+    const price = parsePrice(item.price);
     // Track add to cart event
     trackEvent({
       eventType: 'add_to_cart',
@@ -184,11 +195,11 @@ export default function ProductCard({ item, cardWidth }) {
                 // Mark this index as failed
                 const failed = [...prev, currentIndex];
                 // If all images failed, show placeholder
-                if (failed.length >= getProductImages().length) {
+                if (failed.length >= images.length) {
                   setImageError(true);
                 } else {
                   // Instantly skip to next valid image
-                  const nextValid = getProductImages().findIndex((_, idx) => !failed.includes(idx) && idx !== currentIndex);
+                  const nextValid = images.findIndex((_, idx) => !failed.includes(idx) && idx !== currentIndex);
                   setCurrentIndex(nextValid !== -1 ? nextValid : 0);
                 }
                 return failed;

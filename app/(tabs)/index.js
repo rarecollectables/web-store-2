@@ -12,6 +12,7 @@ import AnnaWelcomePopup from '../components/AnnaWelcomePopup';
 import SpringPromoModal from '../components/SpringPromoModal';
 import BestSellersSection from '../components/BestSellersSection';
 import ReviewsCarousel from '../components/ReviewsCarousel';
+import FeatureTiles from '../components/FeatureTiles';
 
 // Category definitions for homepage
 const CATEGORIES = [
@@ -167,7 +168,7 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
-          alignItems: 'center',
+          alignItems: 'stretch',
           paddingTop: insets.top,
           paddingBottom: insets.bottom + 20,
           backgroundColor: 'transparent'
@@ -192,9 +193,11 @@ export default function HomeScreen() {
               </Pressable>
             </ImageBackground>
 
-            {/* Best Sellers Section */}
-            <View style={styles.categoriesContainer}>
+            {/* Feature Tiles Section */}
+            <FeatureTiles style={{ marginTop: 0, marginBottom: 10, width: '100%' }} />
 
+            {/* Best Sellers Section */}
+            <View style={[styles.categoriesContainer, { width: '100%' }]}>
               {CATEGORIES.map((cat, index) => {
                 const marginRight = (index + 1) % columns === 0 ? 0 : cardSpacing;
                 const images = CATEGORY_IMAGES[cat.id] || [];
@@ -207,18 +210,19 @@ export default function HomeScreen() {
                     marginRight={marginRight}
                     images={images}
                     onPress={() => {
-  trackEvent({
-    eventType: 'category_click',
-    metadata: { categoryId: cat.id, categoryTitle: cat.title, source: 'home' }
-  });
-  router.push(`/shop?category=${cat.id}`);
-}}
+                      trackEvent({
+                        eventType: 'category_click',
+                        metadata: { categoryId: cat.id, categoryTitle: cat.title, source: 'home' }
+                      });
+                      router.push(`/shop?category=${encodeURIComponent(cat.title)}`);
+                    }}
                   />
                 );
               })}
             </View>
+
             {/* Best Sellers Section */}
-            <BestSellersSection cardWidth={cardSize} numColumns={columns} bestSellerIds={['ec75311c-c851-45b8-b1a5-22a364e12449', '7c01ba23-db05-43cc-b38a-eb394b379853', '1-bracelets', '2-bracelets']} />
+            <BestSellersSection cardWidth={cardSize} numColumns={columns} bestSellerIds={['4-rings', '2-bracelets', '7c430a41-726e-4753-8214-36ffc77303cb', '20075497-1112-400f-8238-565f62cbd724']} />
 
             {/* Reviews Carousel */}
             <ReviewsCarousel />
@@ -550,7 +554,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'flex-start',
     backgroundColor: 'transparent',
     padding: 0,
