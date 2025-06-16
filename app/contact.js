@@ -74,6 +74,11 @@ export default function Contact() {
           </View>
         </Pressable>
         <Text style={styles.title}>Contact Us</Text>
+        <View style={styles.sloBox}>
+          <Text style={styles.sloTitle}>We reply fast!</Text>
+          <Text style={styles.sloText}>Our care team aims to respond to all enquiries within 2 business hours.</Text>
+          <Text style={styles.sloEmail}>Or email us directly at <Text style={{fontWeight: 'bold', color: colors.gold}}>rarecollectablessales@gmail.com</Text></Text>
+        </View>
         <Text style={styles.text}>Have a question or need help? Fill out the form below and we’ll get back to you soon.</Text>
         <TextInput
           style={styles.input}
@@ -109,6 +114,33 @@ export default function Contact() {
 }
 
 const styles = StyleSheet.create({
+  sloBox: {
+    backgroundColor: '#fff8e1',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    alignItems: 'center',
+  },
+  sloTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.gold,
+    marginBottom: 3,
+  },
+  sloText: {
+    fontSize: 14,
+    color: '#8d7c4d',
+    marginBottom: 3,
+    textAlign: 'center',
+  },
+  sloEmail: {
+    fontSize: 14,
+    color: '#4a3d1a',
+    textAlign: 'center',
+    marginTop: 2,
+  },
   confirmModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.18)',

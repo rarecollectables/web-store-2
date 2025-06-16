@@ -692,11 +692,13 @@ const renderCarouselImage = useCallback(
         </View>
       </View>
       </ScrollView>
-      <ZoomableImage
-        visible={zoomVisible}
-        image={zoomImage}
-        onClose={() => setZoomVisible(false)}
-      />
+      {zoomImage && (
+        <ZoomableImage
+          source={zoomImage}
+          visible={zoomVisible}
+          onClose={() => setZoomVisible(false)}
+        />
+      )}
     </View>
   );
 }
