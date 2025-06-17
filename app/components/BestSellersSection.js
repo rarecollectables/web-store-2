@@ -79,7 +79,7 @@ export default function BestSellersSection({ cardWidth, numColumns, bestSellerId
         horizontal={numColumns === 1}
         numColumns={numColumns}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
             <ProductCard item={item} cardWidth={cardWidth} disableImageCycling={true} />
           </View>
