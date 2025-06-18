@@ -123,7 +123,12 @@ export default function ProductCard({ item, cardWidth, disableImageCycling }) {
     Alert.alert('Added to Cart', `${item.name} has been added to your cart.`, [
       {
         text: 'Go to Cart',
-        onPress: () => router.push({ pathname: '/(tabs)/cart', params: { from: 'detail', productId: item.id } })
+        onPress: () => {
+          if (typeof setLastVisitedRoute === 'function') {
+            setLastVisitedRoute(`/product/${item.id}`);
+          }
+          router.push({ pathname: '/(tabs)/cart', params: { from: 'detail', productId: item.id } });
+        }
       },
       { text: 'Continue Shopping', style: 'cancel' }
     ]);

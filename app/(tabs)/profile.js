@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Alert, Modal, TextInput } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { trackEvent } from '../../lib/trackEvent';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme';
 import OrdersModal from '../components/orders-modal';
 import AboutModal from '../components/about-modal';
@@ -110,6 +111,28 @@ export default function ProfileScreen() {
       </Pressable>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.header}>My Profile</Text>
+        {/* Create Account Link */}
+        <Pressable
+          style={({ pressed }) => [{ marginVertical: 12, alignSelf: 'flex-start', opacity: pressed ? 0.7 : 1 }]}
+          accessibilityRole="link"
+          accessibilityLabel="Create Account"
+          onPress={async () => {
+            try {
+              // Track the click event
+              if (typeof trackEvent === 'function') {
+                await trackEvent({ eventType: 'create_account_click', metadata: { location: 'profile_page' } });
+              }
+              // Navigate to contact form page
+              router.push('/contact');
+            } catch (err) {
+              router.push('/signup');
+            }
+          }}
+        >
+          <Text style={{ color: colors.gold, fontSize: 16, textDecorationLine: 'underline', fontWeight: '600' }}>
+            Create Account
+          </Text>
+        </Pressable>
         {SECTIONS.map((section) => (
           <Pressable
             key={section.title}
