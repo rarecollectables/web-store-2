@@ -1,7 +1,7 @@
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-async function sendConfirmationEmail({ to, order }) {
+async function sendConfirmationEmail({ to, order, relatedProducts = [] }) {
   if (!to) throw new Error('Recipient email required');
   const msg = {
     to,
@@ -10,6 +10,7 @@ async function sendConfirmationEmail({ to, order }) {
       email: process.env.SENDGRID_FROM_EMAIL || 'no-reply@rarecollectables.com',
       name: 'Rare Collectables'
     },
+    replyTo: 'rarecollectablessales@gmail.com',
     subject: 'Order Confirmation - Rare Collectables',
     text: `Thank you for your purchase!\n\nOrder Details:\nAmount: £${(order.amount/100).toFixed(2)}\nQuantity: ${order.quantity || 1}\nDate: ${(order.created_at ? new Date(order.created_at).toLocaleString('en-GB') : new Date().toLocaleString('en-GB'))}\n${order.shipping_address ? `Shipping Address: ${order.shipping_address.line1}, ${order.shipping_address.city}, ${order.shipping_address.postcode || ''}` : ''}\n\nWe will keep you updated with your order status. If you have any questions, our concierge team is here to help.\n\nBest regards,\nRare Collectables Team`,
     html: `
@@ -19,7 +20,7 @@ async function sendConfirmationEmail({ to, order }) {
         </div>
         <div style="padding: 24px 24px 12px 24px; background: #fff;">
           <h2 style="color: #38a169; margin-top: 0;">Thank you for your purchase!</h2>
-          <p style="font-size: 17px; color: #333;">Your order has been received and is now being processed. We will keep you updated with your order status. If you have any questions, our concierge team is here to help.</p>
+          <p style="font-size: 17px; color: #333;">Your order has been received and is now being processed. We will keep you updated with your order status. If you have any questions, our <a href="mailto:rarecollectablessales@gmail.com" style="color: #BFA054; text-decoration: underline;">concierge team</a> is here to help.</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 18px 0;" />
           <h3 style="color: #BFA054;">Order Summary</h3>
           <div style="text-align: center; margin-bottom: 16px;">
@@ -44,6 +45,28 @@ async function sendConfirmationEmail({ to, order }) {
               <td>${order.shipping_address.line1}, ${order.shipping_address.city}${order.shipping_address.postcode ? ', ' + order.shipping_address.postcode : ''}</td>
             </tr>` : ''}
           </table>
+
+          <!-- Related Products Section -->
+          ${relatedProducts.length > 0 ? `
+          <div style="margin-top: 32px;">
+            <h3 style="color: #BFA054; text-align: center; font-size: 21px; margin-bottom: 18px; letter-spacing: 0.5px;">You May Also Like</h3>
+            <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 18px;">
+              ${relatedProducts.map(product => `
+                <div style="background: #faf7f2; border-radius: 12px; border: 1px solid #eee; width: 180px; box-shadow: 0 2px 8px #eee; text-align: center; padding: 18px 12px 16px 12px; transition: box-shadow 0.2s;">
+                  <a href="${product.url}" style="text-decoration: none; color: inherit;">
+                    <img src="${product.image}" alt="${product.name}" style="width: 120px; height: 120px; object-fit: contain; border-radius: 8px; border: 1px solid #e5e5e5; margin-bottom: 10px; background: #fff;" />
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px; color: #222;">${product.name}</div>
+                    <div style="font-size: 15px; color: #BFA054; margin-bottom: 12px;">£${parseFloat(product.price).toFixed(2)}</div>
+                    <div>
+                      <span style="display: inline-block; background: #BFA054; color: #fff; font-weight: 600; padding: 8px 18px; border-radius: 6px; font-size: 15px; text-decoration: none; box-shadow: 0 1px 4px #e5e5e5;">Shop Now</span>
+                    </div>
+                  </a>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+
           <div style="margin-top: 18px; font-size: 15px; color: #444;">
             If you have any questions or need assistance, simply reply to this email or contact our concierge team.
           </div>

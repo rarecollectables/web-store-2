@@ -47,8 +47,20 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const discountedSubtotal = Math.max(0, subtotal - (discountAmount || 0));
       const total = Math.max(0, discountedSubtotal); // No tax applied
-      // Track payment start
-      trackEvent({ eventType: 'checkout_payment_started', total, items: cart.length, coupon });
+      // GA4-compliant begin_checkout event
+      trackEvent({
+        eventType: 'begin_checkout',
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image_url: item.image_url
+        })),
+        value: total,
+        currency: 'GBP',
+        metadata: { coupon }
+      });
       const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,9 +97,21 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         coupon: coupon || null,
         paymentIntentId: result.paymentIntent.id,
       });
-      // Track payment success
-      trackEvent({ eventType: 'checkout_payment_success', total, items: cart.length, coupon });
-      trackEvent({ eventType: 'order_completed', total, items: cart.length, coupon });
+      // GA4-compliant purchase event
+      trackEvent({
+        eventType: 'purchase',
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image_url: item.image_url
+        })),
+        value: total,
+        currency: 'GBP',
+        transaction_id: result.paymentIntent.id,
+        metadata: { coupon }
+      });
       cart.forEach(item => removeFromCart(item.id));
       if (onSuccess) onSuccess();
     } catch (error) {
@@ -155,12 +179,12 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
 }
 
 export default function CheckoutScreen() {
+  const router = useRouter();
   // Coupon state (must be defined before use)
   const [coupon, setCoupon] = useState('');
   const [couponStatus, setCouponStatus] = useState(null); // { valid: bool, discount: {type, value}, error }
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
-  const router = useRouter();
   const { cart, removeFromCart } = useStore();
   const [contact, setContact] = useState({ name: '', email: '' });
   const [address, setAddress] = useState({ line1: '', city: '', postcode: '' });
@@ -337,10 +361,19 @@ export default function CheckoutScreen() {
   }
   if (stripeError) {
     return (
-      <View style={styles.errorContainer}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Pressable
+          style={{ alignSelf: 'flex-start', marginBottom: 8, paddingHorizontal: 0, paddingVertical: 2 }}
+          onPress={() => router.push('/cart')}
+          accessibilityLabel="Back to cart"
+          accessibilityRole="link"
+        >
+          <Text style={{ color: colors.gold, fontSize: 15, textDecorationLine: 'underline', fontWeight: '400' }}>← Back to Cart</Text>
+        </Pressable>
+        <Text style={styles.header}>Checkout</Text>
         <Text style={styles.errorTitle}>{stripeError}</Text>
         <Text style={styles.errorText}>Please contact support or try again later.</Text>
-      </View>
+      </ScrollView>
     );
   }
 

@@ -61,9 +61,18 @@ export default function ProductCard({ item, cardWidth, disableImageCycling }) {
   }, [item.id]);
 
   const handlePress = async () => {
+    // GA4-compliant product view event
     await trackEvent({
-      eventType: 'product_view',
-      productId: item.id,
+      eventType: 'view_item',
+      items: [{
+        id: item.id,
+        name: item.name,
+        price: parsePrice(item.price),
+        quantity: 1,
+        image_url: item.image_url
+      }],
+      value: parsePrice(item.price),
+      currency: 'GBP',
       metadata: { productName: item.name }
     });
     router.push(`/product/${item.id}`);
@@ -90,11 +99,18 @@ export default function ProductCard({ item, cardWidth, disableImageCycling }) {
 
     const imageUri = images[0] || '';
     const price = parsePrice(item.price);
-    // Track add to cart event
+    // Track add to cart event (GA4-compliant)
     trackEvent({
       eventType: 'add_to_cart',
-      productId: item.id,
-      quantity: 1,
+      items: [{
+        id: item.id,
+        name: item.name,
+        price: price,
+        quantity: 1,
+        image_url: imageUri
+      }],
+      value: price,
+      currency: 'GBP',
       metadata: { productName: item.name, price }
     });
     addToCart({

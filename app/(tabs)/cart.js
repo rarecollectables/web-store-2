@@ -103,6 +103,11 @@ export default function CartScreen() {
     router.replace('/(tabs)/shop');
   };
 
+  const handleProceedToCheckout = () => {
+    // Navigate to checkout page
+    router.push('/checkout');
+  };
+
   const subtotal = cart.reduce((sum, item) => {
     let price = parsePrice(item.price);
     if (!price) {
@@ -115,9 +120,22 @@ export default function CartScreen() {
   const total = subtotal;
 
   React.useEffect(() => {
-    // Track cart view event
-    trackEvent({ eventType: 'cart_view' });
-  }, []);
+    // Track cart view event (GA4-compliant)
+    if (cart && cart.length > 0) {
+      trackEvent({
+        eventType: 'view_cart',
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: parsePrice(item.price),
+          quantity: item.quantity,
+          image_url: item.image_url
+        })),
+        value: cart.reduce((sum, item) => sum + parsePrice(item.price) * item.quantity, 0),
+        currency: 'GBP'
+      });
+    }
+  }, [cart]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -210,7 +228,7 @@ export default function CartScreen() {
         <View style={styles.summaryRow}><Text style={styles.labelTotal}>Total</Text><Text style={styles.valueTotal}>{`₤${total.toFixed(2)}`}</Text></View>
         <Pressable
           style={styles.checkoutBtn}
-          onPress={() => setCheckoutOpen(true)}
+          onPress={handleProceedToCheckout}
           disabled={cart.length === 0}
           accessibilityLabel="Proceed to checkout"
         >

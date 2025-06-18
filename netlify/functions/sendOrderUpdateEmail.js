@@ -60,6 +60,7 @@ async function sendOrderUpdateEmail({ to, order, trackingCode, trackingUrl, rela
       email: process.env.SENDGRID_FROM_EMAIL || 'no-reply@rarecollectables.com',
       name: 'Rare Collectables'
     },
+    replyTo: 'rarecollectablessales@gmail.com',
     subject: 'Your Order Update from Rare Collectables',
     text,
     html

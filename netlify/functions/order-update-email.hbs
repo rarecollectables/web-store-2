@@ -32,12 +32,12 @@
   <body>
     <div class="container">
       <div class="header">
-        <img src="https://yourdomain.com/logo.png" alt="Rare Collectables" class="logo"/>
+        <div style="font-size: 22px; font-weight: bold; letter-spacing: 1px;">Rare Collectables</div>
         <h1>Your order is on the way!</h1>
       </div>
       <div class="content">
         <p>Hi <b>{{customerName}}</b>,</p>
-        <p>We're excited to let you know your order <b>#{{orderNumber}}</b> is on its way!</p>
+        <p>We're excited to let you know your order is on its way!</p>
         <div class="order-summary">
           <h2 style="color:#bfa054;">Order Summary</h2>
           <table class="order-table">
@@ -81,13 +81,16 @@
             {{#each relatedProducts}}
             <div class="related-product">
               <a href="{{url}}"><img src="{{image}}" alt="{{name}}"/></a>
-              <div>{{name}}</div>
+              <div style="font-size:14px; line-height:1.2; word-break:break-word;">{{name}}</div>
+{{#if price}}
+  <div style="color:#888; font-size:12px; margin-top:2px;">£{{price}}</div>
+{{/if}}
             </div>
             {{/each}}
           </div>
         </div>
         <p style="margin-top:32px;">
-          If you have any questions, just reply to this email or <a href="mailto:support@yourdomain.com" style="color:#bfa054;">contact our support team</a>.
+          If you have any questions, just reply to this email or <a href="mailto:rarecollectablessales@gmail.com" style="color:#bfa054;">contact our support team</a>.
         </p>
       </div>
       <div class="footer">
