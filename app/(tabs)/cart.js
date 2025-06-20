@@ -141,20 +141,14 @@ export default function CartScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Pressable
         onPress={() => {
-          try {
-            if (lastVisitedRoute) {
-              router.push(lastVisitedRoute);
-            } else if (router.canGoBack && router.canGoBack()) {
-              router.back();
-            } else if (params.from === 'detail' && params.productId) {
-              router.push(`/product/${params.productId}`);
-            } else {
-              router.push('/(tabs)/shop');
-            }
-          } catch {
-            router.push('/(tabs)/shop');
-          }
-        }}
+  if (router.canGoBack && router.canGoBack()) {
+    router.back();
+  } else if (lastVisitedRoute && typeof lastVisitedRoute === 'string' && lastVisitedRoute !== '/(tabs)/cart') {
+    router.replace(lastVisitedRoute);
+  } else {
+    router.replace('/(tabs)/shop');
+  }
+}}
         style={({ pressed }) => [
           { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, backgroundColor: pressed ? colors.platinum : 'transparent' }
         ]}

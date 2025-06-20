@@ -4,7 +4,7 @@ import ProductCard from '../(components)/products/ProductCard';
 import { productsService } from '../../lib/supabase/services';
 import { colors, spacing, borderRadius, fontFamily, shadows } from '../../theme';
 
-export default function BestSellersSection({ cardWidth, numColumns, bestSellerIds = [] }) {
+export default function BestSellersSection({ cardWidth, numColumns, bestSellerIds = [], onAddToCartSuccess }) {
   const { width } = useWindowDimensions();
   // Responsive horizontal padding: more on desktop/tablet, less on mobile
   const horizontalPadding = width >= 1024 ? 64 : width >= 768 ? 40 : 16; // px
@@ -81,7 +81,7 @@ export default function BestSellersSection({ cardWidth, numColumns, bestSellerId
         keyExtractor={item => item.id}
         renderItem={({ item, index }) => (
           <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
-            <ProductCard item={item} cardWidth={cardWidth} disableImageCycling={true} />
+            <ProductCard item={item} cardWidth={cardWidth} disableImageCycling={true} onAddToCartSuccess={onAddToCartSuccess} />
           </View>
         )}
         showsHorizontalScrollIndicator={false}

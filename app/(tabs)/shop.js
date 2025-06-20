@@ -4,6 +4,7 @@ import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme'
 import { useStore } from '../../context/store';
 import ProductsList from '../(components)/products/ProductsList';
 import SpringPromoModal from '../components/SpringPromoModal';
+import CartAddedModal from '../components/CartAddedModal';
 import { trackEvent } from '../../lib/trackEvent';
 import { useRouter } from 'expo-router';
 
@@ -11,6 +12,8 @@ export default function ShopScreen() {
   const router = useRouter();
   const { addToCart } = useStore();
   const [showPromo, setShowPromo] = useState(false);
+  const [cartModalVisible, setCartModalVisible] = useState(false);
+  const [lastAddedProduct, setLastAddedProduct] = useState(null);
 
   useEffect(() => {
     trackEvent({ eventType: 'shop_page_view' });
@@ -24,29 +27,54 @@ export default function ShopScreen() {
     }
   }, []);
 
+  // Handler to show modal after add to cart
+  const handleShowCartModal = (product) => {
+    console.log('ShopScreen: handleShowCartModal called', product);
+    setLastAddedProduct(product);
+    setCartModalVisible(true);
+  };
+
+  // Handler for "Go to Cart"
+  const handleGoToCart = () => {
+    setCartModalVisible(false);
+    setTimeout(() => {
+      router.push('/(tabs)/cart');
+    }, 200);
+  };
+
+  // Handler for "Continue Shopping"
+  const handleContinueShopping = () => {
+    setCartModalVisible(false);
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.screen}>
-      <ProductsList />
+      <ProductsList onAddToCartSuccess={handleShowCartModal} />
       <SpringPromoModal visible={showPromo} onClose={() => setShowPromo(false)} />
-        {/* Footer with compliance links */}
-        <View style={styles.footer}>
-          <Pressable onPress={() => router.push('/privacy-policy')} accessibilityRole="link" accessibilityLabel="Privacy Policy">
-            <Text style={styles.footerLink}>Privacy Policy</Text>
-          </Pressable>
-          <Text style={styles.footerSeparator}>|</Text>
-          <Pressable onPress={() => router.push('/terms-of-service')} accessibilityRole="link" accessibilityLabel="Terms of Service">
-            <Text style={styles.footerLink}>Terms of Service</Text>
-          </Pressable>
-          <Text style={styles.footerSeparator}>|</Text>
-          <Pressable onPress={() => router.push('/return-policy')} accessibilityRole="link" accessibilityLabel="Return Policy">
-            <Text style={styles.footerLink}>Return Policy</Text>
-          </Pressable>
-          <Text style={styles.footerSeparator}>|</Text>
-          <Pressable onPress={() => router.push('/contact')} accessibilityRole="link" accessibilityLabel="Contact">
-            <Text style={styles.footerLink}>Contact</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+      <CartAddedModal
+        visible={cartModalVisible}
+        onGoToCart={handleGoToCart}
+        onContinue={handleContinueShopping}
+      />
+      {/* Footer with compliance links */}
+      <View style={styles.footer}>
+        <Pressable onPress={() => router.push('/privacy-policy')} accessibilityRole="link" accessibilityLabel="Privacy Policy">
+          <Text style={styles.footerLink}>Privacy Policy</Text>
+        </Pressable>
+        <Text style={styles.footerSeparator}>|</Text>
+        <Pressable onPress={() => router.push('/terms-of-service')} accessibilityRole="link" accessibilityLabel="Terms of Service">
+          <Text style={styles.footerLink}>Terms of Service</Text>
+        </Pressable>
+        <Text style={styles.footerSeparator}>|</Text>
+        <Pressable onPress={() => router.push('/return-policy')} accessibilityRole="link" accessibilityLabel="Return Policy">
+          <Text style={styles.footerLink}>Return Policy</Text>
+        </Pressable>
+        <Text style={styles.footerSeparator}>|</Text>
+        <Pressable onPress={() => router.push('/contact')} accessibilityRole="link" accessibilityLabel="Contact">
+          <Text style={styles.footerLink}>Contact</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }
 

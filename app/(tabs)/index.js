@@ -12,6 +12,7 @@ import AnnaWelcomePopup from '../components/AnnaWelcomePopup';
 import SpringPromoModal from '../components/SpringPromoModal';
 import BestSellersSection from '../components/BestSellersSection';
 import MostPopularSection from '../components/MostPopularSection';
+import CartAddedModal from '../components/CartAddedModal';
 import ReviewsCarousel from '../components/ReviewsCarousel';
 import FeatureTiles from '../components/FeatureTiles';
 
@@ -88,6 +89,28 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
 }
 
 export default function HomeScreen() {
+  const [cartModalVisible, setCartModalVisible] = useState(false);
+  const [lastAddedProduct, setLastAddedProduct] = useState(null);
+
+  // Handler to show modal when add to cart succeeds from a product card
+  const handleShowCartModal = (product) => {
+    setLastAddedProduct(product);
+    setCartModalVisible(true);
+  };
+
+  // Handler for "Go to Cart" button in modal
+  const handleGoToCart = () => {
+    setCartModalVisible(false);
+    setTimeout(() => {
+      router.push('/(tabs)/cart');
+    }, 200);
+  };
+
+  // Handler for "Continue Shopping" button in modal
+  const handleContinueShopping = () => {
+    setCartModalVisible(false);
+  };
+
   const bestSellersRef = React.useRef(null);
 
   const [discountBubbleScale] = useState(new Animated.Value(0.7));
@@ -246,11 +269,21 @@ export default function HomeScreen() {
 
              {/* Best Sellers Section */}
              <View ref={bestSellersRef} collapsable={false}>
-               <BestSellersSection cardWidth={cardSize} numColumns={columns} bestSellerIds={['4-rings', '2-bracelets', '7c430a41-726e-4753-8214-36ffc77303cb', '20075497-1112-400f-8238-565f62cbd724']} />
+               <BestSellersSection
+                 cardWidth={cardSize}
+                 numColumns={columns}
+                 bestSellerIds={['4-rings', '2-bracelets', '7c430a41-726e-4753-8214-36ffc77303cb', '20075497-1112-400f-8238-565f62cbd724']}
+                 onAddToCartSuccess={handleShowCartModal}
+               />
              </View>
 
             {/* Most Popular Section */}
-            <MostPopularSection cardWidth={cardSize} numColumns={columns} mostPopularIds={['1-necklace', '3-earrings', '5-brooch', '8d2e6c5b-1234-4cde-9876-abcdef123456']} />
+            <MostPopularSection
+              cardWidth={cardSize}
+              numColumns={columns}
+              mostPopularIds={['1-necklace', '3-earrings', '5-brooch', '8d2e6c5b-1234-4cde-9876-abcdef123456']}
+              onAddToCartSuccess={handleShowCartModal}
+            />
 
             {/* Reviews Carousel */}
             <ReviewsCarousel />
@@ -370,6 +403,12 @@ export default function HomeScreen() {
           initialMessage={pendingPopupMessage}
         />
       )}
+      {/* Add to Cart Modal integration */}
+      <CartAddedModal
+        visible={cartModalVisible}
+        onGoToCart={handleGoToCart}
+        onContinue={handleContinueShopping}
+      />
     </View>
   );
 }

@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, Image as RNImage, ScrollView, Pressable, useWindowDimensions, FlatList, Platform, Animated } from 'react-native';
+import CartAddedModal from '../components/CartAddedModal';
 import { Image as ExpoImage } from 'expo-image';
 import { FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +27,7 @@ function MemoCarouselImage({ item, style, onPress }) {
 }
 
 export default function ProductDetail() {
+  const [cartModalVisible, setCartModalVisible] = useState(false);
   const { width } = useWindowDimensions();
   const [carouselWidth, setCarouselWidth] = useState(width); // <-- new state
   const [featureModal, setFeatureModal] = useState({ open: false });
@@ -149,7 +151,7 @@ const renderCarouselImage = useCallback(
     quantity: newQuantity,
     metadata: { productName: product?.title || product?.name, price: product?.price, selectedSize: product.category === 'Rings' ? selectedSize : undefined }
   });
-  Alert.alert('Added to Cart', `${product?.title || 'Product'} (qty: ${newQuantity}) has been added to your cart.`);
+  setCartModalVisible(true);
 }
 
   function handleWishlist() {
@@ -249,9 +251,19 @@ const renderCarouselImage = useCallback(
   const desktopButton = isDesktop ? { fontSize: 18, paddingVertical: 14, paddingHorizontal: 32, minWidth: 140 } : {};
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.white }}>
+    <>
+      <CartAddedModal
+        visible={cartModalVisible}
+        onGoToCart={() => {
+          setCartModalVisible(false);
+          router.push({ pathname: '/(tabs)/cart', params: { from: 'detail', productId: product?.id } });
+        }}
+        onContinue={() => setCartModalVisible(false)}
+      />
+      <View style={{ flex: 1, backgroundColor: colors.white }}>
+
       <Pressable
-        style={styles.closeButton}
+        style={[styles.closeButton, { left: 16, right: undefined }]}
         onPress={() => {
           if (router.canGoBack && router.canGoBack()) {
             router.back();
@@ -260,8 +272,11 @@ const renderCarouselImage = useCallback(
           }
         }}
         accessibilityLabel="Close product detail"
+        accessibilityRole="button"
       >
-        <FontAwesome name="close" size={26} color="#bfa14a" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <FontAwesome name="close" size={26} color="#bfa14a" />
+        </View>
       </Pressable>
       <ScrollView>
         <View style={{ ...styles.container, ...desktopContainer, marginBottom: 8 }}>
@@ -777,6 +792,7 @@ const renderCarouselImage = useCallback(
         />
       )}
     </View>
+  </>
   );
 }
 

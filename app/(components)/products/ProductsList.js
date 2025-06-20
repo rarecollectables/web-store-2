@@ -23,7 +23,13 @@ const CATEGORY_OPTIONS = [
   // Add more categories as needed
 ];
 
-export default function ProductsList() {
+export default function ProductsList({ onAddToCartSuccess }) {
+  // DEBUG: Log when ProductsList receives the prop
+  if (typeof onAddToCartSuccess === 'function') {
+    // eslint-disable-next-line no-console
+    console.log('ProductsList received onAddToCartSuccess prop');
+  }
+
   const { width } = useWindowDimensions();
 
   // Improved density for mobile
@@ -397,7 +403,11 @@ export default function ProductsList() {
           style={{ flex: 1 }}
           renderItem={({ item, index }) => (
             <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
-              <ProductCard item={item} cardWidth={cardWidth} />
+              <ProductCard
+                item={item}
+                cardWidth={cardWidth}
+                onAddToCartSuccess={onAddToCartSuccess}
+              />
             </View>
           )}
           keyExtractor={(item) => item.id.toString()}

@@ -5,7 +5,7 @@ import { colors, spacing, borderRadius, fontFamily } from '../../../theme';
 import { useStore } from '../../../context/store';
 import { trackEvent } from '../../../lib/trackEvent';
 
-export default function ProductCard({ item, cardWidth, disableImageCycling }) {
+export default function ProductCard({ item, cardWidth, disableImageCycling, onAddToCartSuccess }) {
   const router = useRouter();
   const { addToCart, addToWishlist, removeFromWishlist, wishlist } = useStore();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -120,18 +120,11 @@ export default function ProductCard({ item, cardWidth, disableImageCycling }) {
       quantity: 1,
     });
     
-    Alert.alert('Added to Cart', `${item.name} has been added to your cart.`, [
-      {
-        text: 'Go to Cart',
-        onPress: () => {
-          if (typeof setLastVisitedRoute === 'function') {
-            setLastVisitedRoute(`/product/${item.id}`);
-          }
-          router.push({ pathname: '/(tabs)/cart', params: { from: 'detail', productId: item.id } });
-        }
-      },
-      { text: 'Continue Shopping', style: 'cancel' }
-    ]);
+    if (typeof onAddToCartSuccess === 'function') {
+      // DEBUG: Log to verify callback
+      console.log('ProductCard: onAddToCartSuccess called', item);
+      onAddToCartSuccess(item);
+    }
   };
 
 
