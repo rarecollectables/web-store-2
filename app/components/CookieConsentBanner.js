@@ -38,20 +38,26 @@ export default function CookieConsentBanner({ onAccept, onReject }) {
   if (!visible) return null;
 
   return (
-    <Animated.View style={[styles.banner, { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }] }] }>
-      <Text style={styles.text}>
-        We use cookies and similar technologies to enhance your experience, analyze usage, and assist in our marketing efforts. By clicking Accept, you consent to our use of such technologies.{' '}
-        <Text style={styles.link} accessibilityRole="link" accessibilityLabel="Privacy Policy" onPress={() => { /* Link to privacy policy */ }}>Learn more</Text>
-      </Text>
-      <View style={styles.buttons}>
-        <Pressable style={[styles.button, styles.accept]} onPress={handleAccept} accessibilityLabel="Accept Cookies">
-          <Text style={styles.buttonText}>Accept</Text>
-        </Pressable>
-        <Pressable style={[styles.button, styles.reject]} onPress={handleReject} accessibilityLabel="Reject Cookies">
-          <Text style={styles.buttonText}>Reject</Text>
-        </Pressable>
-      </View>
-    </Animated.View>
+    <Pressable
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
+      onPress={handleAccept}
+      accessibilityLabel="Accept cookies by clicking anywhere"
+    >
+      <Animated.View style={[styles.banner, { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }] }] }>
+        <Text style={styles.text}>
+          We use cookies and similar technologies to enhance your experience, analyze usage, and assist in our marketing efforts. By clicking Accept, you consent to our use of such technologies.{' '}
+          <Text style={styles.link} accessibilityRole="link" accessibilityLabel="Privacy Policy" onPress={() => { /* Link to privacy policy */ }}>Learn more</Text>
+        </Text>
+        <View style={styles.buttons}>
+          <Pressable style={[styles.button, styles.accept]} onPress={e => { e.stopPropagation(); handleAccept(); }} accessibilityLabel="Accept Cookies">
+            <Text style={styles.buttonText}>Accept</Text>
+          </Pressable>
+          <Pressable style={[styles.button, styles.reject]} onPress={e => { e.stopPropagation(); handleReject(); }} accessibilityLabel="Reject Cookies">
+            <Text style={styles.buttonText}>Reject</Text>
+          </Pressable>
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 

@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { PRODUCTS, LOCAL_IMAGES as DATA_IMAGES } from '../(data)/products';
 import { useStore } from '../../context/store';
+import FeatureTiles from '../components/FeatureTiles';
 import { Alert } from 'react-native';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme/index.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +15,7 @@ import LuxuryModal from '../components/LuxuryModal';
 import CollapsibleSection from '../components/CollapsibleSection';
 
 import ZoomableImage from '../components/ZoomableImage';
+import RelatedProductsSection from '../components/RelatedProductsSection';
 
 function MemoCarouselImage({ item, style, onPress }) {
   return (
@@ -26,6 +28,7 @@ function MemoCarouselImage({ item, style, onPress }) {
 export default function ProductDetail() {
   const { width } = useWindowDimensions();
   const [carouselWidth, setCarouselWidth] = useState(width); // <-- new state
+  const [featureModal, setFeatureModal] = useState({ open: false });
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -35,7 +38,7 @@ export default function ProductDetail() {
   const heartScale = useRef(new Animated.Value(1)).current;
   const flatListRef = useRef(null);
   const addCartAnim = useRef(new Animated.Value(1));
-  const { addToCart, addToWishlist } = useStore();
+  const { addToCart, addToWishlist, cart } = useStore();
   // --- Ring size state ---
   const [selectedSize, setSelectedSize] = useState('');
   const [product, setProduct] = useState(null);
@@ -116,34 +119,38 @@ const renderCarouselImage = useCallback(
     return () => clearInterval(interval);
   }, [images.length]);
 
-  function handleAddToCart() {
-    // For rings, require a size selection
-    if (product.category === 'Rings' && Array.isArray(product.size_options) && product.size_options.length > 0 && !selectedSize) {
-      Alert.alert('Please select a ring size before adding to cart.');
-      return;
-    }
-    Animated.sequence([
-      Animated.timing(addCartAnim.current, { toValue: 1.15, duration: 120, useNativeDriver: true }),
-      Animated.spring(addCartAnim.current, { toValue: 1, friction: 3, useNativeDriver: true })
-    ]).start();
-    const imageUri = (Array.isArray(images) && images[0]?.uri) ? images[0].uri : (product?.image_url || product?.image || '');
-    addToCart({
-      ...product,
-      selectedSize: product.category === 'Rings' ? selectedSize : undefined,
-      price: typeof product.price === 'number'
-        ? product.price
-        : parseFloat(String(product.price).replace(/[£\s]/g, '')) || 0,
-      image: imageUri,
-      quantity: 1,
-    });
-    trackEvent({
-      eventType: 'add_to_cart',
-      productId: product?.id,
-      quantity: 1,
-      metadata: { productName: product?.title || product?.name, price: product?.price, selectedSize: product.category === 'Rings' ? selectedSize : undefined }
-    });
-    Alert.alert('Added to Cart', `${product?.title || 'Product'} has been added to your cart.`);
+  function handleAddToCart(currentQuantity) {
+  // For rings, require a size selection
+  if (product.category === 'Rings' && Array.isArray(product.size_options) && product.size_options.length > 0 && !selectedSize) {
+    Alert.alert('Please select a ring size before adding to cart.');
+    return;
   }
+  Animated.sequence([
+    Animated.timing(addCartAnim.current, { toValue: 1.15, duration: 120, useNativeDriver: true }),
+    Animated.spring(addCartAnim.current, { toValue: 1, friction: 3, useNativeDriver: true })
+  ]).start();
+  const imageUri = (Array.isArray(images) && images[0]?.uri) ? images[0].uri : (product?.image_url || product?.image || '');
+
+  // currentQuantity is passed as argument
+  const newQuantity = currentQuantity + 1;
+
+  addToCart({
+    ...product,
+    selectedSize: product.category === 'Rings' ? selectedSize : undefined,
+    price: typeof product.price === 'number'
+      ? product.price
+      : parseFloat(String(product.price).replace(/[£\s]/g, '')) || 0,
+    image: imageUri,
+    quantity: newQuantity,
+  });
+  trackEvent({
+    eventType: 'add_to_cart',
+    productId: product?.id,
+    quantity: newQuantity,
+    metadata: { productName: product?.title || product?.name, price: product?.price, selectedSize: product.category === 'Rings' ? selectedSize : undefined }
+  });
+  Alert.alert('Added to Cart', `${product?.title || 'Product'} (qty: ${newQuantity}) has been added to your cart.`);
+}
 
   function handleWishlist() {
     setWishAnimating(true);
@@ -199,6 +206,13 @@ const renderCarouselImage = useCallback(
         </View>
       </LuxuryModal>
     );
+  }
+
+  // Calculate currentQuantity for Add to Cart
+  let currentQuantity = 0;
+  if (cart && product) {
+    const match = cart.find(item => item.id === product.id && (product.category !== 'Rings' || item.selectedSize === selectedSize));
+    currentQuantity = match ? (match.quantity || 0) : 0;
   }
 
   const isDesktop = width >= 1024;
@@ -266,14 +280,14 @@ const renderCarouselImage = useCallback(
                 <Pressable
                   style={[styles.carouselArrow, styles.carouselArrowLeft]}
                   onPress={() => {
-                    if (currentIndex > 0 && flatListRef.current) {
-                      flatListRef.current.scrollToIndex({ index: currentIndex - 1, animated: true });
-                      setCurrentIndex(idx => Math.max(0, idx - 1));
+                    if (images.length > 1 && flatListRef.current) {
+                      const prevIndex = currentIndex === 0 ? images.length - 1 : currentIndex - 1;
+                      flatListRef.current.scrollToIndex({ index: prevIndex, animated: true });
+                      setCurrentIndex(prevIndex);
                     }
                   }}
                   accessibilityLabel="Previous image"
                   accessibilityRole="button"
-                  disabled={currentIndex === 0}
                 >
                   <FontAwesome name="chevron-left" size={28} color={currentIndex === 0 ? '#ccc' : colors.gold} />
                 </Pressable>
@@ -323,14 +337,14 @@ const renderCarouselImage = useCallback(
                 <Pressable
                   style={[styles.carouselArrow, styles.carouselArrowRight]}
                   onPress={() => {
-                    if (currentIndex < images.length - 1 && flatListRef.current) {
-                      flatListRef.current.scrollToIndex({ index: currentIndex + 1, animated: true });
-                      setCurrentIndex(idx => Math.min(images.length - 1, idx + 1));
+                    if (images.length > 1 && flatListRef.current) {
+                      const nextIndex = currentIndex === images.length - 1 ? 0 : currentIndex + 1;
+                      flatListRef.current.scrollToIndex({ index: nextIndex, animated: true });
+                      setCurrentIndex(nextIndex);
                     }
                   }}
                   accessibilityLabel="Next image"
                   accessibilityRole="button"
-                  disabled={currentIndex === images.length - 1}
                 >
                   <FontAwesome name="chevron-right" size={28} color={currentIndex === images.length - 1 ? '#ccc' : colors.gold} />
                 </Pressable>
@@ -457,6 +471,7 @@ const renderCarouselImage = useCallback(
                   <Text style={{ fontSize: 15 }}>1</Text>
                 </View>
               </View>
+              
               {/* Add to Cart Button */}
               <Pressable
                 style={{
@@ -468,7 +483,7 @@ const renderCarouselImage = useCallback(
                   paddingHorizontal: width < 600 ? 0 : 24,
                   justifyContent: 'center',
                 }}
-                onPress={handleAddToCart}
+                onPress={() => handleAddToCart(currentQuantity)}
                 accessibilityLabel="Add to cart"
               >
                 <Text style={styles.buttonText}>Add to Cart</Text>
@@ -504,37 +519,100 @@ const renderCarouselImage = useCallback(
             </View>
           </View>
           {/* Feature Tiles */}
-          <View style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            justifyContent: 'space-between',
-            gap: 18,
-            marginBottom: 24,
-            maxWidth: width >= 1024 ? 900 : '100%',
-            alignSelf: width >= 1024 ? 'center' : 'stretch',
-            width: '100%',
-          }}>
-            {/* Waterproof, sweat and heat-resistant */}
-            <View style={{ flex: 1, minWidth: 170, maxWidth: 220, flexDirection: 'column', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 18, marginHorizontal: 6, marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,.04)', borderWidth: 1, borderColor: '#f1e7d0' }}>
-              <FontAwesome name="tint" size={28} color="#bfa14a" style={{ marginBottom: 8 }} />
-              <Text style={{ fontWeight: '600', fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 2 }}>Waterproof, sweat and heat-resistant</Text>
-            </View>
-            {/* 2 year warranty and 100 day returns */}
-            <View style={{ flex: 1, minWidth: 170, maxWidth: 220, flexDirection: 'column', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 18, marginHorizontal: 6, marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,.04)', borderWidth: 1, borderColor: '#f1e7d0' }}>
-              <FontAwesome name="shield" size={28} color="#bfa14a" style={{ marginBottom: 8 }} />
-              <Text style={{ fontWeight: '600', fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 2 }}>Lifetime warranty & 60 day returns</Text>
-            </View>
-            {/* High-quality plating means no tarnishing */}
-            <View style={{ flex: 1, minWidth: 170, maxWidth: 220, flexDirection: 'column', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 18, marginHorizontal: 6, marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,.04)', borderWidth: 1, borderColor: '#f1e7d0' }}>
-              <FontAwesome name="diamond" size={28} color="#bfa14a" style={{ marginBottom: 8 }} />
-              <Text style={{ fontWeight: '600', fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 2 }}>High-quality plating means no tarnishing</Text>
-            </View>
-            {/* Luxury gift packaging */}
-            <View style={{ flex: 1, minWidth: 170, maxWidth: 220, flexDirection: 'column', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 18, marginHorizontal: 6, marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,.04)', borderWidth: 1, borderColor: '#f1e7d0' }}>
-              <FontAwesome name="gift" size={28} color="#bfa14a" style={{ marginBottom: 8 }} />
-              <Text style={{ fontWeight: '600', fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 2 }}>Luxury gift packaging</Text>
-            </View>
-          </View>
+          <FeatureTiles onTilePress={(idx, feature) => setFeatureModal({ open: true, idx, feature })} />
+          {featureModal?.open && (
+            <Pressable
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.28)', justifyContent: 'center', alignItems: 'center' }}
+              onPress={() => setFeatureModal({ open: false })}
+              accessibilityLabel="Close feature info modal"
+              accessibilityRole="button"
+            >
+              <View style={{ backgroundColor: '#fff', borderRadius: 22, padding: 36, maxWidth: 390, width: '92%', alignItems: 'center', boxShadow: '0 6px 36px rgba(191,161,74,0.13), 0 2px 24px rgba(0,0,0,0.10)' }}>
+                <View style={{ backgroundColor: '#f8f5ea', borderRadius: 48, padding: 18, marginBottom: 18 }}>
+                  <FontAwesome name={featureModal?.feature?.icon} size={44} color={'#bfa14a'} />
+                </View>
+                <Text style={{ fontWeight: 'bold', fontSize: 22, marginBottom: 7, color: '#bfa14a', textAlign: 'center', fontFamily: 'serif' }}>{featureModal?.feature?.title}</Text>
+                {(() => {
+                  switch (featureModal?.feature?.title) {
+                    case 'Premium Quality':
+                      return <>
+                        <Text style={{ fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+                          <FontAwesome name="check-circle" size={16} color="#bfa14a" /> 100% genuine, handpicked collectables. Each piece is meticulously inspected for authenticity and craftsmanship, ensuring it will be treasured for generations.
+                        </Text>
+                        <Text style={{ fontSize: 15, color: '#7d5a18', textAlign: 'center', marginBottom: 4, fontWeight: '600' }}>
+                          <FontAwesome name="star" size={14} color="#bfa14a" /> 5,000+ delighted collectors trust us.
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 16 }}>
+                          Invest in lasting value and beauty—guaranteed.
+                        </Text>
+                        <Pressable onPress={() => {
+                          setFeatureModal({ open: false });
+                          setTimeout(() => {
+                            router.push('/#bestsellers');
+                          }, 300);
+                        }} style={{ backgroundColor: '#bfa14a', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, marginTop: 6 }}>
+                          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>See Best Sellers</Text>
+                        </Pressable>
+                      </>;
+                    case 'Free UK Shipping':
+                      return <>
+                        <Text style={{ fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+                          <FontAwesome name="truck" size={16} color="#bfa14a" /> Enjoy fast, tracked UK delivery on every order—always free, no minimum spend.
+                        </Text>
+                        <Text style={{ fontSize: 15, color: '#7d5a18', textAlign: 'center', marginBottom: 4, fontWeight: '600' }}>
+                          <FontAwesome name="clock-o" size={14} color="#bfa14a" /> Most items are dispatched in 1-2 working days.
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 4 }}>
+                          Next day delivery available on selected products.
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 16 }}>
+                          Shop today and your collectable will be on its way in no time!
+                        </Text>
+                        <Pressable onPress={() => { setFeatureModal({ open: false }); /* TODO: scroll to products */ }} style={{ backgroundColor: '#bfa14a', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, marginTop: 6 }}>
+                          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Shop Now</Text>
+                        </Pressable>
+                      </>;
+                    case '60-Day Returns':
+                      return <>
+                        <Text style={{ fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+                          <FontAwesome name="undo" size={16} color="#bfa14a" /> Changed your mind? No problem. Return any item within 60 days for a full refund—no questions asked.
+                        </Text>
+                        <Text style={{ fontSize: 15, color: '#7d5a18', textAlign: 'center', marginBottom: 4, fontWeight: '600' }}>
+                          <FontAwesome name="thumbs-o-up" size={14} color="#bfa14a" /> Hassle-free, customer-first returns process.
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 16 }}>
+                          Buy with complete confidence and peace of mind.
+                        </Text>
+                        <Pressable onPress={() => { setFeatureModal({ open: false }); /* TODO: scroll to returns info */ }} style={{ backgroundColor: '#bfa14a', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, marginTop: 6 }}>
+                          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Learn More</Text>
+                        </Pressable>
+                      </>;
+                    case 'Lifetime Warranty':
+                      return <>
+                        <Text style={{ fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+                          <FontAwesome name="shield" size={16} color="#bfa14a" /> Every purchase is protected for life. If your collectable ever fails to meet our standards, we’ll repair or replace it—no charge.
+                        </Text>
+                        <Text style={{ fontSize: 15, color: '#7d5a18', textAlign: 'center', marginBottom: 4, fontWeight: '600' }}>
+                          <FontAwesome name="certificate" size={14} color="#bfa14a" /> Certificate of Authenticity provided for select jewellery.
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 16 }}>
+                          Your trust means everything—shop with total assurance.
+                        </Text>
+                        <Pressable onPress={() => { setFeatureModal({ open: false }); /* TODO: scroll to warranty info */ }} style={{ backgroundColor: '#bfa14a', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, marginTop: 6 }}>
+                          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>See Our Guarantee</Text>
+                        </Pressable>
+                      </>;
+                    default:
+                      return <Text style={{ fontSize: 16, color: '#444', textAlign: 'center' }}>{featureModal?.feature?.description}</Text>;
+                  }
+                })()}
+                <Text style={{ fontSize: 13, color: '#bfa14a', marginTop: 20, textAlign: 'center', fontWeight: '600' }}>
+                  <FontAwesome name="lock" size={13} color="#bfa14a" /> Secure checkout & 100% satisfaction guarantee
+                </Text>
+                <Text style={{ fontSize: 12, color: '#aaa', marginTop: 7, textAlign: 'center' }}>Tap anywhere to close</Text>
+              </View>
+            </Pressable>
+          )}
         {/* --- Detailed Product Info Section --- */}
         <View style={{ maxWidth: 900, width: '100%', alignSelf: 'center', backgroundColor: '#f8f8f8', borderRadius: 18, padding: 28, marginTop: 16, marginBottom: 32, gap: 16, boxShadow: '0 4px 24px rgba(0,0,0,.04)' }}>
 
@@ -610,66 +688,65 @@ const renderCarouselImage = useCallback(
 
         {/* --- Customer Reviews Section (Placeholder) --- */}
         {/* <View style={{ maxWidth: 900, width: '100%', alignSelf: 'center', marginBottom: 32, backgroundColor: '#fff', borderRadius: 18, padding: 28, gap: 16, borderWidth: 1, borderColor: '#f1e7d0', boxShadow: '0 2px 12px rgba(0,0,0,.03)' }}>
-          <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#bfa14a', marginBottom: 8 }}>Customer Reviews</Text>
-          <Text style={{ color: '#888', fontStyle: 'italic' }}>No reviews yet. Be the first to review this product!</Text>
-        </View> */}
 
         {/* --- Related Products Section --- */}
         {product && product.category && (
-          <View style={{ maxWidth: 900, width: '100%', alignSelf: 'center', marginTop: 8, marginBottom: 40, backgroundColor: '#fff', borderRadius: 18, padding: 28, borderWidth: 1, borderColor: '#f1e7d0', boxShadow: '0 2px 12px rgba(0,0,0,.03)' }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#bfa14a', marginLeft: 10, marginBottom: 10 }}>
-              Similar Collectables You'd Love 💎🫶
-            </Text>
-            <FlatList
-              data={PRODUCTS.filter(
-                p => p.category === product.category && p.id !== product.id
-              ).slice(0, 6)}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={item => String(item.id)}
-              contentContainerStyle={{ paddingHorizontal: 10 }}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => router.replace(`/product/${item.id}`)}
-                  style={{
-                    width: 140,
-                    marginRight: 16,
-                    backgroundColor: '#fff',
-                    borderRadius: 10,
-                    overflow: 'hidden',
-                    borderWidth: 1,
-                    borderColor: '#eee',
-                    shadowColor: '#000',
-                    shadowOpacity: 0.06,
-                    shadowRadius: 6,
-                    shadowOffset: { width: 0, height: 2 },
-                    elevation: 2,
-                  }}
-                >
-                  {item.image ? (
-                    <ExpoImage
-                      source={item.image}
-                      style={{ width: '100%', height: 100, backgroundColor: '#f8f8f8' }}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={{ width: '100%', height: 100, backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center' }}>
-                      <FontAwesome name="image" size={32} color="#bfa14a" />
-                    </View>
-                  )}
-                  <View style={{ padding: 10 }}>
-                    <Text style={{ fontWeight: '600', fontSize: 15, color: '#222', marginBottom: 4 }} numberOfLines={1}>
-                      {item.title || item.name}
-                    </Text>
-                    <Text style={{ color: '#bfa14a', fontWeight: 'bold', fontSize: 15 }}>
-                      {item.price}
-                    </Text>
-                  </View>
-                </Pressable>
-              )}
-            />
+  <RelatedProductsSection
+    category={product.category}
+    excludeId={product.id}
+    onProductPress={item => router.replace(`/product/${item.id}`)}
+  />
+)}
+
+{/* Customer Reviews Section */}
+<View style={{ maxWidth: 900, width: '100%', alignSelf: 'center', backgroundColor: '#f8f8f8', borderRadius: 18, padding: 28, marginTop: 16, marginBottom: 32, boxShadow: '0 4px 24px rgba(0,0,0,.04)' }}>
+  <CollapsibleSection title="Customer Reviews" initiallyCollapsed={true}>
+    {[
+      {
+        id: '1',
+        name: 'Amelia R.',
+        review: 'Absolutely stunning necklace! The packaging was beautiful and delivery was fast. Highly recommend!',
+        rating: 5,
+      },
+      {
+        id: '2',
+        name: 'Sophie L.',
+        review: 'Bought a bracelet for my mum—she loved it! Superb quality and elegant design.',
+        rating: 5,
+      },
+      {
+        id: '3',
+        name: 'Emily W.',
+        review: 'Customer service was very helpful. The earrings are gorgeous and hypoallergenic!',
+        rating: 4,
+      },
+      {
+        id: '4',
+        name: 'Chloe T.',
+        review: 'I get compliments every time I wear my new ring. Will definitely shop again.',
+        rating: 5,
+      },
+      {
+        id: '5',
+        name: 'Olivia G.',
+        review: 'Quick shipping, lovely presentation, and the necklace sparkles beautifully.',
+        rating: 4,
+      },
+    ].map(r => (
+      <View key={r.id} style={{ marginBottom: 18, backgroundColor: '#faf8f3', borderRadius: 10, padding: 16, borderWidth: 1, borderColor: '#f1e7d0' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          <Text style={{ fontWeight: 'bold', color: '#bfa14a', fontSize: 15, marginRight: 8 }}>{r.name}</Text>
+          <View style={{ flexDirection: 'row' }}>
+            {[...Array(5)].map((_, i) => (
+              <FontAwesome key={i} name={i < r.rating ? 'star' : 'star-o'} size={16} color={'#bfa14a'} style={{ marginRight: 2 }} />
+            ))}
           </View>
-        )}
+        </View>
+        <Text style={{ color: '#444', fontSize: 15, lineHeight: 22 }}>{r.review}</Text>
+      </View>
+    ))}
+  </CollapsibleSection>
+</View>
 
     
     <View style={{ width: '100%', backgroundColor: '#faf8f3', borderTopWidth: 1, borderTopColor: '#eee', paddingVertical: 24, paddingHorizontal: 0, alignItems: 'center', marginTop: 0 }}>

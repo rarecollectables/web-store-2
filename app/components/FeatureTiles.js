@@ -68,7 +68,8 @@ function useOnScreen(ref, callback, rootMargin = 0) {
   }, [ref, callback, rootMargin]);
 }
 
-export default function FeatureTiles({ style, onViewed }) {
+import { Pressable } from 'react-native';
+export default function FeatureTiles({ style, onViewed, onTilePress }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 600;
   const containerRef = useRef(null);
@@ -89,24 +90,25 @@ export default function FeatureTiles({ style, onViewed }) {
           contentContainerStyle={{ paddingHorizontal: 12 }}
         >
           {FEATURES.map((feature, idx) => (
-            <Animated.View
-              key={feature.title}
-              style={[
-                styles.tileMobileCard,
-                {
-                  opacity: anims[idx],
-                  transform: [{ translateY: anims[idx].interpolate({ inputRange: [0, 1], outputRange: [32, 0] }) }]
-                }
-              ]}
-            >
-              <View style={styles.iconCircleMobile}>
-                <FontAwesome name={feature.icon} size={32} color={colors.gold} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.titleMobile}>{feature.title}</Text>
-                <Text style={styles.descriptionMobile}>{feature.description}</Text>
-              </View>
-            </Animated.View>
+            <Pressable key={feature.title} onPress={() => onTilePress && onTilePress(idx, feature)} accessibilityRole="button" accessibilityLabel={feature.title}>
+              <Animated.View
+                style={[
+                  styles.tileMobileCard,
+                  {
+                    opacity: anims[idx],
+                    transform: [{ translateY: anims[idx].interpolate({ inputRange: [0, 1], outputRange: [32, 0] }) }]
+                  }
+                ]}
+              >
+                <View style={styles.iconCircleMobile}>
+                  <FontAwesome name={feature.icon} size={32} color={colors.gold} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.titleMobile}>{feature.title}</Text>
+                  <Text style={styles.descriptionMobile}>{feature.description}</Text>
+                </View>
+              </Animated.View>
+            </Pressable>
           ))}
         </Animated.ScrollView>
       </View>
@@ -117,22 +119,23 @@ export default function FeatureTiles({ style, onViewed }) {
   return (
     <View ref={containerRef} style={[styles.container, style]} accessibilityLabel="Shop Features">
       {FEATURES.map((feature, idx) => (
-        <Animated.View
-          key={feature.title}
-          style={[
-            styles.tile,
-            {
-              opacity: anims[idx],
-              transform: [{ translateY: anims[idx].interpolate({ inputRange: [0, 1], outputRange: [32, 0] }) }]
-            }
-          ]}
-        >
-          <View style={styles.iconCircle}>
-            <FontAwesome name={feature.icon} size={28} color={colors.gold} />
-          </View>
-          <Text style={styles.title}>{feature.title}</Text>
-          <Text style={styles.description}>{feature.description}</Text>
-        </Animated.View>
+        <Pressable key={feature.title} onPress={() => onTilePress && onTilePress(idx, feature)} accessibilityRole="button" accessibilityLabel={feature.title}>
+          <Animated.View
+            style={[
+              styles.tile,
+              {
+                opacity: anims[idx],
+                transform: [{ translateY: anims[idx].interpolate({ inputRange: [0, 1], outputRange: [32, 0] }) }]
+              }
+            ]}
+          >
+            <View style={styles.iconCircle}>
+              <FontAwesome name={feature.icon} size={28} color={colors.gold} />
+            </View>
+            <Text style={styles.title}>{feature.title}</Text>
+            <Text style={styles.description}>{feature.description}</Text>
+          </Animated.View>
+        </Pressable>
       ))}
     </View>
   );

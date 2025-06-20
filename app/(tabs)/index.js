@@ -11,6 +11,7 @@ import PaymentMethodsRow from '../(components)/PaymentMethodsRow';
 import AnnaWelcomePopup from '../components/AnnaWelcomePopup';
 import SpringPromoModal from '../components/SpringPromoModal';
 import BestSellersSection from '../components/BestSellersSection';
+import MostPopularSection from '../components/MostPopularSection';
 import ReviewsCarousel from '../components/ReviewsCarousel';
 import FeatureTiles from '../components/FeatureTiles';
 
@@ -87,6 +88,8 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
 }
 
 export default function HomeScreen() {
+  const bestSellersRef = React.useRef(null);
+
   const [discountBubbleScale] = useState(new Animated.Value(0.7));
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -108,6 +111,26 @@ export default function HomeScreen() {
       setShowDiscountBubble(true);
     } else {
       setShowDiscountBubble(true);
+    }
+
+    // Scroll to #bestsellers if hash is present
+    if (typeof window !== 'undefined') {
+      const scrollToBestSellers = () => {
+        if (window.location.hash === '#bestsellers' && bestSellersRef.current) {
+          if (bestSellersRef.current.measure) {
+            // Native: React Native Web
+            bestSellersRef.current.measure((x, y, width, height, pageX, pageY) => {
+              window.scrollTo({ top: pageY - 40, behavior: 'smooth' });
+            });
+          } else if (bestSellersRef.current.scrollIntoView) {
+            // DOM: Web
+            bestSellersRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      };
+      scrollToBestSellers();
+      window.addEventListener('hashchange', scrollToBestSellers);
+      return () => window.removeEventListener('hashchange', scrollToBestSellers);
     }
   }, []);
 
@@ -221,8 +244,13 @@ export default function HomeScreen() {
               })}
             </View>
 
-            {/* Best Sellers Section */}
-            <BestSellersSection cardWidth={cardSize} numColumns={columns} bestSellerIds={['4-rings', '2-bracelets', '7c430a41-726e-4753-8214-36ffc77303cb', '20075497-1112-400f-8238-565f62cbd724']} />
+             {/* Best Sellers Section */}
+             <View ref={bestSellersRef} collapsable={false}>
+               <BestSellersSection cardWidth={cardSize} numColumns={columns} bestSellerIds={['4-rings', '2-bracelets', '7c430a41-726e-4753-8214-36ffc77303cb', '20075497-1112-400f-8238-565f62cbd724']} />
+             </View>
+
+            {/* Most Popular Section */}
+            <MostPopularSection cardWidth={cardSize} numColumns={columns} mostPopularIds={['1-necklace', '3-earrings', '5-brooch', '8d2e6c5b-1234-4cde-9876-abcdef123456']} />
 
             {/* Reviews Carousel */}
             <ReviewsCarousel />
