@@ -43,6 +43,8 @@ export default function ProductDetail() {
   const { addToCart, addToWishlist, cart } = useStore();
   // --- Ring size state ---
   const [selectedSize, setSelectedSize] = useState('');
+  const [showSizeModal, setShowSizeModal] = useState(false); // New state for ring size modal
+  const [pendingAddToCart, setPendingAddToCart] = useState(false); // To track if add to cart is waiting for size selection
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -122,12 +124,13 @@ const renderCarouselImage = useCallback(
   }, [images.length]);
 
   function handleAddToCart(currentQuantity) {
-  // For rings, require a size selection
-  if (product.category === 'Rings' && Array.isArray(product.size_options) && product.size_options.length > 0 && !selectedSize) {
-    Alert.alert('Please select a ring size before adding to cart.');
-    return;
-  }
-  Animated.sequence([
+    // For rings, require a size selection
+    if (product.category === 'Rings' && Array.isArray(product.size_options) && product.size_options.length > 0 && !selectedSize) {
+      setShowSizeModal(true);
+      setPendingAddToCart(true);
+      return;
+    }
+    Animated.sequence([
     Animated.timing(addCartAnim.current, { toValue: 1.15, duration: 120, useNativeDriver: true }),
     Animated.spring(addCartAnim.current, { toValue: 1, friction: 3, useNativeDriver: true })
   ]).start();
@@ -252,6 +255,56 @@ const renderCarouselImage = useCallback(
 
   return (
     <>
+      {/* Ring Size Modal */}
+      {showSizeModal && product.category === 'Rings' && Array.isArray(product.size_options) && (
+        <LuxuryModal visible={showSizeModal} showClose={true} animation="fade" onRequestClose={() => setShowSizeModal(false)}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+            <Text style={{ color: colors.gold, fontSize: 22, fontWeight: 'bold', marginBottom: 16, fontFamily, textAlign: 'center' }}>
+              Select Ring Size
+            </Text>
+            <Text style={{ color: colors.platinum, fontSize: 16, marginBottom: 18, fontFamily, textAlign: 'center', maxWidth: 340 }}>
+              Please choose a ring size to add this item to your cart.
+            </Text>
+            <View style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, minWidth: 36, alignItems: 'center', backgroundColor: '#fff', marginBottom: 18 }}>
+              <select
+                value={selectedSize}
+                onChange={e => setSelectedSize(e.target.value)}
+                style={{ fontSize: 15, border: 'none', background: 'transparent', outline: 'none' }}
+              >
+                <option value="">Select</option>
+                {product.size_options.map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </View>
+            <Pressable
+              style={{ backgroundColor: colors.gold, borderRadius: borderRadius.md, paddingVertical: 12, paddingHorizontal: 36, marginTop: 8 }}
+              onPress={() => {
+                if (selectedSize) {
+                  setShowSizeModal(false);
+                  if (pendingAddToCart) {
+                    setPendingAddToCart(false);
+                    handleAddToCart(currentQuantity); // Retry add to cart now that size is selected
+                  }
+                }
+              }}
+              accessibilityLabel="Confirm ring size"
+            >
+              <Text style={{ color: colors.white, fontSize: 18, fontWeight: 'bold', letterSpacing: 0.5, fontFamily }}>Add to Cart</Text>
+            </Pressable>
+            <Pressable
+              style={{ marginTop: 12 }}
+              onPress={() => {
+                setShowSizeModal(false);
+                setPendingAddToCart(false);
+              }}
+              accessibilityLabel="Cancel size selection"
+            >
+              <Text style={{ color: colors.gold, fontSize: 16 }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </LuxuryModal>
+      )}
       <CartAddedModal
         visible={cartModalVisible}
         onGoToCart={() => {
