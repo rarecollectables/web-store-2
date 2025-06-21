@@ -6,7 +6,8 @@ import { colors, spacing, borderRadius, fontFamily, shadows } from '../../theme'
 
 export default function MostPopularSection({ cardWidth, numColumns, mostPopularIds = [], onAddToCartSuccess }) {
   const { width } = useWindowDimensions();
-  const horizontalPadding = width >= 1024 ? 64 : width >= 768 ? 40 : 16;
+  // Remove horizontalPadding, use fixed padding in FlatList contentContainerStyle
+
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,24 +56,30 @@ export default function MostPopularSection({ cardWidth, numColumns, mostPopularI
   }
   if (!products.length) return null;
   return (
-    <View style={[styles.sectionContainer, { paddingLeft: horizontalPadding, paddingRight: horizontalPadding }]}> 
+    <View style={[
+      styles.sectionContainer,
+      { maxWidth: 1200, alignSelf: 'center', width: '100%' }
+    ]}> 
       <Text style={styles.sectionTitle}>Most Popular</Text>
-      <FlatList
-        data={products}
-        horizontal={numColumns === 1}
-        numColumns={numColumns}
-        keyExtractor={item => item.id}
-        renderItem={({ item, index }) => (
-          <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
-            <ProductCard item={item} cardWidth={cardWidth} disableImageCycling={true} onAddToCartSuccess={onAddToCartSuccess} />
-          </View>
-        )}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.listContent, { paddingLeft: horizontalPadding, paddingRight: horizontalPadding }]}
-        columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
-        removeClippedSubviews={false}
-      />
+      <View style={{ width: '100%', maxWidth: '100%' }}>
+        <FlatList
+          style={{ width: '100%' }}
+          data={products}
+          horizontal={numColumns === 1}
+          numColumns={numColumns}
+          keyExtractor={item => item.id}
+          renderItem={({ item, index }) => (
+            <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
+              <ProductCard item={item} cardWidth={cardWidth} disableImageCycling={true} onAddToCartSuccess={onAddToCartSuccess} />
+            </View>
+          )}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.listContent, { paddingLeft: 16, paddingRight: 16 }]}
+          columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
+          removeClippedSubviews={false}
+        />
+      </View>
     </View>
   );
 }
@@ -80,6 +87,8 @@ export default function MostPopularSection({ cardWidth, numColumns, mostPopularI
 const styles = StyleSheet.create({
   sectionContainer: {
     width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
     backgroundColor: colors.ivory,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.xl,
@@ -88,13 +97,13 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   sectionTitle: {
-    fontFamily,
+    fontFamily: fontFamily.serif,
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.gold,
     marginBottom: spacing.lg,
-    textAlign: 'left',
-    alignSelf: 'flex-start',
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   listContent: {
     gap: spacing.lg,

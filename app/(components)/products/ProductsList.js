@@ -20,6 +20,7 @@ const CATEGORY_OPTIONS = [
   'Earrings',
   'Bracelets',
   'Rings',
+  'Jewellery Set', // Added as a new category
   // Add more categories as needed
 ];
 

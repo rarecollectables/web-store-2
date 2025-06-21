@@ -5,7 +5,7 @@ const config = require('../../config/supabaseConfig');
 
 (async () => {
   // Example product IDs for the delivered order
-  const productIds = ['2-bracelets', '3-bracelets'];
+  const productIds = ['20075497-1112-400f-8238-565f62cbd724'];
   const supabase = createClient(config.url, config.anonKey);
 
   // Fetch ordered products
@@ -24,18 +24,35 @@ const config = require('../../config/supabaseConfig');
 
   const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  // Fetch related products (exclude ordered)
+  // Fetch all products except the ordered one
   const { data: allProducts, error: relatedError } = await supabase
     .from('products')
-    .select('id, name, price, image_url')
+    .select('id, name, price, image_url, category')
     .not('id', 'in', '(' + productIds.map(id => `'${id}'`).join(',') + ')');
+
   let relatedProducts = [];
+  let orderedProductCategory = null;
+
+  // Fetch the ordered product to get its category
+  const { data: orderedProductData, error: orderedProductError } = await supabase
+    .from('products')
+    .select('category')
+    .eq('id', productIds[0])
+    .single();
+
+  if (!orderedProductError && orderedProductData && orderedProductData.category) {
+    orderedProductCategory = orderedProductData.category;
+  }
+
   if (!relatedError && allProducts && allProducts.length > 0) {
-    // Filter for bracelets only (case-insensitive)
-    const braceletProducts = allProducts.filter(product =>
-      product.name && product.name.toLowerCase().includes('bracelet')
-    );
-    relatedProducts = braceletProducts.sort(() => 0.5 - Math.random()).slice(0, 4).map(product => ({
+    let filtered = allProducts;
+    if (orderedProductCategory) {
+      filtered = allProducts.filter(product => product.category === orderedProductCategory);
+    }
+    if (filtered.length === 0) {
+      filtered = allProducts;
+    }
+    relatedProducts = filtered.sort(() => 0.5 - Math.random()).slice(0, 4).map(product => ({
       name: product.name,
       image: product.image_url,
       url: `https://rarecollectables.co.uk/product/${product.id}`,
@@ -47,18 +64,18 @@ const config = require('../../config/supabaseConfig');
 
   // Example shipping address
   const shipping_address = {
-    name: 'Nailla Naveed',
-    line1: '8 Worcester street',
-    city: 'Rochdale',
-    postcode: 'OL11 3QE'
+    name: 'Robert Harrison',
+    line1: '9a Carr close',
+    city: 'Poulton-Le-Fylde',
+    postcode: 'FY6 8HY'
   };
 
   try {
     await sendOrderDeliveredEmail({
-      to: 'afolabiabdulrasheed1@gmail.com', // <-- change to your email for testing
+      to: 'harrison.robert49@outlook.com', // <-- change to your email for testing
       order: {
         id: 'ORDER45',
-        customerName: 'Nailla Naveed',
+        customerName: 'Robert Harrison',
         items,
         total: total.toFixed(2),
         shipping_address

@@ -86,17 +86,18 @@ export default function CartAddedModal({ visible, onGoToCart, onContinue }) {
       animationType="fade"
       onRequestClose={onContinue}
     >
-      <View style={styles.overlay}>
+      <Pressable style={styles.overlay} onPress={onContinue}>
         <Confetti visible={visible} />
-        <Animated.View
-          style={[
+        <Pressable onPress={() => {}} style={{ flex: 1 }}>
+          <Animated.View
+            style={[
             styles.modalBox,
             isDesktop
               ? { width: 420, minWidth: 340, maxWidth: 460, paddingHorizontal: 38, paddingVertical: 38 }
               : { width: '92%', minWidth: 0, maxWidth: 400, paddingHorizontal: 18, paddingVertical: 28 },
             { transform: [{ scale: scaleAnim }] },
           ]}
-        >
+          >
           <Animated.View
             style={{
               marginBottom: 18,
@@ -140,9 +141,10 @@ export default function CartAddedModal({ visible, onGoToCart, onContinue }) {
             </Pressable>
           </View>
         </Animated.View>
+        </Pressable>
         {/* Animated Arrow to Cart Tab */}
         {visible && <AnimatedArrowToCart />}
-      </View>
+      </Pressable>
     </Modal>
   );
 }

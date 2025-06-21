@@ -7,7 +7,7 @@ import { colors, spacing, borderRadius, fontFamily, shadows } from '../../theme'
 export default function BestSellersSection({ cardWidth, numColumns, bestSellerIds = [], onAddToCartSuccess }) {
   const { width } = useWindowDimensions();
   // Responsive horizontal padding: more on desktop/tablet, less on mobile
-  const horizontalPadding = width >= 1024 ? 64 : width >= 768 ? 40 : 16; // px
+  const horizontalPadding = width >= 1440 ? 120 : width >= 1200 ? 80 : width >= 1024 ? 64 : width >= 768 ? 40 : 16; // px
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,24 +72,27 @@ export default function BestSellersSection({ cardWidth, numColumns, bestSellerId
   }
   if (!products.length) return null;
   return (
-    <View style={[styles.sectionContainer, { paddingLeft: horizontalPadding, paddingRight: horizontalPadding }]}> 
+    <View style={styles.sectionContainer}> 
       <Text style={styles.sectionTitle}>Best Sellers</Text>
-      <FlatList
-        data={products}
-        horizontal={numColumns === 1}
-        numColumns={numColumns}
-        keyExtractor={item => item.id}
-        renderItem={({ item, index }) => (
-          <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
-            <ProductCard item={item} cardWidth={cardWidth} disableImageCycling={true} onAddToCartSuccess={onAddToCartSuccess} />
-          </View>
-        )}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.listContent, { paddingLeft: horizontalPadding, paddingRight: horizontalPadding }]}
-        columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
-        removeClippedSubviews={false}
-      />
+      <View style={{ width: '100%', maxWidth: '100%' }}>
+        <FlatList
+          style={{ width: '100%' }}
+          data={products}
+          horizontal={numColumns === 1}
+          numColumns={numColumns}
+          keyExtractor={item => item.id}
+          renderItem={({ item, index }) => (
+            <View style={numColumns === 1 ? styles.mobileCardSpacing : undefined}>
+              <ProductCard item={item} cardWidth={cardWidth} disableImageCycling={true} onAddToCartSuccess={onAddToCartSuccess} />
+            </View>
+          )}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.listContent, { paddingLeft: 16, paddingRight: 16 }]}
+          columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
+          removeClippedSubviews={false}
+        />
+      </View>
     </View>
   );
 }
@@ -97,6 +100,8 @@ export default function BestSellersSection({ cardWidth, numColumns, bestSellerId
 const styles = StyleSheet.create({
   sectionContainer: {
     width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
     backgroundColor: colors.ivory,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.xl,

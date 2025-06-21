@@ -18,17 +18,31 @@ export default function LuxuryModal({ visible, onClose, children, showClose = tr
 
   if (!visible) return null;
   return (
-    <Animated.View style={[styles.overlay, { opacity }]}> 
-      <View style={styles.centered}>
-        <Animated.View style={[styles.modal, animation === 'slide' && styles.slideIn]}> 
-          {showClose && (
-            <Pressable style={styles.closeBtn} onPress={onClose} accessibilityLabel="Close Modal">
-              <View style={styles.closeIcon}><View style={styles.closeLine1} /><View style={styles.closeLine2} /></View>
-            </Pressable>
-          )}
-          {children}
-        </Animated.View>
-      </View>
+    <Animated.View
+      style={[styles.overlay, { opacity }]}
+      // Use pointerEvents to allow clicks to pass through to overlay
+      pointerEvents={visible ? 'auto' : 'none'}
+    >
+      <Pressable
+        style={{ flex: 1, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
+        onPress={(e) => {
+          // Only close if user clicks the overlay itself, not modal content
+          if (e.target === e.currentTarget && onClose) onClose();
+        }}
+        accessibilityLabel="Close modal overlay"
+        accessibilityRole="button"
+      >
+        <View style={styles.centered} pointerEvents="box-none">
+          <Animated.View style={[styles.modal, animation === 'slide' && styles.slideIn]} pointerEvents="box-none">
+            {showClose && (
+              <Pressable style={styles.closeBtn} onPress={onClose} accessibilityLabel="Close Modal">
+                <View style={styles.closeIcon}><View style={styles.closeLine1} /><View style={styles.closeLine2} /></View>
+              </Pressable>
+            )}
+            {children}
+          </Animated.View>
+        </View>
+      </Pressable>
     </Animated.View>
   );
 }

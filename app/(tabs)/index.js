@@ -15,13 +15,15 @@ import MostPopularSection from '../components/MostPopularSection';
 import CartAddedModal from '../components/CartAddedModal';
 import ReviewsCarousel from '../components/ReviewsCarousel';
 import FeatureTiles from '../components/FeatureTiles';
+import LuxuryModal from '../components/LuxuryModal';
 
 // Category definitions for homepage
 const CATEGORIES = [
   { id: 'necklaces', title: 'Necklaces' },
   { id: 'earrings', title: 'Earrings' },
   { id: 'bracelets', title: 'Bracelets' },
-  { id: 'rings', title: 'Rings' }
+  { id: 'rings', title: 'Rings' },
+  { id: 'jewellery_set', title: 'Jewellery Set' }
 ];
 
 // Local category image assets mapping
@@ -49,6 +51,14 @@ const CATEGORY_IMAGES = {
     require('../../assets/images/products/8-5.avif'),
     require('../../assets/images/products/1-1-earrings.avif'),
     require('../../assets/images/products/1-5-earrings.avif')
+  ],
+  jewellery_set: [
+    // Representative images for "Jewellery Set" (using a mix of necklace, ring, and earrings)
+    require('../../assets/images/products/1-two-piece-jewellery-set-4.avif'),
+    require('../../assets/images/products/2-four-piece-jewellery-set-5.avif'),
+    require('../../assets/images/products/2-four-piece-jewellery-set-6.avif'),
+    require('../../assets/images/products/2-three-piece-jewellery-set-2.avif'),
+    require('../../assets/images/products/2-three-piece-jewellery-set-3.avif')
   ]
 };
 
@@ -91,6 +101,8 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
 export default function HomeScreen() {
   const [cartModalVisible, setCartModalVisible] = useState(false);
   const [lastAddedProduct, setLastAddedProduct] = useState(null);
+  // Modal state for feature tiles
+  const [featureModal, setFeatureModal] = useState({ open: false });
 
   // Handler to show modal when add to cart succeeds from a product card
   const handleShowCartModal = (product) => {
@@ -194,11 +206,12 @@ export default function HomeScreen() {
 
 
   // Responsive columns for category grid
+  const sectionMaxWidth = 1200;
+  const flatListPadding = 16 * 2; // 16px left + right, matches BestSellersSection
+  const gap = 24; // spacing.lg, matches styles.columnWrapper
   const columns = width > 900 ? 4 : width > 600 ? 3 : 2;
-  const paddingHorizontal = spacing.md;
-  const cardSpacing = spacing.md;
-  const totalSpacing = paddingHorizontal * 2 + cardSpacing * (columns - 1);
-  const cardSize = (width - totalSpacing) / columns;
+  const totalGap = gap * (columns - 1);
+  const cardSize = ((width > sectionMaxWidth ? sectionMaxWidth : width) - flatListPadding - totalGap) / columns;
 
   return (
     <View style={styles.container}>
@@ -240,12 +253,15 @@ export default function HomeScreen() {
             </ImageBackground>
 
             {/* Feature Tiles Section */}
-            <FeatureTiles style={{ marginTop: 0, marginBottom: 10, width: '100%' }} />
+            <FeatureTiles
+  style={{ marginTop: 0, marginBottom: 10, width: '100%' }}
+  onTilePress={(idx, feature) => setFeatureModal({ open: true, idx, feature })}
+/>
 
             {/* Best Sellers Section */}
             <View style={[styles.categoriesContainer, { width: '100%' }]}>
               {CATEGORIES.map((cat, index) => {
-                const marginRight = (index + 1) % columns === 0 ? 0 : cardSpacing;
+                const marginRight = (index + 1) % columns === 0 ? 0 : gap;
                 const images = CATEGORY_IMAGES[cat.id] || [];
                 return (
                   <CategoryCard
@@ -260,7 +276,7 @@ export default function HomeScreen() {
                         eventType: 'category_click',
                         metadata: { categoryId: cat.id, categoryTitle: cat.title, source: 'home' }
                       });
-                      router.push(`/shop?category=${encodeURIComponent(cat.title)}`);
+                      router.push(`/shop?category=${encodeURIComponent(cat.id)}`);
                     }}
                   />
                 );
@@ -281,7 +297,7 @@ export default function HomeScreen() {
             <MostPopularSection
               cardWidth={cardSize}
               numColumns={columns}
-              mostPopularIds={['1-necklace', '3-earrings', '5-brooch', '8d2e6c5b-1234-4cde-9876-abcdef123456']}
+              mostPopularIds={['1-necklace', '3-earrings', '5-brooch', '8d2e6c5b-1234-4cde-9876-abcdef123456', '1-earrings', '3-bracelets', '4-bracelets']}
               onAddToCartSuccess={handleShowCartModal}
             />
 
@@ -307,6 +323,7 @@ export default function HomeScreen() {
                 <Pressable
                   style={({ pressed }) => [styles.newsletterButtonRedesign, { opacity: pressed ? 0.8 : 1 }]}
                   onPress={async () => {
+                    await trackEvent({ eventType: 'newsletter_send_click', metadata: { email } });
                     await trackEvent({ eventType: 'newsletter_subscribe_click', metadata: { email } });
                     if (email.includes('@')) {
                       Alert.alert('Subscribed', `Thanks for subscribing, ${email}!`);
@@ -409,6 +426,103 @@ export default function HomeScreen() {
         onGoToCart={handleGoToCart}
         onContinue={handleContinueShopping}
       />
+      {/* Feature Tile Modal (LuxuryModal) */}
+      <LuxuryModal
+        visible={featureModal.open}
+        onClose={() => setFeatureModal({ open: false })}
+        showClose={true}
+        animation="fade"
+      >
+        {featureModal?.feature && (
+          <View style={{ alignItems: 'center', justifyContent: 'center', padding: 24, maxWidth: 390, width: '100%' }}>
+            <View style={{ backgroundColor: '#f8f5ea', borderRadius: 48, padding: 18, marginBottom: 18 }}>
+              <FontAwesome name={featureModal.feature.icon} size={44} color={'#bfa14a'} />
+            </View>
+            <Text style={{ fontWeight: 'bold', fontSize: 22, marginBottom: 7, color: '#bfa14a', textAlign: 'center', fontFamily: 'serif' }}>{featureModal.feature.title}</Text>
+            {/* Modal Content: Match logic from product details page */}
+            {(() => {
+              switch (featureModal.feature.title) {
+                case 'Premium Quality':
+                  return <>
+                    <Text style={{ fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+                      <FontAwesome name="check-circle" size={16} color="#bfa14a" /> 100% genuine, handpicked collectables. Each piece is meticulously inspected for authenticity and craftsmanship, ensuring it will be treasured for generations.
+                    </Text>
+                    <Text style={{ fontSize: 15, color: '#7d5a18', textAlign: 'center', marginBottom: 4, fontWeight: '600' }}>
+                      <FontAwesome name="star" size={14} color="#bfa14a" /> 5,000+ delighted collectors trust us.
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 16 }}>
+                      Invest in lasting value and beauty—guaranteed.
+                    </Text>
+                    <Pressable onPress={() => {
+                      setFeatureModal({ open: false });
+                      setTimeout(() => {
+                        if (typeof window !== 'undefined') {
+                          window.location.hash = '#bestsellers';
+                        }
+                      }, 300);
+                    }} style={{ backgroundColor: '#bfa14a', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, marginTop: 6 }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>See Best Sellers</Text>
+                    </Pressable>
+                  </>;
+                case 'Free UK Shipping':
+                  return <>
+                    <Text style={{ fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+                      <FontAwesome name="truck" size={16} color="#bfa14a" /> Enjoy fast, tracked UK delivery on every order—always free, no minimum spend.
+                    </Text>
+                    <Text style={{ fontSize: 15, color: '#7d5a18', textAlign: 'center', marginBottom: 4, fontWeight: '600' }}>
+                      <FontAwesome name="clock-o" size={14} color="#bfa14a" /> Most items are dispatched in 1-2 working days.
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 4 }}>
+                      Next day delivery available on selected products.
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 16 }}>
+                      Shop today and your collectable will be on its way in no time!
+                    </Text>
+                    <Pressable onPress={() => { setFeatureModal({ open: false }); }} style={{ backgroundColor: '#bfa14a', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, marginTop: 6 }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Shop Now</Text>
+                    </Pressable>
+                  </>;
+                case '60-Day Returns':
+                  return <>
+                    <Text style={{ fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+                      <FontAwesome name="undo" size={16} color="#bfa14a" /> Changed your mind? No problem. Return any item within 60 days for a full refund—no questions asked.
+                    </Text>
+                    <Text style={{ fontSize: 15, color: '#7d5a18', textAlign: 'center', marginBottom: 4, fontWeight: '600' }}>
+                      <FontAwesome name="thumbs-o-up" size={14} color="#bfa14a" /> Hassle-free, customer-first returns process.
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 16 }}>
+                      Buy with complete confidence and peace of mind.
+                    </Text>
+                    <Pressable onPress={() => { setFeatureModal({ open: false }); }} style={{ backgroundColor: '#bfa14a', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, marginTop: 6 }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Learn More</Text>
+                    </Pressable>
+                  </>;
+                case 'Lifetime Warranty':
+                  return <>
+                    <Text style={{ fontSize: 16, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+                      <FontAwesome name="shield" size={16} color="#bfa14a" /> Every purchase is protected for life. If your collectable ever fails to meet our standards, we’ll repair or replace it—no charge.
+                    </Text>
+                    <Text style={{ fontSize: 15, color: '#7d5a18', textAlign: 'center', marginBottom: 4, fontWeight: '600' }}>
+                      <FontAwesome name="certificate" size={14} color="#bfa14a" /> Certificate of Authenticity provided for select jewellery.
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 16 }}>
+                      Your trust means everything—shop with total assurance.
+                    </Text>
+                    <Pressable onPress={() => { setFeatureModal({ open: false }); }} style={{ backgroundColor: '#bfa14a', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, marginTop: 6 }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>See Our Guarantee</Text>
+                    </Pressable>
+                  </>;
+                default:
+                  return <Text style={{ fontSize: 16, color: '#444', textAlign: 'center' }}>{featureModal.feature.description}</Text>;
+              }
+            })()}
+            <Text style={{ fontSize: 13, color: '#bfa14a', marginTop: 20, textAlign: 'center', fontWeight: '600' }}>
+              <FontAwesome name="lock" size={13} color="#bfa14a" /> Secure checkout & 100% satisfaction guarantee
+            </Text>
+            <Text style={{ fontSize: 12, color: '#aaa', marginTop: 7, textAlign: 'center' }}>Tap the close button or outside the modal to close</Text>
+          </View>
+        )}
+      </LuxuryModal>
     </View>
   );
 }
