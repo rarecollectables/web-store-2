@@ -1,0 +1,2 @@
+/*
+  Content-Security-Policy: connect-src 'self' https://region1.analytics.google.com https://www.google-analytics.com https://www.googletagmanager.com https://www.googleadservices.com https://www.google.com;
