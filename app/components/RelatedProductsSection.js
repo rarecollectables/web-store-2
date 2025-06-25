@@ -54,13 +54,21 @@ export default function RelatedProductsSection({ category, excludeId, onProductP
       <Text style={{ fontWeight: 'bold', fontSize: 18, color: colors.gold, marginLeft: 10, marginBottom: 10 }}>
         Similar Collectables You'd Love 💎🫶
       </Text>
-      <FlatList
-        data={related}
-        horizontal
-        showsHorizontalScrollIndicator={true}
-        keyExtractor={item => String(item.id)}
-        contentContainerStyle={{ paddingHorizontal: 10 }}
-        renderItem={({ item }) => (
+      {/* Mobile swipe hint */}
+      {typeof window !== 'undefined' && window.innerWidth < 600 && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, marginLeft: 10 }}>
+          <Text style={{ color: '#bfa14a', fontSize: 14, marginRight: 6 }}>Swipe to see more</Text>
+          <FontAwesome name="chevron-right" size={16} color="#bfa14a" />
+        </View>
+      )}
+      <View style={{ position: 'relative' }}>
+        <FlatList
+          data={related}
+          horizontal
+          showsHorizontalScrollIndicator={true}
+          keyExtractor={item => String(item.id)}
+          contentContainerStyle={{ paddingHorizontal: 10 }}
+          renderItem={({ item }) => (
           <Pressable
             onPress={() => onProductPress(item)}
             style={{
@@ -99,7 +107,36 @@ export default function RelatedProductsSection({ category, excludeId, onProductP
             </View>
           </Pressable>
         )}
-      />
+        />
+        {/* Right fade/chevron overlay on mobile */}
+        {typeof window !== 'undefined' && window.innerWidth < 600 && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 44,
+              height: '100%',
+              justifyContent: 'center',
+              alignItems: 'flex-end',
+              zIndex: 10,
+            }}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                width: 44,
+                height: '100%',
+                background: 'linear-gradient(to left, rgba(255,255,255,0.96) 65%, rgba(255,255,255,0))',
+              }}
+            />
+            <FontAwesome name="chevron-right" size={28} color="#bfa14a" style={{ marginRight: 6, opacity: 0.75 }} />
+          </View>
+        )}
+      </View>
     </View>
   );
 }

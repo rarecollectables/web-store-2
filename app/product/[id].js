@@ -58,10 +58,37 @@ export default function ProductDetail() {
         ...(product.image_url ? [{ uri: product.image_url }] : (product.image ? [{ uri: product.image }] : [])),
         ...product.additional_images.filter(Boolean).map(url => ({ uri: url }))
       ];
-    } else {
-      images = product.image_url ? [{ uri: product.image_url }] : (product.image ? [{ uri: product.image }] : []);
     }
   }
+
+  // --- Product Video ---
+  const renderProductVideo = () => {
+    if (!product || !product.video_url) return null;
+    // For web, use <video>; for native, show a placeholder or use a library if available
+    if (Platform.OS === 'web') {
+      return (
+        <View style={{ width: '100%', marginTop: 16, marginBottom: 24, borderRadius: 8, overflow: 'hidden', backgroundColor: '#000' }}>
+          <Text style={{ fontFamily, fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: colors.gold }}>Product Video</Text>
+          <video
+            src={product.video_url}
+            controls
+            style={{ width: '100%', maxWidth: 640, borderRadius: 8, margin: '0 auto', backgroundColor: '#000' }}
+            poster={product.image_url || undefined}
+          />
+        </View>
+      );
+    } else {
+      return (
+        <View style={{ width: '100%', marginTop: 16, marginBottom: 24, alignItems: 'center' }}>
+          <Text style={{ fontFamily, fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: colors.gold }}>Product Video</Text>
+          <Text style={{ color: '#888', fontSize: 14, marginBottom: 4 }}>
+            Video preview available on web
+          </Text>
+        </View>
+      );
+    }
+  };
+
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems && viewableItems.length > 0) {
       setCurrentIndex(viewableItems[0].index);
@@ -437,7 +464,22 @@ const renderCarouselImage = useCallback(
             ) : (
               images[0] && <ExpoImage source={images[0]} style={styles.image} contentFit="cover" />
             )}
+            {/* --- Product Video Section (always inside media column) --- */}
+            {isDesktop ? (
+              product && product.video_url ? (
+                <View style={{ width: '100%', maxWidth: 400, marginTop: 18, marginBottom: 24, borderRadius: 8, overflow: 'hidden', backgroundColor: '#000', alignSelf: 'center' }}>
+                  <Text style={{ fontFamily, fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: colors.gold }}>Product Video</Text>
+                  <video
+                    src={product.video_url}
+                    controls
+                    style={{ width: '100%', maxWidth: 400, borderRadius: 8, margin: '0 auto', backgroundColor: '#000', display: 'block' }}
+                    poster={product.image_url || undefined}
+                  />
+                </View>
+              ) : null
+            ) : renderProductVideo()}
           </View>
+
 
           {/* --- Main Info Section --- */}
           <View style={[

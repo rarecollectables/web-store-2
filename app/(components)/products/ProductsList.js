@@ -524,180 +524,247 @@ export default function ProductsList({ onAddToCartSuccess }) {
         zIndex: 10,
       }}
     >
-      {/* Category Filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, marginBottom: width > 600 ? 0 : 6, minWidth: width > 600 ? 320 : undefined }}
-        contentContainerStyle={{ flexDirection: 'row', alignItems: 'center' }}
-      >
-        {CATEGORY_OPTIONS.map(cat => (
-          <Pressable
-            key={cat}
-            style={({ pressed }) => [
-              {
-                paddingVertical: 4,
-                paddingHorizontal: 10,
-                borderRadius: 14,
-                backgroundColor: selectedCategory === cat ? colors.gold : colors.white,
-                marginRight: 6,
-                borderWidth: 1,
-                borderColor: colors.gold,
-                opacity: pressed ? 0.7 : 1,
-                minWidth: 60,
-              }
-            ]}
-            onPress={() => {
-               trackEvent({
-                 eventType: 'category_click',
-                 metadata: { categoryId: cat, source: 'shop' }
-               });
-               setSelectedCategory(cat);
-               setProducts([]); // reset products
-               setPage(1);
-             }}
-            accessibilityRole="button"
-            accessibilityLabel={`Filter by ${cat}`}
-          >
-            <Text style={{ color: selectedCategory === cat ? colors.white : colors.gold, fontWeight: 'bold', fontSize: 13 }}>{cat}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-      
-      {/* Search Bar */}
-      <TextInput
-        value={search}
-        onChangeText={async text => {
-          setSearch(text);
-          setProducts([]); // reset products
-          setPage(1);
-          // Log search if not empty
-          if (text.trim() !== '') {
-            try {
-              await fetch('/.netlify/functions/logSearch', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ query: text }),
-              });
-            } catch (err) {
-              // Fail silently, do not block UI
-              console.error('Failed to log search:', err);
-            }
-          }
-        }}
-        placeholder="Search products..."
-        style={{
-          flex: 1,
-          backgroundColor: colors.white,
-          borderRadius: 10,
-          borderWidth: 1,
-          borderColor: colors.gold,
-          paddingHorizontal: 10,
-          paddingVertical: Platform.OS === 'web' ? 6 : 4,
-          fontSize: 14,
-          minWidth: width > 600 ? 220 : undefined,
-          maxWidth: 320,
-        }}
-        accessibilityLabel="Search products"
-        returnKeyType="search"
-        clearButtonMode="while-editing"
-      />
-      
-      {/* Custom Sort Dropdown */}
-      <View style={{ minWidth: 180, maxWidth: width > 600 ? 220 : undefined }}>
-        <Pressable
-          style={({ pressed }) => [{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderWidth: 1,
-            borderColor: colors.gold,
-            borderRadius: 10,
-            backgroundColor: colors.white,
-            paddingVertical: 8,
-            paddingHorizontal: 14,
-            minHeight: 40,
-            shadowColor: '#000',
-            shadowOpacity: pressed ? 0.10 : 0.06,
-            shadowRadius: pressed ? 10 : 6,
-            shadowOffset: { width: 0, height: 2 },
-            elevation: pressed ? 4 : 2,
-          }]}
-          onPress={() => setDropdownOpen((open) => !open)}
-          accessibilityRole="button"
-          accessibilityLabel="Sort products"
-        >
-          <Text style={{ color: colors.darkGray, fontSize: 15, fontWeight: '500' }}>
-            {SORT_OPTIONS.find(opt => opt.value === sortOption)?.label || 'Newest'}
-          </Text>
-          <View style={{ marginLeft: 8 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+      {/* Category Filter with scroll hint for mobile */}
+      {isMobile && (
+        <View style={{ width: '100%', marginBottom: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+          <Text style={{ color: colors.gold, fontWeight: 'bold', fontSize: 13, marginLeft: 8, marginBottom: 2 }}>Swipe to see more</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
+            {/* Inline chevron icon using SVG for web compatibility */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2 }}><path d="M10 6l6 6-6 6" /></svg>
           </View>
-        </Pressable>
-        {dropdownOpen && (
-          <>
-            {/* Overlay to close dropdown when clicking outside */}
+        </View>
+      )}
+      <View style={{ position: 'relative', width: '100%' }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0, marginBottom: width > 600 ? 0 : 6, minWidth: width > 600 ? 320 : undefined }}
+          contentContainerStyle={{ flexDirection: 'row', alignItems: 'center' }}
+        >
+          {CATEGORY_OPTIONS.map(cat => (
             <Pressable
-              onPress={() => setDropdownOpen(false)}
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100vw',
-                height: '100vh',
-                zIndex: 99,
-                backgroundColor: 'transparent',
-              }}
-            />
+              key={cat}
+              style={({ pressed }) => [
+                {
+                  paddingVertical: 4,
+                  paddingHorizontal: 10,
+                  borderRadius: 14,
+                  backgroundColor: selectedCategory === cat ? colors.gold : colors.white,
+                  marginRight: 6,
+                  borderWidth: 1,
+                  borderColor: colors.gold,
+                  opacity: pressed ? 0.7 : 1,
+                  minWidth: 60,
+                }
+              ]}
+              onPress={() => {
+                 trackEvent({
+                   eventType: 'category_click',
+                   metadata: { categoryId: cat, source: 'shop' }
+                 });
+                 setSelectedCategory(cat);
+                 setProducts([]); // reset products
+                 setPage(1);
+               }}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter by ${cat}`}
+            >
+              <Text style={{ color: selectedCategory === cat ? colors.white : colors.gold, fontWeight: 'bold', fontSize: 13 }}>{cat}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        {/* Right fade/chevron overlay for mobile only */}
+        {isMobile && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 44,
+              height: '100%',
+              justifyContent: 'center',
+              alignItems: 'flex-end',
+              zIndex: 10,
+            }}
+          >
             <View
               style={{
                 position: 'absolute',
-                top: 48,
-                left: 0,
                 right: 0,
-                backgroundColor: colors.white,
+                top: 0,
+                width: 44,
+                height: '100%',
+                background: 'linear-gradient(to left, rgba(255,255,255,0.96) 65%, rgba(255,255,255,0))',
+              }}
+            />
+            {/* Chevron icon */}
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#bfa14a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6, opacity: 0.75 }}><path d="M10 6l6 6-6 6" /></svg>
+          </View>
+        )}
+      </View>
+      
+      {/* Search Bar and Sort Dropdown Row - RENDERED ONCE, responsive layout */}
+      <View
+        style={
+          isMobile
+            ? { flexDirection: 'row', alignItems: 'center', width: '100%', gap: 8, marginBottom: 8 }
+            : { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 600, gap: 16, margin: '0 auto', marginBottom: 8 }
+        }
+      >
+        <TextInput
+          value={search}
+          onChangeText={async text => {
+            setSearch(text);
+            setProducts([]); // reset products
+            setPage(1);
+            // Log search if not empty
+            if (text.trim() !== '') {
+              try {
+                await fetch('/api/logSearch', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ query: text }),
+                });
+              } catch (err) {
+                // Fail silently, do not block UI
+                console.error('Failed to log search:', err);
+              }
+            }
+          }}
+          placeholder="Search products..."
+          style={
+            isMobile
+              ? {
+                  flex: 1,
+                  backgroundColor: colors.white,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.gold,
+                  paddingHorizontal: 10,
+                  fontSize: 14,
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  minHeight: 44,
+                  height: 44,
+                  paddingVertical: 0,
+                }
+              : {
+                  flex: 1,
+                  backgroundColor: colors.white,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.gold,
+                  paddingHorizontal: 10,
+                  paddingVertical: Platform.OS === 'web' ? 6 : 4,
+                  fontSize: 14,
+                  minWidth: 220,
+                  maxWidth: 320,
+                  height: 44,
+                }
+          }
+          accessibilityLabel="Search products"
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        <View style={isMobile ? { minWidth: 120, maxWidth: 180, marginLeft: 4, height: 44 } : { minWidth: 180, maxWidth: 220, height: 44, marginLeft: 4, flexShrink: 0 }}>
+          <Pressable
+            style={({ pressed }) => [
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 borderWidth: 1,
                 borderColor: colors.gold,
                 borderRadius: 10,
-                zIndex: 100,
+                backgroundColor: colors.white,
+                paddingVertical: 0,
+                paddingHorizontal: isMobile ? 10 : 14,
+                minHeight: 44,
+                height: 44,
                 shadowColor: '#000',
-                shadowOpacity: 0.12,
-                shadowRadius: 16,
-                shadowOffset: { width: 0, height: 8 },
-                elevation: 8,
-                marginTop: 4,
-                overflow: 'hidden',
-              }}
-            >
-              {SORT_OPTIONS.map(option => (
-                <Pressable
-                  key={option.value}
-                  onPress={() => {
-                    console.log('Sort option selected:', option.value);
-                    setSortOption(option.value);
-                    setProducts([]);
-                    setPage(1);
-                    setDropdownOpen(false);
-                  }}
-                  style={({ pressed }) => [{
-                    paddingVertical: 12,
-                    paddingHorizontal: 18,
-                    backgroundColor: sortOption === option.value ? colors.gold : pressed ? colors.lightGold : 'white',
-                    borderBottomWidth: 1,
-                    borderBottomColor: '#f0e6d2',
-                  }]}
-                >
-                  <Text style={{ color: sortOption === option.value ? 'white' : colors.darkGray, fontWeight: sortOption === option.value ? '700' : '400', fontSize: 15 }}>
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
+                shadowOpacity: pressed ? 0.10 : 0.06,
+                shadowRadius: pressed ? 10 : 6,
+                shadowOffset: { width: 0, height: 2 },
+                elevation: pressed ? 4 : 2,
+              },
+            ]}
+            onPress={() => setDropdownOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel="Sort products"
+          >
+            <Text style={{ color: colors.darkGray, fontSize: 15, fontWeight: '500' }}>
+              {SORT_OPTIONS.find(opt => opt.value === sortOption)?.label || 'Newest'}
+            </Text>
+            <View style={{ marginLeft: 8 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
             </View>
-          </>
-        )}
+          </Pressable>
+          {dropdownOpen && (
+            <>
+              {/* Overlay to close dropdown when clicking outside */}
+              <Pressable
+                onPress={() => setDropdownOpen(false)}
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  width: '100vw',
+                  height: '100vh',
+                  zIndex: 99,
+                  backgroundColor: 'transparent',
+                }}
+              />
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 48,
+                  left: 0,
+                  right: 0,
+                  backgroundColor: colors.white,
+                  borderWidth: 1,
+                  borderColor: colors.gold,
+                  borderRadius: 10,
+                  zIndex: 100,
+                  shadowColor: '#000',
+                  shadowOpacity: 0.12,
+                  shadowRadius: 16,
+                  shadowOffset: { width: 0, height: 8 },
+                  elevation: 8,
+                  marginTop: 4,
+                  overflow: 'hidden',
+                }}
+              >
+                {SORT_OPTIONS.map(option => (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => {
+                      setSortOption(option.value);
+                      setProducts([]);
+                      setPage(1);
+                      setDropdownOpen(false);
+                    }}
+                    style={({ pressed }) => [{
+                      paddingVertical: 12,
+                      paddingHorizontal: 18,
+                      backgroundColor: sortOption === option.value ? colors.gold : pressed ? colors.lightGold : 'white',
+                      borderBottomWidth: 1,
+                      borderBottomColor: '#f0e6d2',
+                    }]}
+                  >
+                    <Text style={{ color: sortOption === option.value ? 'white' : colors.darkGray, fontWeight: sortOption === option.value ? '700' : '400', fontSize: 15 }}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
+        </View>
       </View>
+
     </View>
   );
 

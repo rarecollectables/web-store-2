@@ -10,7 +10,7 @@ export default function AdminProducts() {
   const [error, setError] = useState(null);
   const [showDialog, setShowDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [form, setForm] = useState({ name: '', price: '', image_url: '', additional_images: '', category: '', shipping_label: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
+  const [form, setForm] = useState({ name: '', price: '', image_url: '', additional_images: '', category: '', shipping_label: '', description: '', stock: '', material: '', stone: '', size: '', length: '', video_url: '' });
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchTimeout, setSearchTimeout] = useState(null);
@@ -41,7 +41,7 @@ export default function AdminProducts() {
     setError(null);
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, price, image_url, additional_images, category, shipping_label, description, stock, material, stone, size, length')
+      .select('id, name, price, image_url, additional_images, category, shipping_label, description, stock, material, stone, size, length, video_url')
       .order('created_at', { ascending: false });
     if (error) {
       setError('Failed to fetch products');
@@ -62,19 +62,20 @@ export default function AdminProducts() {
       stone: product.stone || '',
       size: product.size || '',
       length: product.length || '',
-      shipping_label: product.shipping_label || ''
-    } : { name: '', price: '', image_url: '', additional_images: '', category: '', shipping_label: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
+      shipping_label: product.shipping_label || '',
+      video_url: product.video_url || ''
+    } : { name: '', price: '', image_url: '', additional_images: '', category: '', shipping_label: '', description: '', stock: '', material: '', stone: '', size: '', length: '', video_url: '' });
     setShowDialog(true);
   }
 
   function closeDialog() {
     setShowDialog(false);
     setEditingProduct(null);
-    setForm({ name: '', price: '', image_url: '', additional_images: '', category: '', shipping_label: '', description: '', stock: '', material: '', stone: '', size: '', length: '' });
+    setForm({ name: '', price: '', image_url: '', additional_images: '', category: '', shipping_label: '', description: '', stock: '', material: '', stone: '', size: '', length: '', video_url: '' });
   }
 
   async function handleSave() {
-    const { name, price, image_url, additional_images, category, shipping_label, description, stock, material, stone, size, length } = form;
+    const { name, price, image_url, additional_images, category, shipping_label, description, stock, material, stone, size, length, video_url } = form;
     if (!name || !price) return Alert.alert('Validation', 'Name and price are required');
     setLoading(true);
     let result;
@@ -91,7 +92,8 @@ export default function AdminProducts() {
       material: material?.trim() || null,
       stone: stone?.trim() || null,
       size: size?.trim() || null,
-      length: length?.trim() || null
+      length: length?.trim() || null,
+      video_url: video_url?.trim() || null
     };
     if (editingProduct) {
       result = await supabase
@@ -229,6 +231,12 @@ export default function AdminProducts() {
               label="Length"
               value={form.length}
               onChangeText={text => setForm(f => ({ ...f, length: text }))}
+              style={styles.input}
+            />
+            <TextInput
+              label="Product Video URL (.mp4)"
+              value={form.video_url}
+              onChangeText={text => setForm(f => ({ ...f, video_url: text }))}
               style={styles.input}
             />
             <TextInput

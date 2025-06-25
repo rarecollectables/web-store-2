@@ -82,13 +82,15 @@ export default function FeatureTiles({ style, onViewed, onTilePress }) {
     // Mobile: horizontal scrollable compact cards
     return (
       <View ref={containerRef} style={[styles.mobileContainer, style]} accessibilityLabel="Shop Features">
-        <Animated.ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={220}
-          decelerationRate="fast"
-          contentContainerStyle={{ paddingHorizontal: 12 }}
-        >
+        {/* Swipe hint */}
+        <View style={{ position: 'relative' }}>
+          <Animated.ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={220}
+            decelerationRate="fast"
+            contentContainerStyle={{ paddingHorizontal: 12 }}
+          >
           {FEATURES.map((feature, idx) => (
             <Pressable key={feature.title} onPress={() => onTilePress && onTilePress(idx, feature)} accessibilityRole="button" accessibilityLabel={feature.title}>
               <Animated.View
@@ -111,6 +113,33 @@ export default function FeatureTiles({ style, onViewed, onTilePress }) {
             </Pressable>
           ))}
         </Animated.ScrollView>
+          {/* Right fade/chevron overlay */}
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 44,
+              height: '100%',
+              justifyContent: 'center',
+              alignItems: 'flex-end',
+              zIndex: 10,
+            }}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                width: 44,
+                height: '100%',
+                background: 'linear-gradient(to left, rgba(255,255,255,0.96) 65%, rgba(255,255,255,0))',
+              }}
+            />
+            <FontAwesome name="chevron-right" size={28} color="#bfa14a" style={{ marginRight: 6, opacity: 0.75 }} />
+          </View>
+        </View>
       </View>
     );
   }
