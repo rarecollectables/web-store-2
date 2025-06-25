@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, ScrollView, Platform, Dimensions } from 'react-native';
 import PaymentMethodsRow from './(components)/PaymentMethodsRow';
 import { useStore } from '../context/store';
 // import { PRODUCTS } from './(data)/products';
@@ -196,6 +196,31 @@ export default function CheckoutScreen() {
   const [stripe, setStripe] = useState(null);
   const [stripeError, setStripeError] = useState(null);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
+  
+  // Check if we're on desktop (width > 768px)
+  const [isDesktop, setIsDesktop] = useState(false);
+  
+  // Update isDesktop state when window size changes
+  useEffect(() => {
+    const updateLayout = () => {
+      setIsDesktop(Dimensions.get('window').width > 768);
+    };
+    
+    // Set initial value
+    updateLayout();
+    
+    // Add event listener for window resize
+    if (typeof window !== 'undefined') {
+      Dimensions.addEventListener('change', updateLayout);
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        // Clean up
+        Dimensions.removeEventListener?.('change', updateLayout);
+      }
+    };
+  }, []);
 
   // Called after successful payment
   const handleCheckoutSuccess = () => {
@@ -377,14 +402,40 @@ export default function CheckoutScreen() {
     );
   }
 
+  // Desktop detection was moved to the top of the component
+
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.container, { flexGrow: 1, minHeight: '100vh', paddingHorizontal: 16 }]} keyboardShouldPersistTaps="handled">
-      <View style={[styles.checkoutBox, { width: '100%', maxWidth: undefined, padding: 0, margin: 0 }]}>
+    <ScrollView 
+      style={{ flex: 1, backgroundColor: colors.white }} 
+      contentContainerStyle={[styles.container, { flexGrow: 1, minHeight: '100vh', paddingHorizontal: isDesktop ? 32 : 16 }]} 
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={[styles.pageTitle, isDesktop && { alignItems: 'center' }]}>
         <Text style={styles.header}>Checkout</Text>
         <Text style={styles.subHeader}>Please fill in your details to complete your order</Text>
+      </View>
+      
+      {/* Trust badges and incentives */}
+      <View style={styles.trustBadgesContainer}>
+        <View style={styles.trustBadge}>
+          <Text style={styles.trustBadgeIcon}>🎁</Text>
+          <Text style={styles.trustBadgeText}>Free Premium Packaging</Text>
+        </View>
+        <View style={styles.trustBadge}>
+          <Text style={styles.trustBadgeIcon}>🔒</Text>
+          <Text style={styles.trustBadgeText}>Secure Checkout</Text>
+        </View>
+        <View style={styles.trustBadge}>
+          <Text style={styles.trustBadgeIcon}>⚡</Text>
+          <Text style={styles.trustBadgeText}>Fast Dispatch</Text>
+        </View>
+      </View>
+      
+      <View style={[styles.desktopContainer, isDesktop && styles.desktopRow]}>
+        {/* Main Form Column */}
+        <View style={[styles.checkoutBox, isDesktop && styles.formColumn]}>
 
         {/* Contact & Address */}
-        {/* Rendered ONCE below payment section */}
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Contact Information</Text>
           <Text style={styles.sectionSubtitle}>Required for order confirmation</Text>
@@ -392,20 +443,20 @@ export default function CheckoutScreen() {
             <Text key={idx} style={styles.errorText}>{msg}</Text>
           ))}
           <TextInput
-            style={[styles.input, errors.contact?.includes('Name is required') && styles.inputError]}
-            placeholder="Full Name"
-            value={contact.name}
-            onChangeText={v => handleInputChange('contact', 'name', v)}
-            autoComplete="name"
-            placeholderTextColor={colors.platinum}
-          />
-          <TextInput
             style={[styles.input, errors.contact?.includes('Enter a valid email') && styles.inputError]}
             placeholder="Email"
             value={contact.email}
             onChangeText={v => handleInputChange('contact', 'email', v)}
             keyboardType="email-address"
             autoComplete="email"
+            placeholderTextColor={colors.platinum}
+          />
+          <TextInput
+            style={[styles.input, errors.contact?.includes('Name is required') && styles.inputError]}
+            placeholder="Full Name"
+            value={contact.name}
+            onChangeText={v => handleInputChange('contact', 'name', v)}
+            autoComplete="name"
             placeholderTextColor={colors.platinum}
           />
         </View>
@@ -503,17 +554,65 @@ export default function CheckoutScreen() {
             ))
           )}
         </View>
-        {/* Order Summary */}
-        <View style={styles.orderSummarySection}>
-          <Text style={styles.sectionTitle}>Order Summary</Text>
+        </View>
+        
+        {/* Order Summary Column */}
+        <View style={[isDesktop ? styles.summaryColumn : styles.checkoutBox]}>
+          <Text style={[styles.sectionTitle, { marginBottom: 15 }]}>Order Summary</Text>
+          
+          {/* Cart Items Summary */}
+          <View style={styles.cartItemsContainer}>
+            {cart.map((item, index) => (
+              <View key={item.id} style={[styles.cartItemRow, index < cart.length - 1 && styles.cartItemBorder]}>
+                <View style={styles.cartItemInfo}>
+                  <Text style={styles.cartItemName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.cartItemQuantity}>Qty: {item.quantity}</Text>
+                </View>
+                <Text style={styles.cartItemPrice}>₤{(item.price * item.quantity).toFixed(2)}</Text>
+              </View>
+            ))}
+          </View>
+          
+          <View style={styles.summaryDivider} />
+          
+          {/* Price Summary */}
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text style={styles.summaryValue}>{`₤${subtotal.toFixed(2)}`}</Text></View>
           {couponStatus?.valid && discountAmount > 0 && (
             <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Discount</Text><Text style={[styles.summaryValue, { color: colors.gold }]}>-₤{discountAmount.toFixed(2)}</Text></View>
           )}
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Shipping</Text><Text style={styles.summaryValue}>{shippingCost === 0 ? 'Free' : `₤${shippingCost.toFixed(2)}`}</Text></View>
+          
+          <View style={styles.summaryDivider} />
+          
           <View style={styles.summaryRow}><Text style={styles.summaryLabelTotal}>Total</Text><Text style={styles.summaryValueTotal}>{`₤${total.toFixed(2)}`}</Text></View>
+          
+          {/* Order incentives */}
+          <View style={styles.orderIncentives}>
+            <Text style={styles.incentiveText}>Free standard delivery on all orders</Text>
+          </View>
         </View>
-        {/* Stripe Payment */}
+      </View>
+      
+      {/* Additional offers */}
+      <View style={[styles.additionalOffersContainer, isDesktop && styles.additionalOffersDesktop]}>
+        <View style={styles.offerBox}>
+          <Text style={styles.offerIcon}>🔄</Text>
+          <View style={styles.offerContent}>
+            <Text style={styles.offerTitle}>60-Day Returns</Text>
+            <Text style={styles.offerDescription}>Not completely satisfied? Return within 60 days for a full refund.</Text>
+          </View>
+        </View>
+        <View style={styles.offerBox}>
+          <Text style={styles.offerIcon}>🛡️</Text>
+          <View style={styles.offerContent}>
+            <Text style={styles.offerTitle}>Authenticity Guarantee</Text>
+            <Text style={styles.offerDescription}>Every item is verified for authenticity before dispatch.</Text>
+          </View>
+        </View>
+      </View>
+      
+      {/* Stripe Payment - Full width */}
+      <View style={[styles.checkoutBox, { marginTop: 24, width: '100%', borderTopWidth: 2, borderTopColor: '#f5f2ea' }]}>
         {stripe && (
           <Elements stripe={stripe} options={{ locale: 'en-GB' }}>
             <StripePaymentForm
@@ -532,15 +631,15 @@ export default function CheckoutScreen() {
             />
           </Elements>
         )}
-      
-        {/* Confirmation Modal */}
-        <ConfirmationModal
-          open={confirmationOpen}
-          onClose={handleContinueShopping}
-          onContinue={handleContinueShopping}
-          autoCloseMs={15000}
-        />
       </View>
+      
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        open={confirmationOpen}
+        onClose={handleContinueShopping}
+        onContinue={handleContinueShopping}
+        autoCloseMs={15000}
+      />
     </ScrollView>
   );
 };
@@ -549,6 +648,47 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     backgroundColor: colors.white,
+  },
+  pageTitle: {
+    width: '100%',
+    marginBottom: 28,
+    textAlign: 'center',
+  },
+  desktopContainer: {
+    width: '100%',
+    maxWidth: 1200,
+    marginHorizontal: 'auto',
+  },
+  desktopRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 24,
+  },
+  formColumn: {
+    flex: 3,
+    minWidth: 300,
+    maxWidth: '100%',
+  },
+  summaryColumn: {
+    flex: 1,
+    minWidth: 300,
+    maxWidth: '100%',
+    alignSelf: 'flex-start',
+    position: 'sticky',
+    top: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#ece6d7',
+    backgroundColor: '#fafaf8',
+    borderRadius: 10,
+    padding: 20,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
   },
   checkoutBox: {
     backgroundColor: colors.white,
@@ -561,9 +701,11 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   header: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 10,
+    fontFamily: fontFamily.serif,
+    color: colors.onyxBlack,
   },
   subHeader: {
     fontSize: 16,
@@ -644,16 +786,103 @@ const styles = StyleSheet.create({
     color: colors.ruby,
     marginBottom: 10,
   },
+  successText: {
+    fontSize: 14,
+    color: '#2e7d32',
+    marginBottom: 10,
+  },
+  trustBadgesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    marginBottom: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: '#f9f7f2',
+    borderRadius: 8,
+  },
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 8,
+    marginVertical: 4,
+  },
+  trustBadgeIcon: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  trustBadgeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.onyxBlack,
+  },
+  orderIncentives: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0ece2',
+  },
+  incentiveText: {
+    fontSize: 14,
+    color: colors.grey,
+    textAlign: 'center',
+  },
+  incentiveHighlight: {
+    color: colors.gold,
+    fontWeight: 'bold',
+  },
+  incentiveSuccess: {
+    fontSize: 14,
+    color: '#2e7d32',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  additionalOffersContainer: {
+    marginVertical: 24,
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  additionalOffersDesktop: {
+    flexDirection: 'row',
+  },
+  offerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9f7f2',
+    borderRadius: 8,
+    padding: 16,
+    flex: 1,
+  },
+  offerIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  offerContent: {
+    flex: 1,
+  },
+  offerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: colors.onyxBlack,
+  },
+  offerDescription: {
+    fontSize: 14,
+    color: colors.grey,
+    lineHeight: 18,
+  },
   orderSummarySection: {
     marginBottom: 20,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   summaryLabel: {
     fontSize: 16,
+    color: colors.grey,
   },
   summaryValue: {
     fontSize: 16,
@@ -662,9 +891,45 @@ const styles = StyleSheet.create({
   summaryLabelTotal: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: colors.onyxBlack,
   },
   summaryValueTotal: {
     fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.gold,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#ece6d7',
+    marginVertical: 12,
+  },
+  cartItemsContainer: {
+    marginBottom: 16,
+  },
+  cartItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  cartItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0ece2',
+  },
+  cartItemInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  cartItemName: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  cartItemQuantity: {
+    fontSize: 13,
+    color: colors.grey,
+  },
+  cartItemPrice: {
+    fontSize: 14,
     fontWeight: 'bold',
   },
   loadingContainer: {
