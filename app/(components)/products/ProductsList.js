@@ -354,7 +354,7 @@ export default function ProductsList({ onAddToCartSuccess }) {
           {categoryTitle}
         </Text>
         <Text style={[styles.headerSubtitle, { fontSize: headerSubtitleFontSize }]}>
-          {totalCount} {totalCount === 1 ? 'item' : 'items'} available
+          {totalCount} available 
         </Text>
       </View>
     );
@@ -621,7 +621,7 @@ export default function ProductsList({ onAddToCartSuccess }) {
             // Log search if not empty
             if (text.trim() !== '') {
               try {
-                await fetch('/api/logSearch', {
+                await fetch('/.netlify/functions/logSearch', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',

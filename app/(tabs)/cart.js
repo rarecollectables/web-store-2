@@ -170,7 +170,12 @@ export default function CartScreen() {
             price = product ? parsePrice(product.price) : 0;
           }
           return (
-            <View style={styles.itemRow}>
+            <Pressable
+              style={styles.itemRow}
+              onPress={() => router.push(`/product/${item.id}`)}
+              accessibilityRole="link"
+              accessibilityLabel={`View details for ${item.title}`}
+            >
               <ExpoImage source={item.image_url || item.image || require('../../assets/images/rare-collectables-logo.png')} style={styles.image} contentFit="cover" />
               <View style={styles.itemDetails}>
                 <Text style={styles.title}>{item.title}</Text>
@@ -209,7 +214,7 @@ export default function CartScreen() {
                   <Text style={styles.removeBtnText}>Remove</Text>
                 </Pressable>
               </View>
-            </View>
+            </Pressable>
           );
         }}
         ListEmptyComponent={<Text style={styles.emptyText}>Your cart is empty.</Text>}
