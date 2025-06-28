@@ -11,12 +11,14 @@ import { Alert } from 'react-native';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme/index.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchProductById } from '../../lib/supabase/fetchProductById';
+import { supabase } from '../../lib/supabase/client';
 import { trackEvent } from '../../lib/trackEvent';
 import LuxuryModal from '../components/LuxuryModal';
 import CollapsibleSection from '../components/CollapsibleSection';
 
 import ZoomableImage from '../components/ZoomableImage';
 import RelatedProductsSection from '../components/RelatedProductsSection';
+import ProductReviews from '../components/ProductReviews';
 
 function MemoCarouselImage({ item, style, onPress }) {
   return (
@@ -122,8 +124,46 @@ const renderCarouselImage = useCallback(
     let isMounted = true;
     async function loadProduct() {
       try {
+        // Fetch product data
         const supaProduct = await fetchProductById(id);
+        
         if (!isMounted) return;
+        
+        // Always fetch the actual review count directly from reviews table
+        try {
+          // First, try direct match
+          let { data, error } = await supabase
+            .from('reviews')
+            .select('id', { count: 'exact' })
+            .eq('product_id', id);
+          
+          // If no results, try text search as fallback (for UUID vs TEXT mismatch)
+          if (!error && data.length === 0) {
+            const { data: textSearchData, error: textSearchError } = await supabase
+              .from('reviews')
+              .select('id', { count: 'exact' })
+              .ilike('product_id', `%${id}%`);
+              
+            if (!textSearchError) {
+              data = textSearchData;
+            }
+          }
+              
+          if (!error && isMounted) {
+            // Update the product with the actual review count
+            supaProduct.review_count = data?.length || 0;
+            console.log(`Product ${id} has ${supaProduct.review_count} reviews`);
+            
+            // Also update the database for future queries
+            await supabase
+              .from('products')
+              .update({ review_count: supaProduct.review_count })
+              .eq('id', id);
+          }
+        } catch (countErr) {
+          console.error('Error fetching review count:', countErr);
+        }
+        
         setProduct(supaProduct);
         setLoading(false);
       } catch (err) {
@@ -508,14 +548,27 @@ const renderCarouselImage = useCallback(
               </Text>
               {/* Brand Placeholder */}
               {/* <Text style={{ color: '#888', fontSize: 14, marginBottom: 4 }}>Brand: {product?.brand || 'N/A'}</Text> */}
-              {/* Star Ratings Placeholder */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', width: '100%' }}>
-                {/* Placeholder stars */}
+              {/* Star Ratings with Dynamic Review Count */}
+              <Pressable 
+                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', width: '100%' }}
+                onPress={() => {
+                  // Find the reviews section and scroll to it
+                  const reviewsSection = document.getElementById('customer-reviews-section');
+                  if (reviewsSection) {
+                    reviewsSection.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                accessibilityLabel="View reviews"
+                accessibilityRole="button"
+              >
+                {/* Stars based on product rating */}
                 {[1,2,3,4,5].map(i => (
-                  <FontAwesome key={i} name="star" size={16} color={i <= 4 ? '#FFD700' : '#ccc'} style={{ marginRight: 2 }} />
+                  <FontAwesome key={i} name="star" size={16} color={i <= (product?.rating || 4) ? '#FFD700' : '#ccc'} style={{ marginRight: 2 }} />
                 ))}
-                <Text style={{ color: '#888', fontSize: 13, marginLeft: 6 }}>(12 reviews)</Text>
-              </View>
+                <Text style={{ color: '#888', fontSize: 13, marginLeft: 6, textDecorationLine: 'underline' }}>
+                  ({product?.review_count || 0} reviews)
+                </Text>
+              </Pressable>
               {/* Short Description */}
               <Text style={{ color: '#555', fontSize: 16, marginBottom: 8, width: '100%', flexShrink: 1 }} numberOfLines={2}>{product?.short_description || 'A rare and unique collectable item.'}</Text>
               {/* Price & Shipping Info */}
@@ -809,52 +862,13 @@ const renderCarouselImage = useCallback(
 )}
 
 {/* Customer Reviews Section */}
-<View style={{ maxWidth: 900, width: '100%', alignSelf: 'center', backgroundColor: '#f8f8f8', borderRadius: 18, padding: 28, marginTop: 16, marginBottom: 32, boxShadow: '0 4px 24px rgba(0,0,0,.04)' }}>
-  <CollapsibleSection title="Customer Reviews" initiallyCollapsed={true}>
-    {[
-      {
-        id: '1',
-        name: 'Amelia R.',
-        review: 'Absolutely stunning necklace! The packaging was beautiful and delivery was fast. Highly recommend!',
-        rating: 5,
-      },
-      {
-        id: '2',
-        name: 'Sophie L.',
-        review: 'Bought a bracelet for my mum—she loved it! Superb quality and elegant design.',
-        rating: 5,
-      },
-      {
-        id: '3',
-        name: 'Emily W.',
-        review: 'Customer service was very helpful. The earrings are gorgeous and hypoallergenic!',
-        rating: 4,
-      },
-      {
-        id: '4',
-        name: 'Chloe T.',
-        review: 'I get compliments every time I wear my new ring. Will definitely shop again.',
-        rating: 5,
-      },
-      {
-        id: '5',
-        name: 'Olivia G.',
-        review: 'Quick shipping, lovely presentation, and the necklace sparkles beautifully.',
-        rating: 4,
-      },
-    ].map(r => (
-      <View key={r.id} style={{ marginBottom: 18, backgroundColor: '#faf8f3', borderRadius: 10, padding: 16, borderWidth: 1, borderColor: '#f1e7d0' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          <Text style={{ fontWeight: 'bold', color: '#bfa14a', fontSize: 15, marginRight: 8 }}>{r.name}</Text>
-          <View style={{ flexDirection: 'row' }}>
-            {[...Array(5)].map((_, i) => (
-              <FontAwesome key={i} name={i < r.rating ? 'star' : 'star-o'} size={16} color={'#bfa14a'} style={{ marginRight: 2 }} />
-            ))}
-          </View>
-        </View>
-        <Text style={{ color: '#444', fontSize: 15, lineHeight: 22 }}>{r.review}</Text>
-      </View>
-    ))}
+<View 
+  id="customer-reviews-section"
+  style={{ maxWidth: 900, width: '100%', alignSelf: 'center', backgroundColor: '#f8f8f8', borderRadius: 18, padding: 28, marginTop: 16, marginBottom: 32, boxShadow: '0 4px 24px rgba(0,0,0,.04)' }}
+>
+  <CollapsibleSection title="Customer Reviews" initiallyCollapsed={false}>
+    {/* Use our dynamic ProductReviews component */}
+    <ProductReviews productId={product?.id} />
   </CollapsibleSection>
 </View>
 

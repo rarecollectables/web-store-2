@@ -49,6 +49,12 @@ export default function AdminDashboard() {
             <Paragraph>See user/product/cart activity logs.</Paragraph>
           </Card.Content>
         </Card>
+        <Card style={styles.card} onPress={() => router.push('/admin/reviews')}>
+          <Card.Title title="Manage Reviews" />
+          <Card.Content>
+            <Paragraph>Add, edit, and moderate product reviews.</Paragraph>
+          </Card.Content>
+        </Card>
       </ScrollView>
     </View>
   );
