@@ -345,7 +345,7 @@ export default function ProductsList({ onAddToCartSuccess }) {
       categoryTitle = activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1);
     }
 
-    const headerTitleFontSize = Platform.OS === 'web' ? 48 : 32;
+    const headerTitleFontSize = Platform.OS === 'web' ? 28 : 24;
     const headerSubtitleFontSize = Platform.OS === 'web' ? 22 : 18;
 
     return (

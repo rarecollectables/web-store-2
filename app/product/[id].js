@@ -835,11 +835,26 @@ const renderCarouselImage = useCallback(
             })()}
           </CollapsibleSection>
 
-          {/* Packaging */}
-          <CollapsibleSection title="Packaging">
-            <Text style={{ color: '#444', fontSize: 15 }}>
-              {product?.packaging || 'Each item is carefully packaged in our signature luxury gift box, ready for gifting or safe storage.'}
-            </Text>
+          {/* What You'll Get */}
+          <CollapsibleSection title="What You'll Get">
+            <View style={{ marginTop: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                <Text style={{ color: '#bfa14a', fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>•</Text>
+                <Text style={{ color: '#444', fontSize: 15, flex: 1 }}>Luxury gift box with premium packaging</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                <Text style={{ color: '#bfa14a', fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>•</Text>
+                <Text style={{ color: '#444', fontSize: 15, flex: 1 }}>Branded microfiber cleaning cloth</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                <Text style={{ color: '#bfa14a', fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>•</Text>
+                <Text style={{ color: '#444', fontSize: 15, flex: 1 }}>Detailed care tips for your item</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 }}>
+                <Text style={{ color: '#bfa14a', fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>•</Text>
+                <Text style={{ color: '#444', fontSize: 15, flex: 1 }}>Personalized thank you card</Text>
+              </View>
+            </View>
           </CollapsibleSection>
           {/* Shipping */}
           <CollapsibleSection title="Shipping">
