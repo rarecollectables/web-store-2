@@ -1,15 +1,129 @@
-import React from 'react';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { getUserOrders, storeOrder } from './components/orders-modal';
+import { loadStripe } from '@stripe/stripe-js';
 
 export default function CheckoutSuccess() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      try {
+        setLoading(true);
+        
+        // Check if this is a redirect with payment_intent and redirect_status
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        const paymentIntentId = urlParams.get('payment_intent');
+        const redirectStatus = urlParams.get('redirect_status');
+        
+        // If we have payment_intent in the URL (redirect from Klarna/PayPal)
+        if (paymentIntentId && redirectStatus === 'succeeded') {
+          // Load Stripe to verify the payment
+          const stripe = await loadStripe(process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+          const { paymentIntent } = await stripe.retrievePaymentIntent(paymentIntentId);
+          
+          if (paymentIntent && paymentIntent.status === 'succeeded') {
+            // If we have email in params, store the order
+            const email = params.email;
+            if (email) {
+              // Get cart and contact info from localStorage if available
+              const cartData = localStorage.getItem('cartData');
+              if (cartData) {
+                const { cart, contact, address, total } = JSON.parse(cartData);
+                // Store the order
+                await storeOrder({
+                  items: cart,
+                  contact,
+                  address,
+                  total,
+                  paymentIntentId: paymentIntentId,
+                  paymentMethod: paymentIntent.payment_method_types?.[0] || 'unknown'
+                }, email);
+                
+                // Clear cart data
+                localStorage.removeItem('cartData');
+              }
+            }
+          }
+        }
+        
+        // Try to get the most recent order from localStorage
+        const email = params.email;
+        if (email) {
+          const orders = getUserOrders(email);
+          if (orders && orders.length > 0) {
+            setOrder(orders[0]); // Get the most recent order
+          }
+        } else {
+          const orders = getUserOrders(); // Get by device
+          if (orders && orders.length > 0) {
+            setOrder(orders[0]); // Get the most recent order
+          }
+        }
+      } catch (err) {
+        console.error('Error checking payment status:', err);
+        setError('There was an issue verifying your payment. Please contact customer support.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkPaymentStatus();
+  }, [params.email]);
 
   return (
     <div className="checkout-success-page" style={{ maxWidth: 540, margin: '60px auto', padding: 32, background: '#fff', borderRadius: 12, boxShadow: '0 2px 18px rgba(44,62,80,0.10)' }}>
-      <h1 style={{ color: '#38a169', fontSize: 32, marginBottom: 12 }}>Thank you for your purchase!</h1>
-      <p style={{ fontSize: 18, marginBottom: 24 }}>
-        Your order has been placed successfully. You will receive a confirmation email soon.
-      </p>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ width: 40, height: 40, margin: '0 auto', border: '3px solid #f3f3f3', borderTop: '3px solid #BFA054', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+          <p style={{ marginTop: 16 }}>Verifying your payment...</p>
+          <style jsx>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      ) : error ? (
+        <div style={{ color: '#e53e3e', marginBottom: 24 }}>
+          <h2 style={{ fontSize: 24, marginBottom: 12 }}>Payment Verification Issue</h2>
+          <p>{error}</p>
+        </div>
+      ) : (
+        <>
+          <h1 style={{ color: '#38a169', fontSize: 32, marginBottom: 12 }}>Thank you for your purchase!</h1>
+          <p style={{ fontSize: 18, marginBottom: 24 }}>
+            Your order has been placed successfully. You will receive a confirmation email soon.
+          </p>
+        </>
+      )}
+      
+      {order && (
+        <div style={{ marginBottom: 24, padding: 16, backgroundColor: '#f9f9f9', borderRadius: 8 }}>
+          <h3 style={{ fontSize: 18, marginBottom: 12 }}>Order Summary</h3>
+          <p style={{ fontSize: 16, marginBottom: 8 }}>
+            <strong>Order ID:</strong> {order.paymentIntentId?.slice(-8)}
+          </p>
+          <p style={{ fontSize: 16, marginBottom: 8 }}>
+            <strong>Date:</strong> {new Date().toLocaleDateString()}
+          </p>
+          <p style={{ fontSize: 16, marginBottom: 8 }}>
+            <strong>Total:</strong> £{order.total?.toFixed(2)}
+          </p>
+          <p style={{ fontSize: 16, marginBottom: 8 }}>
+            <strong>Items:</strong> {order.items?.length || 0}
+          </p>
+          <div style={{ marginTop: 12, fontSize: 14 }}>
+            <p>You can view this order anytime in your <a href="/profile" style={{ color: '#BFA054', textDecoration: 'underline' }}>order history</a>.</p>
+          </div>
+        </div>
+      )}
+      
       <button
         style={{ background: '#BFA054', color: '#fff', border: 'none', borderRadius: 8, padding: '12px 32px', fontSize: 18, cursor: 'pointer', marginBottom: 12 }}
         onClick={() => router.replace('/')}>

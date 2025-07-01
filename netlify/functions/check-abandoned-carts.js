@@ -1,3 +1,4 @@
+// netlify/functions/check-abandoned-carts.js
 const { createClient } = require('@supabase/supabase-js');
 const sgMail = require('@sendgrid/mail');
 
@@ -8,9 +9,6 @@ const supabase = createClient(
 
 // Set SendGrid API key
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-// Email validation regex
-const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 // Logo URL for emails
 const LOGO_URL = 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils//rare-collectables-horizontal-logo.png';
@@ -96,9 +94,9 @@ const generateAbandonedCartEmailHtml = async (cart, guestSessionId) => {
 };
 
 /**
- * Schedules an abandoned cart email to be sent
+ * Sends an abandoned cart email
  */
-const scheduleAbandonedCartEmail = async (email, cart, guestSessionId) => {
+const sendAbandonedCartEmail = async (email, cart, guestSessionId) => {
   try {
     // Generate the email HTML
     const html = await generateAbandonedCartEmailHtml(cart, guestSessionId);
@@ -106,120 +104,109 @@ const scheduleAbandonedCartEmail = async (email, cart, guestSessionId) => {
     // Send the email
     await sgMail.send({
       to: email,
-      cc: 'rarecollectablessales@gmail.com',
       from: 'carecentre@rarecollectables.co.uk',
       subject: 'You left something in your cart! 🛒',
       html
     });
     
-    console.log(`Abandoned cart email scheduled for ${email}`);
+    // Mark the checkout attempt as emailed
+    await supabase
+      .from('checkout_attempts')
+      .update({ 
+        abandoned_cart_email_sent: true,
+        abandoned_cart_email_sent_at: new Date().toISOString()
+      })
+      .eq('guest_session_id', guestSessionId);
+    
+    console.log(`Abandoned cart email sent to ${email}`);
     return true;
   } catch (error) {
-    console.error('Error scheduling abandoned cart email:', error);
+    console.error('Error sending abandoned cart email:', error);
     return false;
   }
 };
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
-
   try {
-    const payload = JSON.parse(event.body);
-    const { email, cart, guest_session_id } = payload;
+    // Calculate the timestamp for 5 minutes ago
+    const fiveMinutesAgo = new Date();
+    fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+    const fiveMinutesAgoISO = fiveMinutesAgo.toISOString();
     
-    // Insert the payload into the checkout_attempts table
-    const { data, error } = await supabase
+    // Find checkout attempts with valid emails captured more than 5 minutes ago
+    // that haven't been completed and haven't been emailed yet
+    const { data: abandonedCarts, error } = await supabase
       .from('checkout_attempts')
-      .insert([payload]);
-
+      .select('*')
+      .eq('email_valid', true)
+      .lt('email_captured_at', fiveMinutesAgoISO) // Email captured more than 5 minutes ago
+      .is('abandoned_cart_email_sent', null) // Email not sent yet
+      .limit(10); // Process in batches
+    
     if (error) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: error.message }),
+      console.error('Error fetching abandoned carts:', error);
+      return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+    }
+    
+    if (!abandonedCarts || abandonedCarts.length === 0) {
+      return { 
+        statusCode: 200, 
+        body: JSON.stringify({ message: 'No abandoned carts to process' })
       };
     }
     
-    // For valid emails with cart items, mark the checkout attempt as eligible for abandoned cart email
-    if (email && emailRegex.test(email) && cart && Array.isArray(cart) && cart.length > 0) {
-      const now = new Date();
-      const metadata = payload.metadata || {};
-      
-      // Store email validation info in metadata
-      metadata.email_valid = true;
-      metadata.email_captured_at = now.toISOString();
-      
-      // Update the checkout attempt with the enhanced metadata
-      await supabase
-        .from('checkout_attempts')
-        .update({ metadata })
-        .eq('guest_session_id', guest_session_id);
-      
-      console.log(`Email captured for guest session ${guest_session_id}, eligible for abandoned cart email after 5 minutes`);
-      
-      // Check if this email already has a completed order
-      const { data: existingOrders } = await supabase
+    console.log(`Found ${abandonedCarts.length} abandoned carts to process`);
+    
+    // Process each abandoned cart
+    const results = [];
+    for (const cart of abandonedCarts) {
+      // Check if the user has completed an order since abandoning the cart
+      const { data: completedOrders } = await supabase
         .from('orders')
         .select('id')
-        .eq('email', email)
-        .eq('status', 'completed')
+        .eq('email', cart.email)
+        .gt('created_at', cart.email_captured_at) // Order created after email was captured
         .limit(1);
       
-      // Only schedule abandoned cart email if this is not a returning customer
-      if (!existingOrders || existingOrders.length === 0) {
-        // Schedule the abandoned cart email to be sent after 5 minutes
-        // We'll use a setTimeout to delay the email sending
-        setTimeout(async () => {
-          try {
-            // Check if an order has been completed in the meantime
-            const { data: completedOrders } = await supabase
-              .from('orders')
-              .select('id')
-              .eq('email', email)
-              .gt('created_at', metadata.email_captured_at)
-              .limit(1);
-            
-            // Also check if the checkout attempt has been updated (user might still be checking out)
-            const { data: latestAttempt } = await supabase
-              .from('checkout_attempts')
-              .select('updated_at, metadata')
-              .eq('guest_session_id', guest_session_id)
-              .single();
-            
-            // Only send email if no order was completed and the checkout hasn't been updated recently
-            const updatedRecently = latestAttempt && 
-              new Date(latestAttempt.updated_at) > new Date(now.getTime() + 4.5 * 60 * 1000); // 4.5 minutes buffer
-            
-            if ((!completedOrders || completedOrders.length === 0) && !updatedRecently) {
-              // Send the abandoned cart email
-              await scheduleAbandonedCartEmail(email, cart, guest_session_id);
-              
-              // Update metadata to record that email was sent
-              const updatedMetadata = latestAttempt?.metadata || {};
-              updatedMetadata.abandoned_cart_email_sent = true;
-              updatedMetadata.abandoned_cart_email_sent_at = new Date().toISOString();
-              
-              await supabase
-                .from('checkout_attempts')
-                .update({ metadata: updatedMetadata })
-                .eq('guest_session_id', guest_session_id);
-            }
-          } catch (error) {
-            console.error('Error in delayed abandoned cart email check:', error);
-          }
-        }, 5 * 60 * 1000); // 5 minutes delay
+      // If no completed orders found, send the abandoned cart email
+      if (!completedOrders || completedOrders.length === 0) {
+        const sent = await sendAbandonedCartEmail(cart.email, cart.cart, cart.guest_session_id);
+        results.push({ 
+          guest_session_id: cart.guest_session_id, 
+          email: cart.email, 
+          sent 
+        });
+      } else {
+        // Mark as processed but not sent (user completed order)
+        await supabase
+          .from('checkout_attempts')
+          .update({ 
+            abandoned_cart_email_sent: false,
+            order_completed: true
+          })
+          .eq('guest_session_id', cart.guest_session_id);
+        
+        results.push({ 
+          guest_session_id: cart.guest_session_id, 
+          email: cart.email, 
+          sent: false, 
+          reason: 'Order completed' 
+        });
       }
     }
-
+    
     return {
       statusCode: 200,
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ 
+        processed: results.length,
+        results 
+      })
     };
   } catch (err) {
+    console.error('Error processing abandoned carts:', err);
     return {
-      statusCode: 400,
-      body: JSON.stringify({ error: err.message }),
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message })
     };
   }
 };

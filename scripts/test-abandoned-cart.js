@@ -1,24 +1,34 @@
+// Simple test script for abandoned cart email functionality
+require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 const sgMail = require('@sendgrid/mail');
 
+// Initialize Supabase client
 const supabase = createClient(
   process.env.EXPO_PUBLIC_SUPABASE_URL,
-  process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY // use service role key for full access
+  process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
 );
 
 // Set SendGrid API key
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-// Email validation regex
-const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-
 // Logo URL for emails
 const LOGO_URL = 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils//rare-collectables-horizontal-logo.png';
+
+// Use actual checkout attempt data from the database
+const checkoutAttemptId = '686fac9a-aa1f-4a3f-bc80-e81bfd9610c4';
+
+// Test email for receiving the abandoned cart email
+const testEmail = 'jenny.sands@outlook.com';
+
+// Variables to store data from the database
+let testCart = [];
+let testSessionId = '';
 
 /**
  * Generates HTML for abandoned cart email
  */
-const generateAbandonedCartEmailHtml = async (cart, guestSessionId) => {
+async function generateAbandonedCartEmailHtml(cart, guestSessionId) {
   // Fetch cart products details from Supabase for accurate image/name/link
   const cartIds = (cart || []).map(item => item.id);
   let cartProducts = [];
@@ -93,133 +103,75 @@ const generateAbandonedCartEmailHtml = async (cart, guestSessionId) => {
     </div>
   </div>
   `;
-};
+}
 
 /**
- * Schedules an abandoned cart email to be sent
+ * Fetch checkout attempt data from the database
  */
-const scheduleAbandonedCartEmail = async (email, cart, guestSessionId) => {
+async function fetchCheckoutAttemptData() {
+  console.log(`Fetching checkout attempt data for ID: ${checkoutAttemptId}...`);
+  
   try {
-    // Generate the email HTML
-    const html = await generateAbandonedCartEmailHtml(cart, guestSessionId);
+    const { data, error } = await supabase
+      .from('checkout_attempts')
+      .select('*')
+      .eq('id', checkoutAttemptId)
+      .single();
     
+    if (error) throw error;
+    if (!data) throw new Error(`No checkout attempt found with ID: ${checkoutAttemptId}`);
+    
+    console.log('✅ Checkout attempt data retrieved successfully');
+    
+    // Extract the cart and session ID
+    testCart = data.cart || [];
+    testSessionId = data.guest_session_id;
+    
+    console.log(`Found ${testCart.length} items in cart`);
+    console.log(`Using guest session ID: ${testSessionId}`);
+    
+    return data;
+  } catch (error) {
+    console.error('❌ Error fetching checkout attempt data:', error);
+    process.exit(1);
+  }
+}
+
+/**
+ * Send an abandoned cart email directly
+ */
+async function sendAbandonedCartEmail() {
+  console.log('Testing abandoned cart email functionality...');
+  console.log(`Using test email: ${testEmail}`);
+  
+  try {
+    // First fetch the checkout attempt data
+    await fetchCheckoutAttemptData();
+    
+    // Generate the email HTML
+    console.log('Generating email HTML...');
+    const html = await generateAbandonedCartEmailHtml(testCart, testSessionId);
+    
+    console.log('Sending email...');
     // Send the email
     await sgMail.send({
-      to: email,
+      to: testEmail,
       cc: 'rarecollectablessales@gmail.com',
       from: 'carecentre@rarecollectables.co.uk',
       subject: 'You left something in your cart! 🛒',
       html
     });
     
-    console.log(`Abandoned cart email scheduled for ${email}`);
-    return true;
+    console.log('✅ Abandoned cart email sent successfully!');
+    console.log(`   To: ${testEmail}`);
+    console.log(`   CC: rarecollectablessales@gmail.com`);
   } catch (error) {
-    console.error('Error scheduling abandoned cart email:', error);
-    return false;
-  }
-};
-
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
-
-  try {
-    const payload = JSON.parse(event.body);
-    const { email, cart, guest_session_id } = payload;
-    
-    // Insert the payload into the checkout_attempts table
-    const { data, error } = await supabase
-      .from('checkout_attempts')
-      .insert([payload]);
-
-    if (error) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: error.message }),
-      };
+    console.error('❌ Error sending abandoned cart email:', error);
+    if (error.response) {
+      console.error('SendGrid error details:', error.response.body);
     }
-    
-    // For valid emails with cart items, mark the checkout attempt as eligible for abandoned cart email
-    if (email && emailRegex.test(email) && cart && Array.isArray(cart) && cart.length > 0) {
-      const now = new Date();
-      const metadata = payload.metadata || {};
-      
-      // Store email validation info in metadata
-      metadata.email_valid = true;
-      metadata.email_captured_at = now.toISOString();
-      
-      // Update the checkout attempt with the enhanced metadata
-      await supabase
-        .from('checkout_attempts')
-        .update({ metadata })
-        .eq('guest_session_id', guest_session_id);
-      
-      console.log(`Email captured for guest session ${guest_session_id}, eligible for abandoned cart email after 5 minutes`);
-      
-      // Check if this email already has a completed order
-      const { data: existingOrders } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('email', email)
-        .eq('status', 'completed')
-        .limit(1);
-      
-      // Only schedule abandoned cart email if this is not a returning customer
-      if (!existingOrders || existingOrders.length === 0) {
-        // Schedule the abandoned cart email to be sent after 5 minutes
-        // We'll use a setTimeout to delay the email sending
-        setTimeout(async () => {
-          try {
-            // Check if an order has been completed in the meantime
-            const { data: completedOrders } = await supabase
-              .from('orders')
-              .select('id')
-              .eq('email', email)
-              .gt('created_at', metadata.email_captured_at)
-              .limit(1);
-            
-            // Also check if the checkout attempt has been updated (user might still be checking out)
-            const { data: latestAttempt } = await supabase
-              .from('checkout_attempts')
-              .select('updated_at, metadata')
-              .eq('guest_session_id', guest_session_id)
-              .single();
-            
-            // Only send email if no order was completed and the checkout hasn't been updated recently
-            const updatedRecently = latestAttempt && 
-              new Date(latestAttempt.updated_at) > new Date(now.getTime() + 4.5 * 60 * 1000); // 4.5 minutes buffer
-            
-            if ((!completedOrders || completedOrders.length === 0) && !updatedRecently) {
-              // Send the abandoned cart email
-              await scheduleAbandonedCartEmail(email, cart, guest_session_id);
-              
-              // Update metadata to record that email was sent
-              const updatedMetadata = latestAttempt?.metadata || {};
-              updatedMetadata.abandoned_cart_email_sent = true;
-              updatedMetadata.abandoned_cart_email_sent_at = new Date().toISOString();
-              
-              await supabase
-                .from('checkout_attempts')
-                .update({ metadata: updatedMetadata })
-                .eq('guest_session_id', guest_session_id);
-            }
-          } catch (error) {
-            console.error('Error in delayed abandoned cart email check:', error);
-          }
-        }, 5 * 60 * 1000); // 5 minutes delay
-      }
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ data }),
-    };
-  } catch (err) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: err.message }),
-    };
   }
-};
+}
+
+// Run the test
+sendAbandonedCartEmail();

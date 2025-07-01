@@ -12,7 +12,7 @@ import { trackEvent } from '../lib/trackEvent';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../theme';
 import ConfirmationModal from './components/ConfirmationModal';
 import { useRouter } from 'expo-router';
-import { CardElement, useElements, useStripe, Elements } from '@stripe/react-stripe-js';
+import { PaymentElement, useElements, useStripe, Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 
 // Stripe keys from env
@@ -61,6 +61,16 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         currency: 'GBP',
         metadata: { coupon }
       });
+      // Store cart data in localStorage for redirect payment methods (PayPal, Klarna)
+      // This will be used on the success page to store the order after redirect
+      localStorage.setItem('cartData', JSON.stringify({
+        cart,
+        contact,
+        address,
+        total: total,
+        timestamp: new Date().toISOString()
+      }));
+      
       const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -71,16 +81,31 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         throw new Error(`Failed to create payment intent: ${response.status} ${errText}`);
       }
       const { clientSecret } = await response.json();
-      const cardElement = elements.getElement(CardElement);
-      const result = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: contact.name,
-            email: contact.email,
-            address: { line1: address.line1, city: address.city, postal_code: address.postcode },
+      
+      // Use confirmPayment instead of confirmCardPayment to support multiple payment methods
+      const result = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          // Return to checkout-success page after payment
+          return_url: window.location.origin + '/checkout-success?email=' + encodeURIComponent(contact.email),
+          payment_method_data: {
+            billing_details: {
+              name: contact.name,
+              email: contact.email,
+              address: { line1: address.line1, city: address.city, postal_code: address.postcode },
+            },
           },
+          shipping: {
+            name: contact.name,
+            address: {
+              line1: address.line1,
+              city: address.city,
+              postal_code: address.postcode,
+              country: 'GB'
+            }
+          }
         },
+        redirect: 'if_required', // Redirect for payment methods that require it (like PayPal and Klarna)
       });
       if (result.error) {
         throw new Error(`Stripe payment failed: ${result.error.message}`);
@@ -96,7 +121,7 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         discount: discountAmount || 0,
         coupon: coupon || null,
         paymentIntentId: result.paymentIntent.id,
-      });
+      }, contact.email);
       // GA4-compliant purchase event
       trackEvent({
         eventType: 'purchase',
@@ -113,7 +138,7 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         metadata: { coupon }
       });
       cart.forEach(item => removeFromCart(item.id));
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(contact.email);
     } catch (error) {
       // Track payment failure
       trackEvent({ eventType: 'checkout_payment_failed', error: error.message, total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length, coupon });
@@ -137,22 +162,24 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         </View>
         <Text style={styles.inputLabel}>Card Details</Text>
         <View style={styles.stripeCardLuxuryWrapper}>
-          <CardElement options={{
-            style: {
-              base: {
-                fontSize: 18,
-                color: colors.onyxBlack,
-                fontFamily,
-                backgroundColor: colors.white,
-                border: 'none',
-                padding: '14px 14px',
-                '::placeholder': { color: '#bfa054', fontStyle: 'italic' },
-              },
-              invalid: {
-                color: colors.ruby,
-                borderColor: colors.ruby,
-              },
+          <PaymentElement options={{
+            layout: 'tabs',
+            paymentMethodOrder: ['card', 'paypal', 'klarna'],
+            defaultValues: {
+              billingDetails: {
+                name: contact.name,
+                email: contact.email,
+                address: {
+                  line1: address.line1,
+                  city: address.city,
+                  postal_code: address.postcode,
+                  country: 'GB'
+                }
+              }
             },
+            business: {
+              name: 'Rare Collectables'
+            }
           }} />
         </View>
         <Text style={styles.cardHelperText}>All transactions are encrypted and processed securely.</Text>
@@ -194,6 +221,7 @@ export default function CheckoutScreen() {
   const [stripeLoading, setStripeLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [stripe, setStripe] = useState(null);
+  const [clientSecret, setClientSecret] = useState('');
   const [stripeError, setStripeError] = useState(null);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   
@@ -223,8 +251,14 @@ export default function CheckoutScreen() {
   }, []);
 
   // Called after successful payment
-  const handleCheckoutSuccess = () => {
+  const handleCheckoutSuccess = (email) => {
     setConfirmationOpen(true);
+    setTimeout(() => {
+      router.push({
+        pathname: '/checkout-success',
+        params: { email: email }
+      });
+    }, 1500);
   };
 
   // Called when user closes modal or continues shopping
@@ -257,6 +291,27 @@ export default function CheckoutScreen() {
     };
     initializeStripe();
   }, []);
+
+  // Create payment intent when contact and address are filled
+  useEffect(() => {
+    if (cart.length > 0 && contact.email && address.line1 && stripe && !clientSecret) {
+      fetch(NETLIFY_STRIPE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cart, contact, address }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.clientSecret) {
+            setClientSecret(data.clientSecret);
+          }
+        })
+        .catch(err => {
+          console.error('Error creating payment intent:', err);
+          setStripeError('Could not initialize payment: ' + (err.message || err));
+        });
+    }
+  }, [cart, contact.email, address.line1, stripe, clientSecret]);
 
   const handleInputChange = (type, field, value) => {
     // Compute the next state for contact and address
@@ -613,8 +668,8 @@ export default function CheckoutScreen() {
       
       {/* Stripe Payment - Full width */}
       <View style={[styles.checkoutBox, { marginTop: 24, width: '100%', borderTopWidth: 2, borderTopColor: '#f5f2ea' }]}>
-        {stripe && (
-          <Elements stripe={stripe} options={{ locale: 'en-GB' }}>
+        {stripe && clientSecret && (
+          <Elements stripe={stripe} options={{ clientSecret, locale: 'en-GB', appearance: { theme: 'stripe' } }}>
             <StripePaymentForm
               cart={cart}
               contact={contact}

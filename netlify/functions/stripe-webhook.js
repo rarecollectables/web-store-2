@@ -6,7 +6,7 @@ const errorHandler = require('./utils/errorHandler');
 // Set up Supabase client
 const supabase = createClient(
   process.env.EXPO_PUBLIC_SUPABASE_URL,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+  process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY // use service role key for full database access
 );
 
 exports.handler = async (event) => {

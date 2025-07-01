@@ -1,46 +1,88 @@
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import ApplePayIcon from '../assets/payment-logos/ApplePayIcon';
-import GooglePayIcon from '../assets/payment-logos/GooglePayIcon';
-import KlarnaIcon from '../assets/payment-logos/KlarnaIcon';
-import RevolutIcon from '../assets/payment-logos/RevolutIcon';
+import { View, StyleSheet, Image } from 'react-native';
 
+// Define payment methods with official logo URLs
 const paymentMethods = [
-  { name: 'Visa', icon: <FontAwesome name="cc-visa" />, color: '#1a1f71' },
-  { name: 'Mastercard', icon: <FontAwesome name="cc-mastercard" />, color: '#EB001B' },
-  { name: 'American Express', icon: <FontAwesome name="cc-amex" />, color: '#2e77bb' },
-  { name: 'PayPal', icon: <FontAwesome name="cc-paypal" />, color: '#003087' },
-  { name: 'Discover', icon: <FontAwesome name="cc-discover" />, color: '#FF6000' },
-  { name: 'Diners Club', icon: <FontAwesome name="cc-diners-club" />, color: '#006BA6' },
-  { name: 'JCB', icon: <FontAwesome name="cc-jcb" />, color: '#0A7EBA' },
-  { name: 'Apple Pay', svg: <ApplePayIcon /> },
-  { name: 'Google Pay', svg: <GooglePayIcon /> },
-  { name: 'Klarna', svg: <KlarnaIcon /> },
-  { name: 'Revolut Pay', svg: <RevolutIcon /> },
+  // Primary payment methods in specified order
+  { 
+    name: 'Visa', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/visa.svg'
+  },
+  { 
+    name: 'American Express', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/amex.svg'
+  },
+  { 
+    name: 'Google Pay', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/google-pay.svg'
+  },
+  { 
+    name: 'Apple Pay', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/apple-pay.svg'
+  },
+  { 
+    name: 'Mastercard', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/mastercard.svg'
+  },
+  
+  // Other payment methods
+  { 
+    name: 'PayPal', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/paypal.svg'
+  },
+  { 
+    name: 'Klarna', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/klarna.svg'
+  },
+  { 
+    name: 'Discover', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/discover.svg'
+  },
+  { 
+    name: 'Diners Club', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/diners.svg'
+  },
+  { 
+    name: 'JCB', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/jcb.svg'
+  },
+  { 
+    name: 'Revolut', 
+    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/revolut-pay.svg'
+  },
 ];
 
 
 export default function PaymentMethodsRow({ style = {}, iconSize = 38, pop = false }) {
+  // Calculate dimensions based on iconSize
+  const cardWidth = iconSize * 1.6;
+  const cardHeight = iconSize * 1.0;
+  
   return (
     <View style={[styles.row, style]}>
-      {paymentMethods.map(({ name, icon, color, svg }) => (
+      {paymentMethods.map(({ name, imageUrl }) => (
         <View
           key={name}
           style={[
             styles.iconCard,
             {
-              width: iconSize + 12,
-              height: iconSize + 12,
+              width: cardWidth,
+              height: cardHeight,
               borderColor: pop ? '#e0e0e0' : '#f0f0f0',
-              shadowOpacity: pop ? 0.18 : 0.08,
+              shadowOpacity: pop ? 0.15 : 0.08,
             },
           ]}
         >
-          {icon
-            ? React.cloneElement(icon, { size: iconSize, color })
-            : svg && React.cloneElement(svg, { width: iconSize, height: iconSize })}
+          <Image
+            source={{ uri: imageUrl }}
+            style={{
+              width: iconSize * 1.2,
+              height: iconSize * 0.75,
+              resizeMode: 'contain',
+            }}
+            accessibilityLabel={`${name} payment method`}
+          />
         </View>
       ))}
     </View>
@@ -57,15 +99,17 @@ const styles = StyleSheet.create({
   },
   iconCard: {
     backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1.5,
-    marginHorizontal: 3,
-    marginVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    marginHorizontal: 4,
+    marginVertical: 3,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#4285F4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 2,
   },
 });

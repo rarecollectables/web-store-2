@@ -343,7 +343,7 @@ export default function ProductReviews({ productId }) {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     marginTop: 16,
   },
   sectionTitle: {
@@ -374,6 +374,7 @@ const styles = StyleSheet.create({
   },
   reviewForm: {
     marginBottom: 16,
+    backgroundColor: '#ffffff',
   },
   formLabel: {
     fontSize: 14,
@@ -407,9 +408,11 @@ const styles = StyleSheet.create({
   },
   reviewsList: {
     maxHeight: 400,
+    backgroundColor: '#ffffff',
   },
   reviewCard: {
     marginBottom: 16,
+    backgroundColor: '#ffffff',
   },
   reviewHeader: {
     flexDirection: 'row',

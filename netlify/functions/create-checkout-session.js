@@ -222,11 +222,12 @@ exports.handler = async (event) => {
       }
     });
 
-    // Create payment intent with simplified metadata
+    // Create payment intent with simplified metadata and multiple payment methods
     const paymentIntent = await stripe.paymentIntents.create({
       amount: total,
       currency: 'gbp',
       customer: customer.id,
+      payment_method_types: ['card', 'paypal', 'klarna'],
       metadata: {
         contact_email: contact.email,
         shipping_address: address ? JSON.stringify({
