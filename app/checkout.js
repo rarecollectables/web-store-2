@@ -12,7 +12,7 @@ import { trackEvent } from '../lib/trackEvent';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../theme';
 import ConfirmationModal from './components/ConfirmationModal';
 import { useRouter } from 'expo-router';
-import { PaymentElement, useElements, useStripe, Elements } from '@stripe/react-stripe-js';
+import { CardElement, useElements, useStripe, Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import Constants from 'expo-constants';
 
@@ -61,13 +61,19 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
 
   const handleStripeCheckout = async () => {
     if (!validateForm()) return;
+    if (!stripe || !elements) {
+      setErrors({ ...errors, payment: ['Stripe not initialized yet. Please try again.'] });
+      return;
+    }
+    
     try {
       setPaying(true);
       // Calculate discounted total
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const discountedSubtotal = Math.max(0, subtotal - (discountAmount || 0));
       const total = Math.max(0, discountedSubtotal); // No tax applied
-      // GA4-compliant begin_checkout event
+      
+      // Track checkout initiation
       trackEvent({
         eventType: 'begin_checkout',
         items: cart.map(item => ({
@@ -81,87 +87,110 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         currency: 'GBP',
         metadata: { coupon }
       });
-      // Store cart data in localStorage for redirect payment methods (PayPal, Klarna)
-      // This will be used on the success page to store the order after redirect
-      localStorage.setItem('cartData', JSON.stringify({
-        cart,
-        contact,
-        address,
-        total: total,
-        timestamp: new Date().toISOString()
-      }));
       
-      const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cart, contact, address }), // backend still calculates amount, but we track discount in analytics and order
-      });
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to create payment intent: ${response.status} ${errText}`);
+      // Create or get client secret if needed
+      let currentClientSecret = clientSecret;
+      if (!currentClientSecret) {
+        const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            cart, 
+            contact, 
+            address, 
+            coupon: couponStatus?.valid ? coupon : null,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Failed to create payment intent: ${response.status} ${errText}`);
+        }
+        
+        const data = await response.json();
+        currentClientSecret = data.clientSecret;
       }
-      const { clientSecret } = await response.json();
       
-      // Use confirmPayment instead of confirmCardPayment to support multiple payment methods
-      const result = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          // Return to checkout-success page after payment
-          return_url: window.location.origin + '/checkout-success?email=' + encodeURIComponent(contact.email),
-          payment_method_data: {
-            billing_details: {
-              name: contact.name,
-              email: contact.email,
-              address: { line1: address.line1, city: address.city, postal_code: address.postcode },
-            },
-          },
-          shipping: {
+      // Get card element
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) {
+        throw new Error('Card element not found');
+      }
+      
+      // Use confirmCardPayment for the CardElement
+      const result = await stripe.confirmCardPayment(currentClientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
             name: contact.name,
-            address: {
-              line1: address.line1,
-              city: address.city,
+            email: contact.email,
+            address: { 
+              line1: address.line1, 
+              city: address.city, 
               postal_code: address.postcode,
               country: 'GB'
-            }
-          }
+            },
+          },
         },
-        redirect: 'if_required', // Redirect for payment methods that require it (like PayPal and Klarna)
+        shipping: {
+          name: contact.name,
+          address: {
+            line1: address.line1,
+            city: address.city,
+            postal_code: address.postcode,
+            country: 'GB'
+          }
+        }
       });
+      
       if (result.error) {
-        throw new Error(`Stripe payment failed: ${result.error.message}`);
+        throw new Error(`Payment failed: ${result.error.message}`);
       }
-      if (result.paymentIntent && result.paymentIntent.status !== 'succeeded') {
-        throw new Error(`Payment not successful: ${result.paymentIntent.status}`);
+      
+      if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
+        // Payment successful
+        await storeOrder({
+          items: cart,
+          contact,
+          address,
+          total,
+          discount: discountAmount || 0,
+          coupon: coupon || null,
+          paymentIntentId: result.paymentIntent.id,
+        }, contact.email);
+        
+        // Track successful purchase
+        trackEvent({
+          eventType: 'purchase',
+          items: cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            image_url: item.image_url
+          })),
+          value: total,
+          currency: 'GBP',
+          transaction_id: result.paymentIntent.id,
+          metadata: { coupon }
+        });
+        
+        // Clear cart and show confirmation
+        cart.forEach(item => removeFromCart(item.id));
+        if (onSuccess) onSuccess(contact.email);
+      } else {
+        throw new Error(`Payment not successful: ${result.paymentIntent?.status || 'unknown status'}`);
       }
-      await storeOrder({
-        items: cart,
-        contact,
-        address,
-        total,
-        discount: discountAmount || 0,
-        coupon: coupon || null,
-        paymentIntentId: result.paymentIntent.id,
-      }, contact.email);
-      // GA4-compliant purchase event
-      trackEvent({
-        eventType: 'purchase',
-        items: cart.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image_url: item.image_url
-        })),
-        value: total,
-        currency: 'GBP',
-        transaction_id: result.paymentIntent.id,
-        metadata: { coupon }
-      });
-      cart.forEach(item => removeFromCart(item.id));
-      if (onSuccess) onSuccess(contact.email);
     } catch (error) {
+      console.error('Payment error:', error);
       // Track payment failure
-      trackEvent({ eventType: 'checkout_payment_failed', error: error.message, total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), items: cart.length, coupon });
+      trackEvent({ 
+        eventType: 'checkout_payment_failed', 
+        error: error.message, 
+        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), 
+        items: cart.length, 
+        coupon 
+      });
       setErrors({ ...errors, payment: [error.message || 'An error occurred during checkout. Please try again.'] });
     } finally {
       setPaying(false);
@@ -182,24 +211,21 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         </View>
         <Text style={styles.inputLabel}>Card Details</Text>
         <View style={styles.stripeCardLuxuryWrapper}>
-          <PaymentElement options={{
-            layout: 'tabs',
-            paymentMethodOrder: ['card', 'paypal', 'klarna'],
-            defaultValues: {
-              billingDetails: {
-                name: contact.name,
-                email: contact.email,
-                address: {
-                  line1: address.line1,
-                  city: address.city,
-                  postal_code: address.postcode,
-                  country: 'GB'
-                }
-              }
+          <CardElement options={{
+            style: {
+              base: {
+                fontSize: '16px',
+                color: '#30313d',
+                fontFamily: 'Helvetica, sans-serif',
+                '::placeholder': {
+                  color: '#aab7c4',
+                },
+              },
+              invalid: {
+                color: '#df1b41',
+              },
             },
-            business: {
-              name: 'Rare Collectables'
-            }
+            hidePostalCode: true,
           }} />
         </View>
         <Text style={styles.cardHelperText}>All transactions are encrypted and processed securely.</Text>
@@ -312,7 +338,7 @@ export default function CheckoutScreen() {
     initializeStripe();
   }, []);
 
-  // Create payment intent when contact and address are filled
+  // Create payment intent when contact and address are filled - only run once when component mounts
   useEffect(() => {
     console.log('Payment intent creation conditions:', {
       hasCart: cart.length > 0,
@@ -322,52 +348,65 @@ export default function CheckoutScreen() {
       hasNoClientSecret: !clientSecret
     });
     
-    // For testing: Set some default values to ensure the form loads
-    if (!contact.email) setContact({...contact, email: 'test@example.com'});
-    if (!address.line1) setAddress({...address, line1: '123 Test St', city: 'London', postcode: 'SW1A 1AA'});
-    
-    // TEMPORARY: Use a hardcoded client secret for testing
-    if (stripe && !clientSecret) {
-      console.log('Setting temporary client secret for testing');
-      // This is a temporary solution - replace with actual API call in production
-      setClientSecret('pi_3OvKZmFuJhKOEDQx0JQnLnbj_secret_YWXwIaVc9Qs9hSvlGZlmAELUm');
-    }
-    
-    // Comment out the actual API call for now
-    /*
-    if (cart.length > 0 && contact.email && address.line1 && stripe && !clientSecret) {
-      console.log('Fetching client secret from:', NETLIFY_STRIPE_FUNCTION_URL);
-      fetch(NETLIFY_STRIPE_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cart, contact, address }),
-      })
-        .then((res) => {
-          console.log('Response status:', res.status);
-          return res.json();
-        })
-        .then((data) => {
-          console.log('Response data:', data);
-          if (data.clientSecret) {
-            console.log('Client secret received');
-            setClientSecret(data.clientSecret);
-          } else {
-            console.error('No client secret in response:', data);
-            setStripeError('Invalid response from payment server');
+    // Create a new payment intent only when we have Stripe loaded and cart items
+    if (stripe && cart.length > 0) {
+      const createPaymentIntent = async () => {
+        try {
+          setStripeLoading(true);
+          console.log('Creating new payment intent');
+          
+          // Use actual entered data if available, or test data if not
+          const paymentData = {
+            cart,
+            contact: contact.email ? contact : { name: 'Test User', email: 'test@example.com' },
+            address: address.line1 ? address : { line1: '123 Test St', city: 'London', postcode: 'SW1A 1AA' },
+            couponCode: couponStatus?.valid ? coupon : null,
+          };
+          
+          const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(paymentData),
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server error (${response.status}): ${errorText}`);
           }
-        })
-        .catch(err => {
+          
+          const data = await response.json();
+          
+          if (data.clientSecret) {
+            console.log('Client secret received successfully');
+            setClientSecret(data.clientSecret);
+            setStripeLoading(false);
+            
+            // For analytics - track payment form view
+            trackEvent({ eventType: 'view_payment_form' });
+          } else {
+            throw new Error('No client secret in server response');
+          }
+        } catch (err) {
           console.error('Error creating payment intent:', err);
           setStripeError('Could not initialize payment: ' + (err.message || err));
-        });
+          setStripeLoading(false);
+        }
+      };
+      
+      // Only create a new client secret if we don't have one yet
+      if (!clientSecret) {
+        createPaymentIntent();
+      }
     }
-    */
-  }, [cart, contact.email, address.line1, stripe, clientSecret]);
+  }, [stripe, cart, clientSecret]);
+
+  // This section was commented out as we're now handling payment intent creation in the useEffect above
 
   const handleInputChange = (type, field, value) => {
     // Compute the next state for contact and address
     let nextContact = contact;
     let nextAddress = address;
+    
     if (type === 'contact') {
       nextContact = { ...contact, [field]: value };
       setContact(nextContact);
@@ -737,10 +776,20 @@ export default function CheckoutScreen() {
           <Elements stripe={stripe} options={{
             clientSecret,
             locale: 'en-GB',
-            appearance: { theme: 'stripe' },
-            // Use standard configuration without mode for payment element
-            // This will use the configuration from the PaymentIntent
-          }}>
+            appearance: { 
+              theme: 'stripe',
+              variables: {
+                colorPrimary: '#c9a95c',
+                colorBackground: '#ffffff',
+                colorText: '#30313d',
+                colorDanger: '#df1b41',
+                fontFamily: 'Helvetica, sans-serif',
+                spacingUnit: '4px',
+                borderRadius: '4px'
+              }
+            },
+            loader: 'always'
+          }} key={clientSecret}>
             <StripePaymentForm
               cart={cart}
               contact={contact}

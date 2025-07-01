@@ -1,67 +1,68 @@
 
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image, Platform } from 'react-native';
+import { FontAwesome, FontAwesome5 } from '@expo/vector-icons';
 
-// Define payment methods with official logo URLs
+// Use FontAwesome icons which are known to work well with React Native
+
+// Define payment methods with FontAwesome icons
 const paymentMethods = [
   // Primary payment methods in specified order
   { 
     name: 'Visa', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/visa.svg'
+    icon: props => <FontAwesome name="cc-visa" {...props} color="#1A1F71" />
   },
   { 
     name: 'American Express', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/amex.svg'
+    icon: props => <FontAwesome name="cc-amex" {...props} color="#2E77BC" />
   },
   { 
     name: 'Google Pay', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/google-pay.svg'
+    icon: props => <FontAwesome5 name="google-pay" {...props} color="#5F6368" />
   },
   { 
     name: 'Apple Pay', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/apple-pay.svg'
+    icon: props => <FontAwesome5 name="apple-pay" {...props} color="#000000" />
   },
   { 
     name: 'Mastercard', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/mastercard.svg'
+    icon: props => <FontAwesome name="cc-mastercard" {...props} color="#EB001B" />
   },
   
   // Other payment methods
   { 
     name: 'PayPal', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/paypal.svg'
+    icon: props => <FontAwesome name="cc-paypal" {...props} color="#003087" />
   },
   { 
     name: 'Klarna', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/klarna.svg'
-  },
-  { 
-    name: 'Discover', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/discover.svg'
+    icon: props => <FontAwesome5 name="credit-card" {...props} color="#FFB3C7" />
   },
   { 
     name: 'Diners Club', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/diners.svg'
+    icon: props => <FontAwesome name="cc-diners-club" {...props} color="#0079BE" />
+  },
+  { 
+    name: 'Discover', 
+    icon: props => <FontAwesome name="cc-discover" {...props} color="#FF6000" />
   },
   { 
     name: 'JCB', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/jcb.svg'
-  },
-  { 
-    name: 'Revolut', 
-    imageUrl: 'https://cdn.jsdelivr.net/gh/stripe/payment-element@latest/img/payment-methods/revolut-pay.svg'
+    icon: props => <FontAwesome name="cc-jcb" {...props} color="#0B4EA2" />
   },
 ];
-
 
 export default function PaymentMethodsRow({ style = {}, iconSize = 38, pop = false }) {
   // Calculate dimensions based on iconSize
   const cardWidth = iconSize * 1.6;
   const cardHeight = iconSize * 1.0;
   
+  // Determine if we're on web platform
+  const isWeb = Platform.OS === 'web';
+  
   return (
     <View style={[styles.row, style]}>
-      {paymentMethods.map(({ name, imageUrl }) => (
+      {paymentMethods.map(({ name, icon: Icon }) => (
         <View
           key={name}
           style={[
@@ -74,15 +75,9 @@ export default function PaymentMethodsRow({ style = {}, iconSize = 38, pop = fal
             },
           ]}
         >
-          <Image
-            source={{ uri: imageUrl }}
-            style={{
-              width: iconSize * 1.2,
-              height: iconSize * 0.75,
-              resizeMode: 'contain',
-            }}
-            accessibilityLabel={`${name} payment method`}
-          />
+          <View style={{ width: iconSize, height: iconSize, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon size={iconSize * 0.8} />
+          </View>
         </View>
       ))}
     </View>

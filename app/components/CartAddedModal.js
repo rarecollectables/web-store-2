@@ -112,32 +112,44 @@ export default function CartAddedModal({ visible, onGoToCart, onContinue }) {
             style={[
               styles.buttonRow,
               isDesktop
-                ? { flexDirection: 'row', gap: 18, width: '100%', marginTop: 18, justifyContent: 'center', alignItems: 'center', maxWidth: 380, alignSelf: 'center' }
-                : { flexDirection: 'column', gap: 12, width: '100%', marginTop: 16, alignItems: 'center' },
+                ? { flexDirection: 'row', gap: 18, width: '100%', marginTop: 24, justifyContent: 'space-between', alignItems: 'center', maxWidth: 380, alignSelf: 'center' }
+                : { flexDirection: 'column-reverse', gap: 12, width: '100%', marginTop: 20, alignItems: 'center' },
             ]}
           >
+            {/* Continue Shopping button (left) */}
             <Pressable
               style={[
                 styles.button,
-                isDesktop ? { minWidth: 140, width: 'auto', marginHorizontal: 0, marginBottom: 0, alignSelf: 'center' } : { width: '100%', marginHorizontal: 0, marginBottom: 0, alignSelf: 'center' },
+                styles.continueBtn,
+                isDesktop 
+                  ? { flex: 1, minWidth: 160, paddingHorizontal: 16, marginHorizontal: 0, marginBottom: 0 } 
+                  : { width: '100%', marginHorizontal: 0, marginBottom: 0 },
+              ]}
+              onPress={onContinue}
+              accessibilityRole="button"
+              accessibilityLabel="Continue Shopping"
+            >
+              <Text 
+                numberOfLines={1} 
+                style={[styles.buttonText, { color: colors.gold }]}
+              >
+                Continue Shopping
+              </Text>
+            </Pressable>
+            
+            {/* Go to Cart button (right) */}
+            <Pressable
+              style={[
+                styles.button,
+                isDesktop 
+                  ? { flex: 1, minWidth: 120, paddingHorizontal: 16, marginHorizontal: 0, marginBottom: 0 } 
+                  : { width: '100%', marginHorizontal: 0, marginBottom: 0 },
               ]}
               onPress={onGoToCart}
               accessibilityRole="button"
               accessibilityLabel="Go to Cart"
             >
               <Text style={styles.buttonText}>Go to Cart</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.button,
-                styles.continueBtn,
-                isDesktop ? { minWidth: 140, width: 'auto', marginHorizontal: 0, marginBottom: 0, alignSelf: 'center' } : { width: '100%', marginHorizontal: 0, marginBottom: 0, alignSelf: 'center' },
-              ]}
-              onPress={onContinue}
-              accessibilityRole="button"
-              accessibilityLabel="Continue Shopping"
-            >
-              <Text style={[styles.buttonText, { color: colors.gold }]}>Continue Shopping</Text>
             </Pressable>
           </View>
         </Animated.View>
