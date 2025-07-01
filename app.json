@@ -30,7 +30,8 @@
       "expo-secure-store"
     ],
     "extra": {
-      "NETLIFY_STRIPE_FUNCTION_URL": "https://rarecollectables.co.uk/.netlify/functions/create-checkout-session"
+      "NETLIFY_STRIPE_FUNCTION_URL": "https://rarecollectables.co.uk/.netlify/functions/create-checkout-session",
+      "STRIPE_PUBLISHABLE_KEY": "${process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY}"
     }
   }
 }
