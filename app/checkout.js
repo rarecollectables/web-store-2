@@ -17,13 +17,17 @@ import { loadStripe } from '@stripe/stripe-js';
 import Constants from 'expo-constants';
 
 // Stripe keys from env - try multiple sources
-// TEMPORARY: Hardcoding a test key for debugging purposes
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_51NXgqJFuJhKOEDQxYKlOmh9qoNIY9RvnMNnWbiIuRNQ1VqA0wPLxsL8jFWwRmKvNj1YwGpL8s1OlZnwbUZAtj2Vv00zysCLzSJ';
+// Use dynamic key resolution based on environment
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 
+  (Constants?.expoConfig?.extra?.STRIPE_PUBLISHABLE_KEY) || 
+  (Constants?.manifest?.extra?.STRIPE_PUBLISHABLE_KEY) || 
+  // Fallback to test key for local development only
+  (process.env.NODE_ENV === 'development' ? 'pk_test_51NXgqJFuJhKOEDQxYKlOmh9qoNIY9RvnMNnWbiIuRNQ1VqA0wPLxsL8jFWwRmKvNj1YwGpL8s1OlZnwbUZAtj2Vv00zysCLzSJ' : null);
 
-// Comment out the dynamic key resolution for now
-// const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 
-//   (Constants?.expoConfig?.extra?.STRIPE_PUBLISHABLE_KEY) || 
-//   (Constants?.manifest?.extra?.STRIPE_PUBLISHABLE_KEY);
+// If no key is found, log an error
+if (!STRIPE_PUBLISHABLE_KEY) {
+  console.error('No Stripe publishable key found. Payment functionality will not work.');
+}
 
 const NETLIFY_STRIPE_FUNCTION_URL = 'https://rarecollectables.co.uk/.netlify/functions/create-checkout-session';
 
