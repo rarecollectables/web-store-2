@@ -58,6 +58,9 @@ const addressSchema = z.object({
 export function StripePaymentForm({ cart, contact, address, errors, setErrors, paying, setPaying, validateForm, removeFromCart, onSuccess, coupon, discountAmount }) {
   const stripe = useStripe();
   const elements = useElements();
+  const [clientSecret, setClientSecret] = useState(null);
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeError, setStripeError] = useState(null);
 
   const handleStripeCheckout = async () => {
     if (!validateForm()) return;

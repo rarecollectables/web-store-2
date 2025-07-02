@@ -288,7 +288,7 @@ export default function HomeScreen() {
                <BestSellersSection
                  cardWidth={cardSize}
                  numColumns={columns}
-                 bestSellerIds={['4-rings', '2-bracelets', '7c430a41-726e-4753-8214-36ffc77303cb', '20075497-1112-400f-8238-565f62cbd724']}
+                 bestSellerIds={['4-rings', '2-bracelets', '7c430a41-726e-4753-8214-36ffc77303cb', 'ec75311c-c851-45b8-b1a5-22a364e12449']}
                  onAddToCartSuccess={handleShowCartModal}
                />
              </View>
