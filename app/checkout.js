@@ -105,7 +105,7 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
             cart, 
             contact, 
             address, 
-            coupon: couponStatus?.valid ? coupon : null,
+            coupon: coupon || null, // Send the coupon directly if it exists
           }),
         });
         
