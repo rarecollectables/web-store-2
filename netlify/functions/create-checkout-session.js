@@ -127,13 +127,27 @@ exports.handler = async (event) => {
       return sum + (item.price * 100 * item.quantity);
     }, 0);
     
-    // Apply discount if provided
-    const discountAmountCents = discountAmount ? Math.round(discountAmount * 100) : 0;
-    console.log('Discount amount in cents:', discountAmountCents);
+    // Special handling for DISCOUNT95 coupon
+    let calculatedDiscountAmountCents = 0;
+    if (coupon === 'DISCOUNT95') {
+      // Apply 95% discount
+      calculatedDiscountAmountCents = Math.round(subtotal * 0.95);
+      console.log('Applied special DISCOUNT95 coupon: 95% off');
+    } else {
+      // Use provided discount amount for other coupons
+      calculatedDiscountAmountCents = discountAmount ? Math.round(discountAmount * 100) : 0;
+    }
+    
+    console.log('Discount amount in cents:', calculatedDiscountAmountCents);
     
     // Calculate final total (ensure it's never negative)
-    const total = Math.max(0, subtotal - discountAmountCents);
-    console.log('Payment calculation:', { subtotalCents: subtotal, discountCents: discountAmountCents, totalCents: total });
+    const total = Math.max(0, subtotal - calculatedDiscountAmountCents);
+    console.log('Payment calculation:', { 
+      subtotalCents: subtotal, 
+      discountCents: calculatedDiscountAmountCents, 
+      totalCents: total,
+      couponApplied: coupon || 'none'
+    });
 
     // Validate cart
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
@@ -269,8 +283,14 @@ exports.handler = async (event) => {
           country: address.country || 'GB'
         }) : null,
         original_amount: subtotal.toString(),
-        discount_amount: discountAmountCents.toString(),
-        coupon: coupon || 'none'
+        discount_amount: calculatedDiscountAmountCents.toString(),
+        coupon: coupon || 'none',
+        cart_items: JSON.stringify(cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })))
       }
     };
     
