@@ -189,36 +189,54 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         // Consider both 'succeeded' and 'processing' as successful states
         // 'processing' means the payment is being processed but not yet confirmed
         if (result.paymentIntent.status === 'succeeded' || result.paymentIntent.status === 'processing') {
-          // Payment successful
-          await storeOrder({
-            items: cart,
-            contact,
-            address,
-            total,
-            discount: discountAmount || 0,
-            coupon: coupon || null,
-            paymentIntentId: result.paymentIntent.id,
-          }, contact.email);
-          
-          // Track successful purchase
-          trackEvent({
-            eventType: 'purchase',
-            items: cart.map(item => ({
-              id: item.id,
-              name: item.name,
-              price: item.price,
-              quantity: item.quantity,
-              image_url: item.image_url
-            })),
-            value: total,
-            currency: 'GBP',
-            transaction_id: result.paymentIntent.id,
-            metadata: { coupon }
-          });
-          
-          // Clear cart and show confirmation
-          cart.forEach(item => removeFromCart(item.id));
-          if (onSuccess) onSuccess(contact.email);
+          try {
+            // Payment successful
+            // Generate a customer-friendly order number (current date + random numbers)
+            const orderDate = new Date();
+            const orderNumber = `ORD-${orderDate.getFullYear()}${String(orderDate.getMonth() + 1).padStart(2, '0')}${String(orderDate.getDate()).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+            
+            // Create the order object
+            const orderData = {
+              id: orderNumber,
+              date: orderDate.toISOString(),
+              items: cart,
+              contact,
+              address,
+              total,
+              discount: discountAmount || 0,
+              coupon: coupon || null,
+              paymentIntentId: result.paymentIntent.id,
+              status: 'confirmed'
+            };
+            
+            // Store the order in both localStorage and database
+            await storeOrder(orderData, contact.email);
+            
+            // Track successful purchase
+            trackEvent({
+              eventType: 'purchase',
+              items: cart.map(item => ({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+                image_url: item.image_url
+              })),
+              value: total,
+              currency: 'GBP',
+              transaction_id: result.paymentIntent.id,
+              metadata: { coupon, orderNumber }
+            });
+            
+            // Clear cart and show confirmation
+            cart.forEach(item => removeFromCart(item.id));
+            if (onSuccess) onSuccess(contact.email);
+          } catch (orderError) {
+            console.error('Error storing order:', orderError);
+            // Continue with success flow even if order storage fails
+            // The payment was successful, we just couldn't store it properly
+            if (onSuccess) onSuccess(contact.email);
+          }
         } else {
           // This handles cases where the payment intent exists but is in a state other than succeeded/processing
           console.warn(`Payment in unexpected state: ${result.paymentIntent.status}`);
@@ -409,7 +427,8 @@ export default function CheckoutScreen() {
             cart,
             contact: contact.email ? contact : { name: 'Test User', email: 'test@example.com' },
             address: address.line1 ? address : { line1: '123 Test St', city: 'London', postcode: 'SW1A 1AA' },
-            couponCode: couponStatus?.valid ? coupon : null,
+            coupon: couponStatus?.valid ? coupon : null,
+            discountAmount: discountAmount || 0
           };
           
           const response = await fetch(NETLIFY_STRIPE_FUNCTION_URL, {

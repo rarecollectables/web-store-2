@@ -1,7 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { getUserOrders, storeOrder } from './components/orders-modal';
+import { storeOrder } from './components/orders-modal';
 import { loadStripe } from '@stripe/stripe-js';
+
+// Define getUserOrders function directly to avoid import issues
+function getUserOrders(email) {
+  // Orders are stored locally by email (if provided), else by device key
+  if (typeof window !== 'undefined' && window.localStorage) {
+    if (email) {
+      const key = `ORDERS_EMAIL_${email.toLowerCase()}`;
+      const data = window.localStorage.getItem(key);
+      return data ? JSON.parse(data) : [];
+    }
+    const key = `ORDERS_${getDeviceKey()}`;
+    const data = window.localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  }
+  return [];
+}
+
+// Helper function to get device key
+function getDeviceKey() {
+  // Simple device fingerprinting
+  const userAgent = navigator.userAgent;
+  const key = `device_${userAgent.length}_${userAgent.split('').reduce((a, c) => a + c.charCodeAt(0), 0)}`;
+  return key;
+}
 
 export default function CheckoutSuccess() {
   const router = useRouter();
@@ -35,18 +59,33 @@ export default function CheckoutSuccess() {
               const cartData = localStorage.getItem('cartData');
               if (cartData) {
                 const { cart, contact, address, total } = JSON.parse(cartData);
-                // Store the order
-                await storeOrder({
-                  items: cart,
-                  contact,
-                  address,
-                  total,
-                  paymentIntentId: paymentIntentId,
-                  paymentMethod: paymentIntent.payment_method_types?.[0] || 'unknown'
-                }, email);
-                
-                // Clear cart data
-                localStorage.removeItem('cartData');
+                try {
+                  // Generate a customer-friendly order number (current date + random numbers)
+                  const orderDate = new Date();
+                  const orderNumber = `ORD-${orderDate.getFullYear()}${String(orderDate.getMonth() + 1).padStart(2, '0')}${String(orderDate.getDate()).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+                  
+                  // Create the order object
+                  const orderData = {
+                    id: orderNumber,
+                    date: orderDate.toISOString(),
+                    items: cart,
+                    contact,
+                    address,
+                    total,
+                    paymentIntentId: paymentIntentId,
+                    paymentMethod: paymentIntent.payment_method_types?.[0] || 'unknown',
+                    status: 'confirmed'
+                  };
+                  
+                  // Store the order in both localStorage and database
+                  await storeOrder(orderData, email);
+                  
+                  // Clear cart data
+                  localStorage.removeItem('cartData');
+                } catch (orderError) {
+                  console.error('Error storing order:', orderError);
+                  // Continue with success flow even if order storage fails
+                }
               }
             }
           }
@@ -107,17 +146,38 @@ export default function CheckoutSuccess() {
         <div style={{ marginBottom: 24, padding: 16, backgroundColor: '#f9f9f9', borderRadius: 8 }}>
           <h3 style={{ fontSize: 18, marginBottom: 12 }}>Order Summary</h3>
           <p style={{ fontSize: 16, marginBottom: 8 }}>
-            <strong>Order ID:</strong> {order.paymentIntentId?.slice(-8)}
+            <strong>Order Number:</strong> {order.id || `ORD-${order.paymentIntentId?.slice(-8)}`}
           </p>
           <p style={{ fontSize: 16, marginBottom: 8 }}>
-            <strong>Date:</strong> {new Date().toLocaleDateString()}
+            <strong>Date:</strong> {order.date 
+              ? new Date(order.date).toLocaleDateString('en-GB', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric'
+                })
+              : new Date().toLocaleDateString('en-GB')}
+          </p>
+          <p style={{ fontSize: 16, marginBottom: 8 }}>
+            <strong>Status:</strong> {order.status || 'Confirmed'}
           </p>
           <p style={{ fontSize: 16, marginBottom: 8 }}>
             <strong>Total:</strong> £{order.total?.toFixed(2)}
           </p>
-          <p style={{ fontSize: 16, marginBottom: 8 }}>
-            <strong>Items:</strong> {order.items?.length || 0}
-          </p>
+          <div style={{ marginTop: 16 }}>
+            <p style={{ fontSize: 16, marginBottom: 8, fontWeight: 'bold' }}>Items:</p>
+            {order.items && order.items.map((item, idx) => (
+              <div key={idx} style={{ marginBottom: 8, paddingLeft: 12 }}>
+                <p style={{ fontSize: 14, margin: 0 }}>
+                  • {item.title || item.name} x{item.quantity} - £{(item.price * item.quantity).toFixed(2)}
+                </p>
+              </div>
+            ))}
+          </div>
+          {order.discount > 0 && (
+            <p style={{ fontSize: 16, marginTop: 8, color: '#4CAF50' }}>
+              <strong>Discount:</strong> -£{order.discount.toFixed(2)}
+            </p>
+          )}
           <div style={{ marginTop: 12, fontSize: 14 }}>
             <p>You can view this order anytime in your <a href="/profile" style={{ color: '#BFA054', textDecoration: 'underline' }}>order history</a>.</p>
           </div>

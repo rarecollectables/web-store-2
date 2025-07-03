@@ -27,7 +27,7 @@ const initializeStore = async () => {
         .from('guest_sessions')
         .insert({
           session_id: sessionId,
-          last_active_at: new Date()
+          last_active_at: new Date().toISOString()
         })
         .select()
         .single();
