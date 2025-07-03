@@ -79,6 +79,12 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
       return;
     }
     
+    // Validate required fields directly
+    if (!contact.name || !contact.email || !address.line1 || !address.city || !address.postcode) {
+      setErrors({ ...errors, payment: ['Please complete all required contact and shipping information.'] });
+      return;
+    }
+    
     try {
       setPaying(true);
       // Calculate discounted total
@@ -559,10 +565,9 @@ export default function CheckoutScreen() {
       if (error.errors) error.errors.forEach(err => { addressErrors[err.path[0]] = err.message; });
     }
     
-    // Check if we have a client secret (payment intent)
-    if (!clientSecret) {
-      paymentErrors.push('Please complete your contact and shipping information first');
-    }
+    // We no longer require clientSecret to be set before proceeding
+    // This allows the payment form to be shown and used immediately
+    // The clientSecret will be created during payment processing if needed
     
     setErrors({ 
       contact: Object.values(contactErrors), 
@@ -909,7 +914,9 @@ export default function CheckoutScreen() {
           </Elements>
         ) : (
           <View style={{padding: 20}}>
-            <Text style={{color: colors.text}}>Please complete your contact and shipping information to proceed to payment.</Text>
+            <Text style={{color: colors.text, fontWeight: 'bold', marginBottom: 10}}>Loading Payment Form...</Text>
+            <Text style={{color: colors.text, marginBottom: 10}}>Please wait while we initialize the payment system.</Text>
+            <ActivityIndicator size="small" color={colors.gold} />
           </View>
         )}
       </View>

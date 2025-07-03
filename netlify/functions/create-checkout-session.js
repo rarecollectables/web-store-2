@@ -326,33 +326,23 @@ exports.handler = async (event) => {
       }
     });
 
+    // Return success response with client secret and payment details
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      },
+      headers,
       body: JSON.stringify({
         clientSecret: paymentIntent.client_secret,
         paymentDetails: {
           subtotal,
-          discount: discountAmountCents,
-          total,
-          couponApplied: !!coupon
+          discount: calculatedDiscountAmountCents,
+          total: paymentIntent.amount,
+          couponApplied: coupon || null
         }
-      })
+      }),
     };
-
   } catch (error) {
-    console.error('Error creating checkout session:', {
-      error: error.message,
-      stack: error.stack,
-      type: error.type,
-      code: error.code
-    });
-
+    console.error('Error creating checkout session:', error);
+    
     const statusCode = error.statusCode || 500;
     const response = {
       error: error.message || 'An unexpected error occurred',
@@ -363,10 +353,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers,
       body: JSON.stringify(response)
     };
   }
