@@ -232,8 +232,30 @@ exports.handler = async (event) => {
       }
     });
 
+    // If there's a coupon code, try to retrieve it from Stripe
+    let stripePromoCode = null;
+    if (coupon) {
+      try {
+        // Find the promotion code in Stripe
+        const promoCodes = await stripe.promotionCodes.list({
+          code: coupon,
+          active: true,
+          limit: 1
+        });
+        
+        if (promoCodes.data.length > 0) {
+          stripePromoCode = promoCodes.data[0];
+          console.log(`Found valid promotion code: ${coupon}`);
+        } else {
+          console.log(`Coupon code not found in Stripe: ${coupon}`);
+        }
+      } catch (err) {
+        console.error('Error retrieving coupon from Stripe:', err);
+      }
+    }
+    
     // Create payment intent with simplified metadata and multiple payment methods
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntentParams = {
       amount: total,
       currency: 'gbp',
       customer: customer.id,
@@ -250,7 +272,14 @@ exports.handler = async (event) => {
         discount_amount: discountAmountCents.toString(),
         coupon: coupon || 'none'
       }
-    });
+    };
+    
+    // If we found a valid promotion code, add it to the payment intent
+    if (stripePromoCode) {
+      paymentIntentParams.promotion_code = stripePromoCode.id;
+    }
+    
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
     // Add additional metadata about the cart for tracking purposes
     const cartMetadata = cart.map(item => ({

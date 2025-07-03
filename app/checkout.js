@@ -415,18 +415,18 @@ export default function CheckoutScreen() {
       hasNoClientSecret: !clientSecret
     });
     
-    // Create a new payment intent only when we have Stripe loaded and cart items
-    if (stripe && cart.length > 0) {
+    // Create a new payment intent only when we have Stripe loaded, cart items, and user contact info
+    if (stripe && cart.length > 0 && contact.email && address.line1) {
       const createPaymentIntent = async () => {
         try {
           setStripeLoading(true);
           console.log('Creating new payment intent');
           
-          // Use actual entered data if available, or test data if not
+          // Only use actual user data, no fallbacks
           const paymentData = {
             cart,
-            contact: contact.email ? contact : { name: 'Test User', email: 'test@example.com' },
-            address: address.line1 ? address : { line1: '123 Test St', city: 'London', postcode: 'SW1A 1AA' },
+            contact,
+            address,
             coupon: couponStatus?.valid ? coupon : null,
             discountAmount: discountAmount || 0
           };
@@ -531,14 +531,29 @@ export default function CheckoutScreen() {
   const validateForm = () => {
     const contactErrors = {};
     const addressErrors = {};
+    const paymentErrors = [];
+    
     try { contactSchema.parse(contact); } catch (error) {
       if (error.errors) error.errors.forEach(err => { contactErrors[err.path[0]] = err.message; });
     }
     try { addressSchema.parse(address); } catch (error) {
       if (error.errors) error.errors.forEach(err => { addressErrors[err.path[0]] = err.message; });
     }
-    setErrors({ contact: Object.values(contactErrors), address: Object.values(addressErrors) });
-    return Object.keys(contactErrors).length === 0 && Object.keys(addressErrors).length === 0;
+    
+    // Check if we have a client secret (payment intent)
+    if (!clientSecret) {
+      paymentErrors.push('Please complete your contact and shipping information first');
+    }
+    
+    setErrors({ 
+      contact: Object.values(contactErrors), 
+      address: Object.values(addressErrors),
+      payment: paymentErrors
+    });
+    
+    return Object.keys(contactErrors).length === 0 && 
+           Object.keys(addressErrors).length === 0 && 
+           paymentErrors.length === 0;
   };
 
   // Shipping selection: 'free' or 'next_day'
