@@ -80,6 +80,14 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
       const discountedSubtotal = Math.max(0, subtotal - (discountAmount || 0));
       const total = Math.max(0, discountedSubtotal); // No tax applied
       
+      // Log the calculation for debugging
+      console.log('Payment calculation:', { 
+        subtotal, 
+        discountAmount: discountAmount || 0, 
+        discountedSubtotal, 
+        total 
+      });
+      
       // Track checkout initiation
       trackEvent({
         eventType: 'begin_checkout',
@@ -106,6 +114,7 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
             contact, 
             address, 
             coupon: coupon || null, // Send the coupon directly if it exists
+            discountAmount: discountAmount || 0, // Pass the discount amount to the server
           }),
         });
         
@@ -116,6 +125,24 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
         
         const data = await response.json();
         currentClientSecret = data.clientSecret;
+        
+        // Log payment details from server for verification
+        if (data.paymentDetails) {
+          console.log('Server payment details:', {
+            subtotal: data.paymentDetails.subtotal / 100, // Convert cents to dollars/pounds
+            discount: data.paymentDetails.discount / 100,
+            total: data.paymentDetails.total / 100,
+            couponApplied: data.paymentDetails.couponApplied
+          });
+          
+          // Verify the total matches our calculation
+          if (Math.abs((data.paymentDetails.total / 100) - total) > 0.01) {
+            console.warn('Total mismatch between client and server:', {
+              clientTotal: total,
+              serverTotal: data.paymentDetails.total / 100
+            });
+          }
+        }
       }
       
       // Get card element
@@ -151,45 +178,60 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
       });
       
       if (result.error) {
+        console.error('Stripe payment error:', result.error);
         throw new Error(`Payment failed: ${result.error.message}`);
       }
       
-      if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
-        // Payment successful
-        await storeOrder({
-          items: cart,
-          contact,
-          address,
-          total,
-          discount: discountAmount || 0,
-          coupon: coupon || null,
-          paymentIntentId: result.paymentIntent.id,
-        }, contact.email);
+      // Check for successful payment or payment that requires additional action
+      if (result.paymentIntent) {
+        console.log('Payment intent status:', result.paymentIntent.status);
         
-        // Track successful purchase
-        trackEvent({
-          eventType: 'purchase',
-          items: cart.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            image_url: item.image_url
-          })),
-          value: total,
-          currency: 'GBP',
-          transaction_id: result.paymentIntent.id,
-          metadata: { coupon }
-        });
-        
-        // Clear cart and show confirmation
-        cart.forEach(item => removeFromCart(item.id));
-        if (onSuccess) onSuccess(contact.email);
+        // Consider both 'succeeded' and 'processing' as successful states
+        // 'processing' means the payment is being processed but not yet confirmed
+        if (result.paymentIntent.status === 'succeeded' || result.paymentIntent.status === 'processing') {
+          // Payment successful
+          await storeOrder({
+            items: cart,
+            contact,
+            address,
+            total,
+            discount: discountAmount || 0,
+            coupon: coupon || null,
+            paymentIntentId: result.paymentIntent.id,
+          }, contact.email);
+          
+          // Track successful purchase
+          trackEvent({
+            eventType: 'purchase',
+            items: cart.map(item => ({
+              id: item.id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              image_url: item.image_url
+            })),
+            value: total,
+            currency: 'GBP',
+            transaction_id: result.paymentIntent.id,
+            metadata: { coupon }
+          });
+          
+          // Clear cart and show confirmation
+          cart.forEach(item => removeFromCart(item.id));
+          if (onSuccess) onSuccess(contact.email);
+        } else {
+          // This handles cases where the payment intent exists but is in a state other than succeeded/processing
+          console.warn(`Payment in unexpected state: ${result.paymentIntent.status}`);
+          throw new Error(`Payment not successful: ${result.paymentIntent.status}`);
+        }
       } else {
-        throw new Error(`Payment not successful: ${result.paymentIntent?.status || 'unknown status'}`);
+        // This handles cases where there's no payment intent in the result
+        console.error('No payment intent returned from Stripe');
+        throw new Error('Payment failed: No payment intent returned');
       }
     } catch (error) {
       console.error('Payment error:', error);
+      setStripeError(error.message);
       // Track payment failure
       trackEvent({ 
         eventType: 'checkout_payment_failed', 

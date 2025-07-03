@@ -101,13 +101,15 @@ exports.handler = async (event) => {
     });
 
     // Parse request body
-    const { cart, contact, address } = JSON.parse(event.body);
+    const { cart, contact, address, coupon, discountAmount } = JSON.parse(event.body);
 
     // Log incoming request data
     console.log('Received checkout request:', {
       cartCount: cart.length,
       hasContact: !!contact,
       hasAddress: !!address,
+      hasCoupon: !!coupon,
+      discountAmount: discountAmount || 0,
       shippingCountries: address ? ['GB', 'US', 'CA', 'IE', 'AU', 'FR', 'DE', 'NG'] : []
     });
 
@@ -120,10 +122,18 @@ exports.handler = async (event) => {
       };
     }
 
-    // Calculate total amount in cents
-    const total = cart.reduce((sum, item) => {
+    // Calculate subtotal amount in cents
+    const subtotal = cart.reduce((sum, item) => {
       return sum + (item.price * 100 * item.quantity);
     }, 0);
+    
+    // Apply discount if provided
+    const discountAmountCents = discountAmount ? Math.round(discountAmount * 100) : 0;
+    console.log('Discount amount in cents:', discountAmountCents);
+    
+    // Calculate final total (ensure it's never negative)
+    const total = Math.max(0, subtotal - discountAmountCents);
+    console.log('Payment calculation:', { subtotalCents: subtotal, discountCents: discountAmountCents, totalCents: total });
 
     // Validate cart
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
@@ -235,7 +245,10 @@ exports.handler = async (event) => {
           city: address.city,
           postal_code: address.zip,
           country: address.country || 'GB'
-        }) : null
+        }) : null,
+        original_amount: subtotal.toString(),
+        discount_amount: discountAmountCents.toString(),
+        coupon: coupon || 'none'
       }
     });
 
@@ -264,7 +277,13 @@ exports.handler = async (event) => {
         'Access-Control-Allow-Headers': 'Content-Type, Authorization'
       },
       body: JSON.stringify({
-        clientSecret: paymentIntent.client_secret
+        clientSecret: paymentIntent.client_secret,
+        paymentDetails: {
+          subtotal,
+          discount: discountAmountCents,
+          total,
+          couponApplied: !!coupon
+        }
       })
     };
 
