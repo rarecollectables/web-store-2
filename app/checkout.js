@@ -65,6 +65,12 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
   const [clientSecret, setClientSecret] = useState(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState(null);
+  const [cardComplete, setCardComplete] = useState(false);
+  
+  // Ensure the CardElement is properly initialized
+  useEffect(() => {
+    console.log('StripePaymentForm mounted, elements available:', !!elements);
+  }, [elements]);
 
   const handleStripeCheckout = async () => {
     if (!validateForm()) return;
@@ -265,6 +271,9 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
   };
 
 
+  // Log component rendering for debugging
+  console.log('Rendering StripePaymentForm', { hasStripe: !!stripe, hasElements: !!elements });
+  
   return (
     <View style={styles.paymentSection}>
       <Text style={styles.sectionTitle}>Payment Information</Text>
@@ -277,23 +286,33 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
           <Text style={styles.secureLabel}>Secure Card Payment</Text>
         </View>
         <Text style={styles.inputLabel}>Card Details</Text>
-        <View style={styles.stripeCardLuxuryWrapper}>
-          <CardElement options={{
-            style: {
-              base: {
-                fontSize: '16px',
-                color: '#30313d',
-                fontFamily: 'Helvetica, sans-serif',
-                '::placeholder': {
-                  color: '#aab7c4',
+        <View style={[styles.stripeCardLuxuryWrapper, { minHeight: 50 }]}>
+          {elements ? (
+            <CardElement 
+              onChange={(e) => {
+                console.log('Card element change:', e.complete ? 'complete' : 'incomplete');
+                setCardComplete(e.complete);
+              }}
+              options={{
+                style: {
+                  base: {
+                    fontSize: '16px',
+                    color: '#30313d',
+                    fontFamily: 'Helvetica, sans-serif',
+                    '::placeholder': {
+                      color: '#aab7c4',
+                    },
+                  },
+                  invalid: {
+                    color: '#df1b41',
+                  },
                 },
-              },
-              invalid: {
-                color: '#df1b41',
-              },
-            },
-            hidePostalCode: true,
-          }} />
+                hidePostalCode: true,
+              }} 
+            />
+          ) : (
+            <Text style={{ color: colors.grey, textAlign: 'center', paddingTop: 10 }}>Loading payment form...</Text>
+          )}
         </View>
         <Text style={styles.cardHelperText}>All transactions are encrypted and processed securely.</Text>
         <Pressable
@@ -855,9 +874,9 @@ export default function CheckoutScreen() {
           </View>
         )}
         
-        {stripe && clientSecret ? (
+        {/* Always show the Stripe Elements form when stripe is loaded */}
+        {stripe ? (
           <Elements stripe={stripe} options={{
-            clientSecret,
             locale: 'en-GB',
             appearance: { 
               theme: 'stripe',
@@ -872,7 +891,7 @@ export default function CheckoutScreen() {
               }
             },
             loader: 'always'
-          }} key={clientSecret}>
+          }}>
             <StripePaymentForm
               cart={cart}
               contact={contact}
@@ -1242,6 +1261,60 @@ const styles = StyleSheet.create({
   checkoutButtonDisabled: {
     backgroundColor: '#e5d9c3',
     opacity: 0.6,
+  },
+  // Stripe card element styles
+  cardElementLuxuryContainer: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: '#fafaf8',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ece6d7',
+  },
+  stripeCardLuxuryWrapper: {
+    height: 50,
+    paddingHorizontal: 12,
+    paddingVertical: 15,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d0d0d0',
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  secureIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  secureLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.grey,
+  },
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    marginBottom: 8,
+    color: colors.onyxBlack,
+  },
+  cardHelperText: {
+    fontSize: 13,
+    color: colors.grey,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  paymentSection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  errorText: {
+    color: colors.ruby,
+    marginBottom: 10,
+    fontSize: 14,
+  },
+  successText: {
+    color: '#2e7d32',
+    marginBottom: 10,
+    fontSize: 14,
   },
 });
 
