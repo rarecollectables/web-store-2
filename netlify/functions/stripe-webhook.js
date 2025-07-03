@@ -102,7 +102,7 @@ exports.handler = async (event) => {
             to: orderData.customer_email,
             order: orderData
           });
-          errorHandler.logError(emailErr, { ...context, stage: 'send_email', to: orderData.contact_email });
+          errorHandler.logError(emailErr, { ...context, stage: 'send_email', to: orderData.customer_email });
           // Do not fail the webhook for email errors
         }
       }

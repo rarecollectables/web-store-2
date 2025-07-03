@@ -2,7 +2,14 @@ const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 async function sendConfirmationEmail({ to, order, relatedProducts = [] }) {
+  console.log('[EMAIL DEBUG] Starting sendConfirmationEmail function with:', { to, order: JSON.stringify(order) });
+  
   if (!to) throw new Error('Recipient email required');
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error('[EMAIL DEBUG] Missing SENDGRID_API_KEY environment variable');
+    throw new Error('SendGrid API key is missing');
+  }
+  
   const msg = {
     to,
     bcc: ['carecentre@rarecollectables.co.uk', 'rarecollectablesshop@gmail.com', ...(process.env.ORDER_BCC_EMAIL ? [process.env.ORDER_BCC_EMAIL] : [])],
@@ -93,7 +100,27 @@ Rare Collectables Team`,
       </div>
     `
   };
-  return sgMail.send(msg);
+  try {
+    console.log('[EMAIL DEBUG] Attempting to send email with payload:', {
+      to: msg.to,
+      from: msg.from.email,
+      subject: msg.subject,
+      bcc: msg.bcc
+    });
+    
+    const result = await sgMail.send(msg);
+    console.log('[EMAIL DEBUG] Email sent successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('[EMAIL DEBUG] SendGrid error:', error.toString());
+    if (error.response) {
+      console.error('[EMAIL DEBUG] SendGrid error details:', {
+        body: error.response.body,
+        statusCode: error.response.statusCode
+      });
+    }
+    throw error;
+  }
 }
 
 module.exports = sendConfirmationEmail;

@@ -274,10 +274,8 @@ exports.handler = async (event) => {
       }
     };
     
-    // If we found a valid promotion code, add it to the payment intent
-    if (stripePromoCode) {
-      paymentIntentParams.promotion_code = stripePromoCode.id;
-    }
+    // We don't use promotion_code directly as it's not supported in this API version
+    // Instead, we've already applied the discount to the total amount
     
     const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
