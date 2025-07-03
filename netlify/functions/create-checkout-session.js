@@ -127,14 +127,42 @@ exports.handler = async (event) => {
       return sum + (item.price * 100 * item.quantity);
     }, 0);
     
-    // Special handling for DISCOUNT95 coupon
+    // Dynamic coupon handling - validate with Stripe and calculate discount
     let calculatedDiscountAmountCents = 0;
-    if (coupon === 'DISCOUNT95') {
-      // Apply 95% discount
-      calculatedDiscountAmountCents = Math.round(subtotal * 0.95);
-      console.log('Applied special DISCOUNT95 coupon: 95% off');
+    if (coupon) {
+      try {
+        // Find the promotion code in Stripe
+        const promoCodes = await stripe.promotionCodes.list({
+          code: coupon,
+          active: true,
+          limit: 1
+        });
+        
+        if (promoCodes.data.length > 0) {
+          const promo = promoCodes.data[0];
+          
+          // Calculate discount based on coupon type
+          if (promo.coupon.percent_off) {
+            // Percentage discount
+            calculatedDiscountAmountCents = Math.round(subtotal * (promo.coupon.percent_off / 100));
+            console.log(`Applied ${promo.coupon.percent_off}% discount for coupon: ${coupon}`);
+          } else if (promo.coupon.amount_off) {
+            // Fixed amount discount
+            calculatedDiscountAmountCents = promo.coupon.amount_off;
+            console.log(`Applied fixed discount of ${promo.coupon.amount_off / 100} ${promo.coupon.currency} for coupon: ${coupon}`);
+          }
+        } else {
+          console.log(`Coupon not found in Stripe: ${coupon}`);
+          // Fall back to provided discount amount if coupon not found
+          calculatedDiscountAmountCents = discountAmount ? Math.round(discountAmount * 100) : 0;
+        }
+      } catch (err) {
+        console.error('Error validating coupon with Stripe:', err);
+        // Fall back to provided discount amount if there's an error
+        calculatedDiscountAmountCents = discountAmount ? Math.round(discountAmount * 100) : 0;
+      }
     } else {
-      // Use provided discount amount for other coupons
+      // No coupon provided, use the provided discount amount if any
       calculatedDiscountAmountCents = discountAmount ? Math.round(discountAmount * 100) : 0;
     }
     
@@ -246,27 +274,10 @@ exports.handler = async (event) => {
       }
     });
 
-    // If there's a coupon code, try to retrieve it from Stripe
-    let stripePromoCode = null;
-    if (coupon) {
-      try {
-        // Find the promotion code in Stripe
-        const promoCodes = await stripe.promotionCodes.list({
-          code: coupon,
-          active: true,
-          limit: 1
-        });
-        
-        if (promoCodes.data.length > 0) {
-          stripePromoCode = promoCodes.data[0];
-          console.log(`Found valid promotion code: ${coupon}`);
-        } else {
-          console.log(`Coupon code not found in Stripe: ${coupon}`);
-        }
-      } catch (err) {
-        console.error('Error retrieving coupon from Stripe:', err);
-      }
-    }
+    // We've already validated the coupon code earlier, no need to do it again
+    // Just log that we're proceeding with the payment intent creation
+    console.log(`Proceeding with payment intent creation with coupon: ${coupon || 'none'}`);
+    console.log(`Applied discount amount: ${calculatedDiscountAmountCents / 100} GBP`);
     
     // Create payment intent with simplified metadata and multiple payment methods
     const paymentIntentParams = {

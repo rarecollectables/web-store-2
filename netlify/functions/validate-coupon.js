@@ -27,20 +27,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Special handling for DISCOUNT95 coupon (hardcoded for reliability)
-    if (coupon === 'DISCOUNT95') {
-      console.log('Applying special hardcoded DISCOUNT95 coupon');
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          valid: true,
-          discount: { type: 'percent', value: 95 },
-          promo: { id: 'manual-discount95', coupon: { percent_off: 95 } }
-        }),
-      };
-    }
-    
-    // Find the promotion code in Stripe for other coupons
+    // Find the promotion code in Stripe
     const promoCodes = await stripe.promotionCodes.list({
       code: coupon,
       active: true,
