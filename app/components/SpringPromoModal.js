@@ -16,7 +16,7 @@ export default function SpringPromoModal({ visible, onClose }) {
           ]}
           numberOfLines={1}
         >
-          🌸 Welcome to Rare Collectables!
+          ☀️ Welcome to Rare Collectables!
         </Text>
         <Text style={styles.body}>
           As a thank you for visiting
@@ -26,7 +26,7 @@ export default function SpringPromoModal({ visible, onClose }) {
         </Text>
         <Text style={styles.codeLabel}>Use coupon code:</Text>
         <View style={styles.codeBox}>
-          <Text selectable style={styles.code}>SPRING20</Text>
+          <Text selectable style={styles.code}>SUMMER20</Text>
         </View>
         <Text style={styles.bodySmall}>Enter it at checkout. Hurry—this offer is for new visitors only!</Text>
         <Pressable style={styles.button} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close promo banner">
