@@ -224,6 +224,34 @@ export function StripePaymentForm({ cart, contact, address, errors, setErrors, p
             // Store the order in both localStorage and database
             await storeOrder(orderData, contact.email);
             
+            // Send confirmation email directly after successful payment
+            try {
+              const emailResponse = await fetch('/.netlify/functions/sendConfirmationEmail', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  to: contact.email,
+                  order: {
+                    order_number: orderNumber,
+                    amount: total * 100, // Convert to cents for consistency with backend
+                    quantity: cart.reduce((sum, item) => sum + item.quantity, 0),
+                    created_at: orderDate.toISOString(),
+                    shipping_address: address,
+                    product_image: cart[0]?.image_url || null
+                  }
+                })
+              });
+              
+              if (!emailResponse.ok) {
+                console.error('Failed to send confirmation email:', await emailResponse.text());
+              } else {
+                console.log('Confirmation email sent successfully');
+              }
+            } catch (emailError) {
+              console.error('Error sending confirmation email:', emailError);
+              // Continue with checkout process even if email fails
+            }
+            
             // Track successful purchase
             trackEvent({
               eventType: 'purchase',

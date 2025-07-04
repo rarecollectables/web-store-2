@@ -1,6 +1,56 @@
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
+// HTTP handler for Netlify Functions
+exports.handler = async (event) => {
+  // Handle CORS preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      },
+      body: '',
+    };
+  }
+
+  // Only allow POST requests
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Method not allowed' }),
+    };
+  }
+
+  try {
+    const { to, order } = JSON.parse(event.body);
+    
+    // Validate required fields
+    if (!to || !order) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Missing required fields: to and order' }),
+      };
+    }
+    
+    // Send the email
+    await sendConfirmationEmail({ to, order });
+    
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true, message: 'Confirmation email sent successfully' }),
+    };
+  } catch (error) {
+    console.error('Error sending confirmation email:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message || 'Failed to send confirmation email' }),
+    };
+  }
+};
+
 async function sendConfirmationEmail({ to, order, relatedProducts = [] }) {
   console.log('[EMAIL DEBUG] Starting sendConfirmationEmail function with:', { to, order: JSON.stringify(order) });
   
