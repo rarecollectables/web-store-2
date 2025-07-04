@@ -50,7 +50,11 @@ exports.handler = async (event) => {
       items: metadata.items || null,
       total_amount: paymentIntent.amount,
       discount_amount: metadata.discount_amount ? parseInt(metadata.discount_amount) : 0,
-      coupon_code: metadata.coupon || null,
+      // Store coupon info in metadata instead of coupon_code field
+      metadata: JSON.stringify({
+        coupon: metadata.coupon || null,
+        discount_details: metadata.discount_amount ? { amount: parseInt(metadata.discount_amount) } : null
+      }),
       payment_method: paymentIntent.payment_method_types?.[0] || 'card',
       status: 'confirmed',
       created_at: new Date().toISOString(),

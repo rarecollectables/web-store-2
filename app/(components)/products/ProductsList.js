@@ -76,6 +76,8 @@ export default function ProductsList({ onAddToCartSuccess }) {
   // State for search, category, and sorting
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  // Add a key to force re-render when needed
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Sync selectedCategory with URL param on mount and whenever category param changes
   useEffect(() => {
@@ -105,19 +107,28 @@ export default function ProductsList({ onAddToCartSuccess }) {
   // The loadMoreProducts function is now handled by our custom hook
 
   // Define fetchProducts outside of useEffect so it can be called from multiple places
-  const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchProducts = useCallback(async () => {
+    // Debug log to track when fetchProducts is called
+    console.log('fetchProducts called with refreshKey:', refreshKey);
+    try {
+      setLoading(true);
+      setError(null);
+      setProducts([]); // Clear products while loading to avoid showing stale data
+      
+      console.log('Fetching products with filters:', {
+        page,
+        sortOption,
+        selectedCategory,
+        search,
+        urlCategory: category,
+        refreshKey
+      });  
         
-        // Log the current category being fetched
-        console.log('Fetching products with category:', category);
-        
-        // First, test the Supabase connection
-        const { data: test, error: testError } = await supabase
-          .from('products')
-          .select('id')
-          .limit(1);
+      // First, test the Supabase connection
+      const { data: test, error: testError } = await supabase
+        .from('products')
+        .select('id')
+        .limit(1);
 
         if (testError) {
           console.error('Supabase connection test failed:', testError);
@@ -133,7 +144,19 @@ export default function ProductsList({ onAddToCartSuccess }) {
           
         // Apply category filters to count query
         if (selectedCategory && selectedCategory !== 'All') {
-          countQuery = countQuery.eq('category', selectedCategory);
+          // Special handling for Jewellery Set category in count query
+          let formattedCategory;
+          
+          if (selectedCategory === 'Jewellery Set') {
+            // Use exact match for "Jewellery_Set" as stored in the database
+            formattedCategory = 'Jewellery_Set';
+          } else {
+            // Standard formatting for single-word categories
+            formattedCategory = selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1).toLowerCase();
+          }
+          
+          console.log('Filtering count by category:', formattedCategory);
+          countQuery = countQuery.eq('category', formattedCategory);
         }
         
         // Apply search filter to count query if needed
@@ -185,10 +208,34 @@ export default function ProductsList({ onAddToCartSuccess }) {
 
         // Apply selectedCategory filter (overrides URL param if not 'All')
         if (selectedCategory && selectedCategory !== 'All') {
-          query = query.eq('category', selectedCategory);
-        } else if (!selectedCategory && category) {
-          const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+          // Special handling for multi-word categories like "Jewellery Set"
+          let formattedCategory;
+          
+          if (selectedCategory === 'Jewellery Set') {
+            // Use exact match for "Jewellery_Set" as stored in the database
+            formattedCategory = 'Jewellery_Set';
+          } else {
+            // Standard formatting for single-word categories
+            formattedCategory = selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1).toLowerCase();
+          }
+          
+          console.log('Filtering by category:', formattedCategory);
           query = query.eq('category', formattedCategory);
+        } else if (!selectedCategory && category) {
+          // Handle URL parameter category
+          let formattedCategory;
+          
+          if (category.toLowerCase() === 'jewellery_set' || category.toLowerCase() === 'jewellery-set' || 
+              category.toLowerCase() === 'jewellery set') {
+            formattedCategory = 'Jewellery_Set';
+          } else {
+            formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+          }
+          
+          console.log('Filtering by URL category:', formattedCategory);
+          query = query.eq('category', formattedCategory);
+        } else {
+          console.log('No category filter applied - showing all products');
         }
         
         // Apply search filter if needed
@@ -214,10 +261,12 @@ export default function ProductsList({ onAddToCartSuccess }) {
         }
 
         if (!data || data.length === 0) {
-          console.log('No products found');
+          console.log('No products found for query');
           setProducts([]);
           return;
         }
+        
+        console.log(`Found ${data.length} products for the current query`);
 
         // If sorting by price, sort in JS
         let sortedData = data;
@@ -310,13 +359,12 @@ export default function ProductsList({ onAddToCartSuccess }) {
       } finally {
         setLoading(false);
       }
-  };
+  }, [page, sortOption, selectedCategory, search, category]);
 
   useEffect(() => {
     // Reset everything when search, category, or sort option changes
-    console.log('Filter changed - sortOption:', sortOption);
+    console.log('Filter changed - sortOption:', sortOption, 'refreshKey:', refreshKey);
     setPage(1);
-    setProducts([]);
     
     // Scroll to top when filters change
     if (typeof window !== 'undefined') {
@@ -325,11 +373,14 @@ export default function ProductsList({ onAddToCartSuccess }) {
     
     // Fetch products whenever filters change
     fetchProducts();
-  }, [search, selectedCategory, sortOption]);
+  }, [search, selectedCategory, sortOption, fetchProducts, refreshKey]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [page, category]);
+    // Only fetch products when page changes (not on initial render)
+    if (products.length > 0 || page > 1) {
+      fetchProducts();
+    }
+  }, [page, fetchProducts]);
 
   const renderHeader = () => {
     // Prefer selectedCategory if not 'All', else fallback to URL param
@@ -558,14 +609,22 @@ export default function ProductsList({ onAddToCartSuccess }) {
                 }
               ]}
               onPress={() => {
+                 // Track the category click event
                  trackEvent({
                    eventType: 'category_click',
                    metadata: { categoryId: cat, source: 'shop' }
                  });
+                 
+                 // If clicking the same category, increment the refresh key to force a re-render
+                 if (selectedCategory === cat) {
+                   setRefreshKey(prev => prev + 1);
+                 }
+                 
+                 // Always set the category
                  setSelectedCategory(cat);
-                 setProducts([]); // reset products
+                 setProducts([]);
                  setPage(1);
-               }}
+              }}
               accessibilityRole="button"
               accessibilityLabel={`Filter by ${cat}`}
             >

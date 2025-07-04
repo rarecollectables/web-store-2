@@ -70,10 +70,13 @@ export default function ProductDetail() {
     if (Platform.OS === 'web') {
       return (
         <View style={{ width: '100%', marginTop: 16, marginBottom: 24, borderRadius: 8, overflow: 'hidden', backgroundColor: '#000' }}>
-          <Text style={{ fontFamily, fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: colors.gold }}>Product Video</Text>
           <video
             src={product.video_url}
             controls
+            autoPlay
+            muted
+            loop
+            playsInline
             style={{ width: '100%', maxWidth: 640, borderRadius: 8, margin: '0 auto', backgroundColor: '#000' }}
             poster={product.image_url || undefined}
           />
@@ -82,7 +85,6 @@ export default function ProductDetail() {
     } else {
       return (
         <View style={{ width: '100%', marginTop: 16, marginBottom: 24, alignItems: 'center' }}>
-          <Text style={{ fontFamily, fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: colors.gold }}>Product Video</Text>
           <Text style={{ color: '#888', fontSize: 14, marginBottom: 4 }}>
             Video preview available on web
           </Text>
@@ -508,10 +510,13 @@ const renderCarouselImage = useCallback(
             {isDesktop ? (
               product && product.video_url ? (
                 <View style={{ width: '100%', maxWidth: 400, marginTop: 18, marginBottom: 24, borderRadius: 8, overflow: 'hidden', backgroundColor: '#000', alignSelf: 'center' }}>
-                  <Text style={{ fontFamily, fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: colors.gold }}>Product Video</Text>
                   <video
                     src={product.video_url}
                     controls
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
                     style={{ width: '100%', maxWidth: 400, borderRadius: 8, margin: '0 auto', backgroundColor: '#000', display: 'block' }}
                     poster={product.image_url || undefined}
                   />
