@@ -7,7 +7,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { trackEvent } from '../lib/trackEvent';
 import { getLocationInfo } from '../lib/trackEvent';
 import HomeBanner from './components/HomeBanner';
-import CartHeaderIcon from './components/CartHeaderIcon';
+import Header from './components/Header';
 
 import CookieConsentBanner from './components/CookieConsentBanner';
 
@@ -104,12 +104,7 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <CookieConsentBanner />
           <HomeBanner />
-          <CartHeaderIcon style={{
-            position: Platform.OS === 'web' ? 'absolute' : 'fixed',
-            top: 12,
-            right: 18,
-            zIndex: 2000
-          }} />
+          <Header />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen

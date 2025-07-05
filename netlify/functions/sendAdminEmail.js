@@ -3,6 +3,9 @@ require('dotenv').config({ path: '../../.env' });
 const sendOrderUpdateEmail = require('./sendOrderUpdateEmail');
 const sgMail = require('@sendgrid/mail');
 
+// Import the inbox-friendly email handler
+const { handler: inboxFriendlyEmailHandler } = require('./inbox-friendly-order-email');
+
 // You can add more templates here as needed
 const TEMPLATES = {
   'order-confirmation': {
@@ -27,6 +30,53 @@ const TEMPLATES = {
         html: data.html || data.message || 'Thank you for contacting us.',
         text: data.text || data.message || 'Thank you for contacting us.'
       });
+    }
+  },
+  // Inbox-friendly email templates
+  'inbox-friendly-update': {
+    subject: 'Quick update about your order',
+    handler: async ({ to, data }) => {
+      // Create a mock event object for the inbox-friendly handler
+      const mockEvent = {
+        queryStringParameters: {
+          to_email: to,
+          type: 'update',
+          order_number: data.id || data.orderNumber || 'ORDER-' + Math.floor(Math.random() * 10000),
+          customer_name: data.customerName || data.name || 'Customer',
+          tracking_code: data.trackingCode || ''
+        }
+      };
+      return inboxFriendlyEmailHandler(mockEvent);
+    }
+  },
+  'inbox-friendly-arriving': {
+    subject: 'Your order is arriving today',
+    handler: async ({ to, data }) => {
+      // Create a mock event object for the inbox-friendly handler
+      const mockEvent = {
+        queryStringParameters: {
+          to_email: to,
+          type: 'arriving-today',
+          order_number: data.id || data.orderNumber || 'ORDER-' + Math.floor(Math.random() * 10000),
+          customer_name: data.customerName || data.name || 'Customer'
+        }
+      };
+      return inboxFriendlyEmailHandler(mockEvent);
+    }
+  },
+  'inbox-friendly-delivered': {
+    subject: 'Has your order arrived safely?',
+    handler: async ({ to, data }) => {
+      // Create a mock event object for the inbox-friendly handler
+      const mockEvent = {
+        queryStringParameters: {
+          to_email: to,
+          type: 'delivered',
+          order_number: data.id || data.orderNumber || 'ORDER-' + Math.floor(Math.random() * 10000),
+          customer_name: data.customerName || data.name || 'Customer'
+        }
+      };
+      return inboxFriendlyEmailHandler(mockEvent);
     }
   }
 };
@@ -71,6 +121,28 @@ exports.handler = async function(event) {
     } else if (template === 'enquiry-reply') {
       sendResult = await handler({ to, subject: emailSubject, data });
       log('Enquiry email send result:', sendResult);
+    } else if (template.startsWith('inbox-friendly-')) {
+      try {
+        const mockEvent = {
+          queryStringParameters: {
+            to_email: to,
+            type: template.replace('inbox-friendly-', ''),
+            order_number: data.id || data.orderNumber || 'ORDER-' + Math.floor(Math.random() * 10000),
+            customer_name: data.customerName || data.name || 'Customer',
+            tracking_code: data.trackingCode || ''
+          }
+        };
+        
+        // Call the inbox-friendly handler directly
+        await inboxFriendlyEmailHandler(mockEvent);
+        log('Inbox-friendly email sent successfully to:', to);
+        
+        // Just indicate success
+        sendResult = { success: true, message: `Email sent to ${to}` };
+      } catch (inboxError) {
+        log('Error sending inbox-friendly email:', inboxError);
+        throw new Error(`Failed to send inbox-friendly email: ${inboxError.message}`);
+      }
     }
     return { statusCode: 200, body: JSON.stringify({ success: true, logs }) };
   } catch (err) {

@@ -57,46 +57,13 @@ export default function ProductsList({ onAddToCartSuccess }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [isPageChange, setIsPageChange] = useState(false);
   const ITEMS_PER_PAGE = 12; // Number of items per page
   const [sortOption, setSortOption] = useState('newest'); // Default sort by newest
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Function to change page - will be defined after fetchProducts
-
-  // State for search, category, and sorting
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  // Add a key to force re-render when needed
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  // Sync selectedCategory with URL param on mount and whenever category param changes
-  useEffect(() => {
-    if (
-      category &&
-      CATEGORY_OPTIONS.includes(
-        category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()
-      ) &&
-      (selectedCategory === 'All' || selectedCategory.toLowerCase() !== category.toLowerCase())
-    ) {
-      setSelectedCategory(
-        category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()
-      );
-    }
-  }, [category]);
-
-  // Sort options
-  const SORT_OPTIONS = [
-    { value: 'newest', label: 'Newest' },
-    { value: 'price_asc', label: 'Price: Low to High' },
-    { value: 'price_desc', label: 'Price: High to Low' },
-    { value: 'name_asc', label: 'Name: A to Z' },
-    { value: 'name_desc', label: 'Name: Z to A' }
-  ];
-
-  // Define fetchProducts outside of useEffect so it can be called from multiple places
-  const fetchProducts = useCallback(async (pageToFetch) => {
-    // Use the provided page or the current state
+  // Define fetchProducts function first (moved up from below)
+  const fetchProducts = useCallback(async (pageToFetch = null) => {
+    // Use the provided page number or fall back to the state
     const currentPage = pageToFetch || page;
     // Debug log to track when fetchProducts is called
     console.log('fetchProducts called with refreshKey:', refreshKey);
@@ -234,11 +201,280 @@ export default function ProductsList({ onAddToCartSuccess }) {
           query = query.or(`name.ilike.%${lowerSearch}%,description.ilike.%${lowerSearch}%`);
         }
 
-        // Calculate pagination using the current page or the one passed in
-        const from = (currentPage - 1) * ITEMS_PER_PAGE;
-        const to = from + ITEMS_PER_PAGE - 1;
+        // Add pagination
+        query = query.range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1);
 
-        query = query.range(from, to);
+        console.log('Executing query...');
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('Supabase query error:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          throw new Error(`Query error: ${error.message}`);
+        }
+
+        if (!data || data.length === 0) {
+          console.log('No products found for query');
+          setProducts([]);
+          return;
+        }
+        
+        console.log(`Found ${data.length} products for the current query`);
+
+        // If sorting by price, sort in JS
+        let sortedData = data;
+        if (sortInJs) {
+          sortedData = [...data].sort((a, b) => {
+            const parsePrice = (p) => {
+              if (typeof p === 'number') return p;
+              if (typeof p === 'string') {
+                // Remove everything except digits, dot, and comma
+                let cleaned = p.replace(/[^\d.,-]/g, '').replace(/,/g, '.');
+                // Handle multiple dots (keep only the first as decimal)
+                const parts = cleaned.split('.');
+                if (parts.length > 2) cleaned = parts.slice(0,2).join('.') + parts.slice(2).join('');
+                const val = parseFloat(cleaned);
+                return isNaN(val) ? null : val;
+              }
+              return null;
+            };
+            const priceA = parsePrice(a.price);
+            const priceB = parsePrice(b.price);
+            // Debug log
+            console.log(`Parsed priceA: ${a.price} =>`, priceA, ' | priceB:', b.price, '=>', priceB);
+            // Place invalid or missing prices at the end
+            if (priceA === null && priceB === null) return 0;
+            if (priceA === null) return 1;
+            if (priceB === null) return -1;
+            if (sortOption === 'price_asc') return priceA - priceB;
+            return priceB - priceA;
+          });
+        }
+
+        console.log('Raw products data:', data);
+
+        // Validate and transform the data
+        let validProducts = data.map(product => {
+          try {
+            // Parse price from string format (e.g., '£50') to number
+            let price = 0;
+            if (typeof product.price === 'string') {
+              // Remove currency symbol and any whitespace, then parse as float
+              price = parseFloat(product.price.replace(/[£\s]/g, ''));
+              if (isNaN(price)) {
+                console.warn(`Invalid price format for product ${product.id}: ${product.price}`);
+                price = 0;
+              }
+            } else if (typeof product.price === 'number') {
+              price = product.price;
+            }
+
+            // Ensure image_url is a string
+            const image_url = typeof product.image_url === 'string' ? product.image_url : null;
+
+            // Validate required fields
+            if (!product.id || !product.name) {
+              console.warn(`Skipping invalid product:`, product);
+              return null;
+            }
+
+            return {
+              ...product,
+              price, // Store as number
+              image_url,
+              // Map image_url to image_path for ProductCard
+              image_path: image_url
+            };
+          } catch (parseError) {
+            console.error(`Error processing product ${product.id}:`, parseError);
+            return null;
+          }
+        }).filter(Boolean); // Remove null products
+
+        // Filter by search
+        if (search.trim() !== '') {
+          const lowerSearch = search.trim().toLowerCase();
+          validProducts = validProducts.filter(product =>
+            product.name.toLowerCase().includes(lowerSearch) ||
+            (product.description && product.description.toLowerCase().includes(lowerSearch))
+          );
+        }
+        console.log('Processed products:', validProducts);
+        // Set products directly (no appending since we're using pagination)
+        setProducts(validProducts);
+      } catch (err) {
+        console.error('Error fetching products:', {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        });
+        setError(err.message || 'Failed to load products');
+      } finally {
+        setLoading(false);
+      }
+  }, [page, sortOption, selectedCategory, search, category, refreshKey]);
+
+  // Function to change page
+  const changePage = useCallback((newPage) => {
+    if (newPage < 1 || newPage > totalPages || loading) return;
+    
+    // Scroll to top when changing pages
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
+    
+    console.log('Changing to page:', newPage);
+    setPage(newPage);
+    // Explicitly fetch products for the new page
+    fetchProducts(newPage);
+  }, [totalPages, loading, fetchProducts]);
+
+  // State for search, category, and sorting
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  // Add a key to force re-render when needed
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Sync selectedCategory with URL param on mount and whenever category param changes
+  useEffect(() => {
+    if (
+      category &&
+      CATEGORY_OPTIONS.includes(
+        category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()
+      ) &&
+      (selectedCategory === 'All' || selectedCategory.toLowerCase() !== category.toLowerCase())
+    ) {
+      setSelectedCategory(
+        category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()
+      );
+    }
+  }, [category]);
+
+  
+  // Sort options
+  const SORT_OPTIONS = [
+    { value: 'newest', label: 'Newest' },
+    { value: 'price_asc', label: 'Price: Low to High' },
+    { value: 'price_desc', label: 'Price: High to Low' },
+    { value: 'name_asc', label: 'Name: A to Z' },
+    { value: 'name_desc', label: 'Name: Z to A' }
+  ];
+
+  // The loadMoreProducts function is now handled by our custom hook
+
+        // First, get the total count for pagination
+        let countQuery = supabase
+          .from('products')
+          .select('id', { count: 'exact' });
+          
+        // Apply category filters to count query
+        if (selectedCategory && selectedCategory !== 'All') {
+          // Special handling for Jewellery Set category in count query
+          let formattedCategory;
+          
+          if (selectedCategory === 'Jewellery Set') {
+            // Use exact match for "Jewellery_Set" as stored in the database
+            formattedCategory = 'Jewellery_Set';
+          } else {
+            // Standard formatting for single-word categories
+            formattedCategory = selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1).toLowerCase();
+          }
+          
+          console.log('Filtering count by category:', formattedCategory);
+          countQuery = countQuery.eq('category', formattedCategory);
+        }
+        
+        // Apply search filter to count query if needed
+        if (search.trim() !== '') {
+          const lowerSearch = search.trim().toLowerCase();
+          countQuery = countQuery.or(`name.ilike.%${lowerSearch}%,description.ilike.%${lowerSearch}%`);
+        }
+        
+        const { count, error: countError } = await countQuery;
+        
+        if (countError) {
+          console.error('Error getting count:', countError);
+          throw new Error(`Count error: ${countError.message}`);
+        }
+        
+        // Calculate total pages
+        const calculatedTotalPages = Math.ceil(count / ITEMS_PER_PAGE) || 1;
+        setTotalPages(calculatedTotalPages);
+        setTotalCount(count);
+        
+        // Build the main query
+        let query = supabase
+          .from('products')
+          .select('id, name, price, image_url, category, description, stock, additional_images');
+          
+        // Apply sorting
+        console.log('Applying sort:', sortOption);
+        let sortInJs = false;
+        switch (sortOption) {
+          case 'newest':
+            query = query.order('created_at', { ascending: false });
+            break;
+          case 'price_asc':
+          case 'price_desc':
+            console.log('Sorting by price in JS');
+            query = query.not('price', 'is', null);
+            sortInJs = true;
+            break;
+          case 'name_asc':
+            query = query.order('name', { ascending: true });
+            break;
+          case 'name_desc':
+            query = query.order('name', { ascending: false });
+            break;
+          default:
+            console.log('Using default sort (newest)');
+            query = query.order('created_at', { ascending: false });
+        }
+
+        // Apply selectedCategory filter (overrides URL param if not 'All')
+        if (selectedCategory && selectedCategory !== 'All') {
+          // Special handling for multi-word categories like "Jewellery Set"
+          let formattedCategory;
+          
+          if (selectedCategory === 'Jewellery Set') {
+            // Use exact match for "Jewellery_Set" as stored in the database
+            formattedCategory = 'Jewellery_Set';
+          } else {
+            // Standard formatting for single-word categories
+            formattedCategory = selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1).toLowerCase();
+          }
+          
+          console.log('Filtering by category:', formattedCategory);
+          query = query.eq('category', formattedCategory);
+        } else if (!selectedCategory && category) {
+          // Handle URL parameter category
+          let formattedCategory;
+          
+          if (category.toLowerCase() === 'jewellery_set' || category.toLowerCase() === 'jewellery-set' || 
+              category.toLowerCase() === 'jewellery set') {
+            formattedCategory = 'Jewellery_Set';
+          } else {
+            formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+          }
+          
+          console.log('Filtering by URL category:', formattedCategory);
+          query = query.eq('category', formattedCategory);
+        } else {
+          console.log('No category filter applied - showing all products');
+        }
+        
+        // Apply search filter if needed
+        if (search.trim() !== '') {
+          const lowerSearch = search.trim().toLowerCase();
+          query = query.or(`name.ilike.%${lowerSearch}%,description.ilike.%${lowerSearch}%`);
+        }
+
+        // Add pagination
+        query = query.range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1);
 
         console.log('Executing query...');
         const { data, error } = await query;
@@ -353,45 +589,10 @@ export default function ProductsList({ onAddToCartSuccess }) {
         setLoading(false);
       }
   }, [page, sortOption, selectedCategory, search, category]);
-  
-  // Function to change page - defined after fetchProducts to avoid circular dependency
-  const changePage = useCallback((newPage) => {
-    if (newPage < 1 || newPage > totalPages || loading) return;
-    
-    console.log(`Changing page from ${page} to ${newPage}`);
-    
-    // Track pagination event
-    trackEvent({
-      eventType: 'pagination_click',
-      metadata: { from_page: page, to_page: newPage }
-    });
-    
-    // Set page state directly without triggering other effects
-    setPage(newPage);
-    
-    // Set a flag to indicate this is a page change, not a filter change
-    setIsPageChange(true);
-    
-    // Scroll to top when changing pages
-    if (typeof window !== 'undefined') {
-      window.scrollTo(0, 0);
-    }
-    
-    // Fetch products for the new page
-    fetchProducts(newPage);
-  }, [totalPages, loading, page, fetchProducts]);
 
   useEffect(() => {
-    // Only handle filter changes (search, category, sort) here
-    // Skip if this is just a page change
-    if (isPageChange) {
-      setIsPageChange(false); // Reset the flag
-      return;
-    }
-    
-    console.log('Filter changed:', { search, selectedCategory, sortOption });
-    
-    // Reset to page 1 when filters change
+    // Reset everything when search, category, or sort option changes
+    console.log('Filter changed - sortOption:', sortOption, 'refreshKey:', refreshKey);
     setPage(1);
     
     // Scroll to top when filters change
@@ -399,17 +600,15 @@ export default function ProductsList({ onAddToCartSuccess }) {
       window.scrollTo(0, 0);
     }
     
-    // Fetch products with the new filters
-    fetchProducts(1); // Always fetch page 1 when filters change
-  }, [search, selectedCategory, sortOption, fetchProducts]);
+    // Fetch products whenever filters change
+    fetchProducts();
+  }, [search, selectedCategory, sortOption, fetchProducts, refreshKey]);
 
-  // Effect for refresh key changes
   useEffect(() => {
-    if (refreshKey > 1) { // Skip initial render
-      console.log('Refresh key changed:', refreshKey);
-      fetchProducts();
-    }
-  }, [refreshKey, fetchProducts]);
+    // Always fetch products when page changes
+    fetchProducts();
+    console.log('Page changed to:', page);
+  }, [page, fetchProducts]);
 
   const renderHeader = () => {
     // Prefer selectedCategory if not 'All', else fallback to URL param
@@ -458,8 +657,7 @@ export default function ProductsList({ onAddToCartSuccess }) {
             onPress={() => {
               setError(null);
               setPage(1);
-              setHasMore(true);
-              fetchProducts();
+              fetchProducts(1);
             }}
           >
             <Text style={styles.retryButtonText}>Retry</Text>

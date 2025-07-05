@@ -49,7 +49,7 @@ export default function Contact() {
               <Text style={styles.confirmCheckmark}>✔</Text>
             </View>
             <Text style={styles.confirmTitle}>Thank you!</Text>
-            <Text style={styles.confirmMessage}>Your message has been sent. We'll get back to you soon.</Text>
+            <Text style={styles.confirmMessage}>Your message has been sent. We'll get back to you within 20 minutes.</Text>
             <Pressable style={styles.confirmCloseButton} onPress={() => setShowConfirmation(false)}>
               <Text style={styles.confirmCloseButtonText}>Close</Text>
             </Pressable>
@@ -76,7 +76,7 @@ export default function Contact() {
         <Text style={styles.title}>Contact Us</Text>
         <View style={styles.sloBox}>
           <Text style={styles.sloTitle}>We reply fast!</Text>
-          <Text style={styles.sloText}>Our care team aims to respond to all enquiries within 2 business hours.</Text>
+          <Text style={styles.sloText}>Our care team aims to respond to all enquiries within 20 minutes.</Text>
           <Text style={styles.sloEmail}>Or email us directly at <Text style={{fontWeight: 'bold', color: colors.gold}}>rarecollectablessales@gmail.com</Text></Text>
         </View>
         <Text style={styles.text}>Have a question or need help? Fill out the form below and we’ll get back to you soon.</Text>

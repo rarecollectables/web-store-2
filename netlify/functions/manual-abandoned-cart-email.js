@@ -11,38 +11,61 @@ const LOGO_URL = 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/pub
 
 exports.handler = async function(event) {
   // Get the to_email from query or environment for manual test
-  const to_email = process.env.ORDER_BCC_EMAIL || (event.queryStringParameters && event.queryStringParameters.to_email);
+  const to_email = (event.queryStringParameters && event.queryStringParameters.to_email) || process.env.ORDER_BCC_EMAIL;
   if (!to_email) {
     return { statusCode: 400, body: 'Missing to_email' };
   }
+  
+  // Check if a specific product ID was provided
+  const product_id = event.queryStringParameters && event.queryStringParameters.product_id;
 
-  // Find one checkout_attempts row with a non-empty cart (for testing)
-  // Find the most recent checkout_attempts row with a non-empty cart
-  const { data: attempts, error } = await supabase
-    .from('checkout_attempts')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  let attempt = null;
-  if (Array.isArray(attempts)) {
-    attempt = attempts.find(a => Array.isArray(a.cart) && a.cart.length > 0);
-  }
-
-  if (!attempt) {
-    return { statusCode: 404, body: 'No abandoned checkout attempts found (with non-empty cart).' };
-  }
-
-  // Compose a nice email
-  // Fetch cart products details from Supabase for accurate image/name/link
-  const cartIds = (attempt.cart || []).map(item => item.id);
   let cartProducts = [];
-  if (cartIds.length) {
-    const { data: cartDetails } = await supabase
+  let attempt = null;
+  
+  if (product_id) {
+    // If a specific product ID was provided, fetch that product
+    const { data: product, error: productError } = await supabase
       .from('products')
       .select('id, name, image_url, price')
-      .in('id', cartIds);
-    cartProducts = cartDetails || [];
+      .eq('id', product_id)
+      .single();
+      
+    if (productError || !product) {
+      return { statusCode: 404, body: `Product with ID ${product_id} not found.` };
+    }
+    
+    // Create a synthetic cart with just this product
+    cartProducts = [product];
+    attempt = {
+      guest_session_id: 'manual-trigger',
+      cart: [{ id: product.id, quantity: 1 }]
+    };
+  } else {
+    // Find one checkout_attempts row with a non-empty cart (for testing)
+    // Find the most recent checkout_attempts row with a non-empty cart
+    const { data: attempts, error } = await supabase
+      .from('checkout_attempts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (Array.isArray(attempts)) {
+      attempt = attempts.find(a => Array.isArray(a.cart) && a.cart.length > 0);
+    }
+
+    if (!attempt) {
+      return { statusCode: 404, body: 'No abandoned checkout attempts found (with non-empty cart).' };
+    }
+    
+    // Fetch cart products details from Supabase for accurate image/name/link
+    const cartIds = (attempt.cart || []).map(item => item.id);
+    if (cartIds.length) {
+      const { data: cartDetails } = await supabase
+        .from('products')
+        .select('id, name, image_url, price')
+        .in('id', cartIds);
+      cartProducts = cartDetails || [];
+    }
   }
   // Render cart items as featured
   const cartHtml = cartProducts.map(prod => `
@@ -58,10 +81,11 @@ exports.handler = async function(event) {
   `).join('');
 
   // Fetch 3 related products (not in cart, must have image_url)
+  const productIds = cartProducts.map(product => product.id);
   const { data: related } = await supabase
     .from('products')
     .select('id, name, image_url, price')
-    .not('id', 'in', `(${cartIds.join(',')})`)
+    .not('id', 'in', `(${productIds.join(',')})`)
     .not('image_url', 'is', null)
     .order('RANDOM()', { ascending: true })
     .limit(3);
@@ -109,10 +133,11 @@ exports.handler = async function(event) {
 
   await sgMail.send({
     to: to_email,
+    cc: 'rarecollectablesshop@gmail.com',
     from: 'carecentre@rarecollectables.co.uk',
     subject: 'You left something in your cart! 🛒',
     html
   });
 
-  return { statusCode: 200, body: `Sent abandoned cart email to ${to_email}` };
+  return { statusCode: 200, body: `Sent abandoned cart email to ${to_email} with CC to rarecollectablesshop@gmail.com` };
 };

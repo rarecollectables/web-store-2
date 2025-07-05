@@ -241,7 +241,6 @@ export default function HomeScreen() {
                 imageStyle={{ opacity: 0.8 }}
             >
               <View style={styles.overlay} />
-              <Text style={styles.heroText}>Rare Collectables</Text>
               <Pressable
                 style={({ pressed }) => [styles.cta, { opacity: pressed ? 0.8 : 1 }]}
                 onPress={() => router.push('/shop')}
