@@ -21,8 +21,12 @@ const CATEGORY_OPTIONS = [
   'Bracelets',
   'Rings',
   'Jewellery Set', // Added as a new category
+  '20% OFF',     // Discount category
+  '40% OFF',     // Discount category
   // Add more categories as needed
 ];
+
+
 
 export default function ProductsList({ onAddToCartSuccess }) {
   // DEBUG: Log when ProductsList receives the prop
@@ -50,7 +54,7 @@ export default function ProductsList({ onAddToCartSuccess }) {
     CARD_MAX_WIDTH
   );
 
-  const { category, search: searchParam } = useGlobalSearchParams();
+  const { category, subcategory, search: searchParam } = useGlobalSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -83,7 +87,12 @@ export default function ProductsList({ onAddToCartSuccess }) {
         category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()
       );
     }
-  }, [category]);
+    
+    // Log subcategory for debugging
+    if (subcategory) {
+      console.log('Subcategory detected:', subcategory);
+    }
+  }, [category, subcategory]);
   
   // Sync search with URL param on mount and whenever search param changes
   useEffect(() => {
@@ -110,6 +119,28 @@ export default function ProductsList({ onAddToCartSuccess }) {
     { value: 'name_desc', label: 'Name: Z to A' }
   ];
 
+  // Helper function to determine if a product has the selected discount
+  const productHasSelectedDiscount = (product, discountCategory, discountSubcategory) => {
+    if (!product || !product.id) {
+      console.log('Invalid product passed to productHasSelectedDiscount');
+      return false;
+    }
+    
+    // Check if product ID is even (40% off) or odd (20% off)
+    const isEvenId = parseInt(product.id) % 2 === 0;
+    
+    // Handle direct category selection
+    if (discountCategory === '40% OFF' && isEvenId) return true;
+    if (discountCategory === '20% OFF' && !isEvenId) return true;
+    
+    // Handle subcategory parameters from header navigation
+    if (discountSubcategory === 'SummerSteals40' && isEvenId) return true;
+    if (discountSubcategory === 'SOKO40' && isEvenId) return true;
+    if (discountSubcategory === 'Clearance20' && !isEvenId) return true;
+    
+    return false;
+  };
+
   // Define fetchProducts outside of useEffect so it can be called from multiple places
   const fetchProducts = useCallback(async (pageToFetch) => {
     // Use the provided page or the current state
@@ -127,6 +158,7 @@ export default function ProductsList({ onAddToCartSuccess }) {
         selectedCategory,
         search,
         urlCategory: category,
+        urlSubcategory: subcategory,
         refreshKey
       });  
         
@@ -355,6 +387,35 @@ export default function ProductsList({ onAddToCartSuccess }) {
             (product.description && product.description.toLowerCase().includes(lowerSearch))
           );
         }
+        
+        // Filter by discount categories if selected directly
+        if (selectedCategory === '20% OFF' || selectedCategory === '40% OFF') {
+          validProducts = validProducts.filter(product => productHasSelectedDiscount(product, selectedCategory, null));
+        }
+        
+        // Filter by discount subcategories from header navigation
+        if (subcategory === 'SummerSteals40' || subcategory === 'SOKO40' || subcategory === 'Clearance20') {
+          console.log('Filtering by discount subcategory:', subcategory);
+          console.log('Before filtering:', validProducts.length, 'products');
+          
+          // Make sure we have valid products before filtering
+          if (validProducts.length > 0) {
+            // For SummerSteals40, show all products with even IDs (40% off)
+            if (subcategory === 'SummerSteals40') {
+              validProducts = validProducts.filter(product => parseInt(product.id) % 2 === 0);
+            } 
+            // For SOKO40, also show all products with even IDs (40% off)
+            else if (subcategory === 'SOKO40') {
+              validProducts = validProducts.filter(product => parseInt(product.id) % 2 === 0);
+            }
+            // For Clearance20, show all products with odd IDs (20% off)
+            else if (subcategory === 'Clearance20') {
+              validProducts = validProducts.filter(product => parseInt(product.id) % 2 !== 0);
+            }
+          }
+          
+          console.log('After filtering:', validProducts.length, 'products');
+        }
         console.log('Processed products:', validProducts);
         // Set products directly (no appending since we're using pagination)
         setProducts(validProducts);
@@ -398,16 +459,8 @@ export default function ProductsList({ onAddToCartSuccess }) {
   }, [totalPages, loading, page, fetchProducts]);
 
   useEffect(() => {
-    // Only handle filter changes (search, category, sort) here
-    // Skip if this is just a page change
-    if (isPageChange) {
-      setIsPageChange(false); // Reset the flag
-      return;
-    }
-    
-    console.log('Filter changed:', { search, selectedCategory, sortOption });
-    
-    // Reset to page 1 when filters change
+    // Reset everything when search, category, subcategory, or sort option changes
+    console.log('Filter changed - sortOption:', sortOption, 'refreshKey:', refreshKey, 'subcategory:', subcategory);
     setPage(1);
     
     // Scroll to top when filters change
@@ -415,9 +468,9 @@ export default function ProductsList({ onAddToCartSuccess }) {
       window.scrollTo(0, 0);
     }
     
-    // Fetch products with the new filters
-    fetchProducts(1); // Always fetch page 1 when filters change
-  }, [search, selectedCategory, sortOption, fetchProducts]);
+    // Fetch products whenever filters change
+    fetchProducts();
+  }, [search, selectedCategory, subcategory, sortOption, fetchProducts, refreshKey]);
 
   // Effect for refresh key changes
   useEffect(() => {
@@ -630,6 +683,8 @@ export default function ProductsList({ onAddToCartSuccess }) {
           </View>
         </View>
       )}
+      
+
       <View style={{ position: 'relative', width: '100%' }}>
         <ScrollView
           horizontal

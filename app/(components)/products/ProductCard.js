@@ -138,6 +138,23 @@ export default function ProductCard({ item, cardWidth, disableImageCycling, onAd
     
     return `£${numericPrice.toFixed(2)}`;
   };
+  
+  // Calculate regular price based on product ID (some 20% off, some 40% off)
+  const calculateRegularPrice = (salesPrice, productId) => {
+    const numericPrice = typeof salesPrice === 'number' ? salesPrice : 
+                        typeof salesPrice === 'string' ? parseFloat(salesPrice.replace(/[£\s]/g, '')) : 0;
+    
+    if (isNaN(numericPrice)) {
+      return null;
+    }
+    
+    // Use product ID to determine discount rate
+    // Products with even IDs get 40% off, odd IDs get 20% off
+    const discountMultiplier = productId % 2 === 0 ? 1.67 : 1.25; // ~40% vs 20% discount
+    
+    // Regular price calculation (rounded to 2 decimals)
+    return (Math.round((numericPrice * discountMultiplier) * 100) / 100);
+  };
 
   // Wishlist button handler
   const handleWishlist = (e) => {
@@ -253,7 +270,13 @@ export default function ProductCard({ item, cardWidth, disableImageCycling, onAd
       <View style={styles.contentContainer}>
         <View style={styles.textContainer}>
           <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
-          <Text style={styles.price}>{formatPrice(item.price)}</Text>
+          <View style={styles.priceContainer}>
+            <Text style={styles.regularPrice}>{formatPrice(calculateRegularPrice(item.price, item.id))}</Text>
+            <Text style={styles.salesPrice}>{formatPrice(item.price)}</Text>
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>{item.id % 2 === 0 ? '40% OFF' : '20% OFF'}</Text>
+            </View>
+          </View>
         </View>
         <Animated.View style={[styles.buttonContainer, { transform: [{ scale: scaleAnim }] }]}>
           <Pressable
@@ -352,15 +375,41 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
     textAlign: 'center',
   },
-  price: {
-    fontSize: 22,
-    fontFamily: fontFamily.sans,
-    color: colors.gold,
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+    position: 'relative',
+  },
+  discountBadge: {
+    position: 'absolute',
+    right: 0,
+    top: -18,
+    backgroundColor: '#e53935',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    transform: [{ rotate: '-5deg' }],
+  },
+  discountText: {
+    color: 'white',
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
-    paddingVertical: spacing.xs,
-    textAlign: 'center',
+  },
+  regularPrice: {
+    fontSize: 15,
+    color: colors.gray,
+    fontWeight: '400',
+    fontFamily: fontFamily.sans,
+    textDecorationLine: 'line-through',
+  },
+  salesPrice: {
+    fontSize: 17,
+    color: colors.gold,
+    fontWeight: '600',
+    fontFamily: fontFamily.sans,
   },
   buttonContainer: {
     width: '100%',

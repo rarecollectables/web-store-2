@@ -17,6 +17,7 @@ import CartAddedModal from '../components/CartAddedModal';
 import ReviewsCarousel from '../components/ReviewsCarousel';
 import FeatureTiles from '../components/FeatureTiles';
 import LuxuryModal from '../components/LuxuryModal';
+import PackagingShowcase from '../components/PackagingShowcase';
 
 // Category definitions for homepage
 const CATEGORIES = [
@@ -385,6 +386,9 @@ export default function HomeScreen() {
                 );
               })}
             </View>
+
+            {/* Packaging Showcase Section */}
+            <PackagingShowcase />
 
              {/* Best Sellers Section */}
              <View ref={bestSellersRef} collapsable={false}>

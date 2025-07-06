@@ -115,9 +115,28 @@ export default function Header() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { cart = [], wishlist = [] } = useStore();
-  const cartCount = Array.isArray(cart) ? cart.reduce((total, item) => total + (item.quantity || 1), 0) : 0;
-  const wishlistCount = Array.isArray(wishlist) ? wishlist.length : 0;
+  const store = useStore();
+  
+  // Debug log to check what's coming from the store
+  useEffect(() => {
+    console.log('Header - Store state:', { 
+      cart: store.cart, 
+      wishlist: store.wishlist,
+      cartIsArray: Array.isArray(store.cart),
+      wishlistIsArray: Array.isArray(store.wishlist)
+    });
+  }, [store.cart, store.wishlist]);
+  
+  const cart = Array.isArray(store.cart) ? store.cart : [];
+  const wishlist = Array.isArray(store.wishlist) ? store.wishlist : [];
+  
+  // Calculate counts with safeguards
+  const cartCount = cart.reduce((total, item) => {
+    const quantity = item && item.quantity ? parseInt(item.quantity) || 1 : 1;
+    return total + quantity;
+  }, 0);
+  
+  const wishlistCount = wishlist.length;
   
   const isDesktop = windowWidth >= 768;
   const menuAnimation = React.useRef(new Animated.Value(0)).current;
@@ -769,20 +788,24 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: colors.accent,
+    top: -5,
+    right: -5,
+    backgroundColor: '#e53935', // Red color for better visibility
     borderRadius: 10,
     minWidth: 18,
     height: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 2,
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: colors.white,
+    zIndex: 10,
   },
   badgeText: {
     color: colors.white,
     fontSize: 10,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   mobileMenu: {
     position: 'absolute',

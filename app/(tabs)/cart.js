@@ -185,7 +185,10 @@ export default function CartScreen() {
               <ExpoImage source={item.image_url || item.image || require('../../assets/images/rare-collectables-logo.png')} style={styles.image} contentFit="cover" />
               <View style={styles.itemDetails}>
                 <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.price}>{`₤${price > 0 ? (price * item.quantity).toFixed(2) : 'N/A'}`}</Text>
+                <View style={styles.priceContainer}>
+                  <Text style={styles.salesPrice}>{`₤${price > 0 ? (price * item.quantity).toFixed(2) : 'N/A'}`}</Text>
+                  <Text style={styles.saleLabel}>{item.id % 2 === 0 ? '40% OFF' : '20% OFF'}</Text>
+                </View>
                 <View style={styles.quantityRow}>
                   <Pressable
                     style={styles.qtyBtn}
@@ -310,24 +313,43 @@ const styles = StyleSheet.create({
       fontSize: 16,
       marginHorizontal: 2,
     },
-  itemRow: { flexDirection: 'row', marginBottom: 16, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 12, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 6, elevation: 3, borderWidth: 1, borderColor: '#E5DCC3', width: '100%' },
-  image: { width: 80, height: 100, borderRadius: 12, marginRight: 12, backgroundColor: '#FAF7F0' },
-  itemDetails: { flex: 1, justifyContent: 'center', marginLeft: 10 },
-  title: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 },
-  price: { fontSize: 15, color: '#BFA054', marginBottom: 2 },
-  quantityRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 6 },
-  qtyBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#BFA054', alignItems: 'center', justifyContent: 'center', marginHorizontal: 6 },
-  qtyBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
-  qtyText: { fontSize: 16, color: '#1A1A1A', fontWeight: '700', minWidth: 24, textAlign: 'center' },
-  removeBtn: { alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: '#FAF7F0', borderWidth: 1, borderColor: '#BFA054' },
-  removeBtnText: { color: '#BFA054', fontWeight: '700', fontSize: 14 },
-  emptyText: { textAlign: 'center', color: '#7C7C7C', fontSize: 18, marginTop: 60 },
-  summary: { marginTop: 24, marginBottom: 16, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 6, elevation: 3, width: '100%' },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  label: { color: '#1A1A1A', fontSize: 16 },
-  value: { color: '#1A1A1A', fontSize: 16 },
-  labelTotal: { color: '#BFA054', fontWeight: '900', fontSize: 18 },
-  valueTotal: { color: '#BFA054', fontWeight: '900', fontSize: 18 },
-  checkoutBtn: { marginTop: 20, backgroundColor: '#BFA054', borderRadius: 24, paddingVertical: 16, alignItems: 'center', shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 2, opacity: 1, width: '100%' },
-  checkoutBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 18 },
+    itemRow: { flexDirection: 'row', marginBottom: 16, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 12, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 6, elevation: 3, borderWidth: 1, borderColor: '#E5DCC3', width: '100%' },
+    image: { width: 80, height: 100, borderRadius: 12, marginRight: 12, backgroundColor: '#FAF7F0' },
+    itemDetails: { flex: 1, justifyContent: 'center', marginLeft: 10 },
+    priceContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 8,
+    },
+    salesPrice: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.gold,
+    },
+    saleLabel: {
+      fontSize: 12,
+      color: 'white',
+      backgroundColor: '#e53935',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      fontWeight: '500',
+    },
+    price: { fontSize: 15, color: '#BFA054', marginBottom: 2 },
+    quantityRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 6 },
+    qtyBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#BFA054', alignItems: 'center', justifyContent: 'center', marginHorizontal: 6 },
+    qtyBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+    qtyText: { fontSize: 16, color: '#1A1A1A', fontWeight: '700', minWidth: 24, textAlign: 'center' },
+    removeBtn: { alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: '#FAF7F0', borderWidth: 1, borderColor: '#BFA054' },
+    removeBtnText: { color: '#BFA054', fontWeight: '700', fontSize: 14 },
+    emptyText: { textAlign: 'center', color: '#7C7C7C', fontSize: 18, marginTop: 60 },
+    summary: { marginTop: 24, marginBottom: 16, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 6, elevation: 3, width: '100%' },
+    summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+    label: { color: '#1A1A1A', fontSize: 16 },
+    value: { color: '#1A1A1A', fontSize: 16 },
+    labelTotal: { color: '#BFA054', fontWeight: '900', fontSize: 18 },
+    valueTotal: { color: '#BFA054', fontWeight: '900', fontSize: 18 },
+    checkoutBtn: { marginTop: 20, backgroundColor: '#BFA054', borderRadius: 24, paddingVertical: 16, alignItems: 'center', shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 2, opacity: 1, width: '100%' },
+    checkoutBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 18 },
 });

@@ -98,29 +98,51 @@ export default function ProductDetail() {
       setCurrentIndex(viewableItems[0].index);
     }
   }).current;
-  const viewabilityConfig = { viewAreaCoveragePercentThreshold: 60 };
+  const viewabilityConfig = {
+    itemVisiblePercentThreshold: 50,
+  };
+
+  // Calculate regular price based on product ID (some 20% off, some 40% off)
+  const calculateRegularPrice = (salesPrice, productId) => {
+    const numericPrice = typeof salesPrice === 'number' ? salesPrice : 
+                        typeof salesPrice === 'string' ? parseFloat(salesPrice.replace(/[£\s]/g, '')) : 0;
+    
+    if (isNaN(numericPrice)) {
+      return 'Price N/A';
+    }
+    
+    // Use product ID to determine discount rate
+    // Products with even IDs get 40% off, odd IDs get 20% off
+    const discountMultiplier = productId % 2 === 0 ? 1.67 : 1.25; // ~40% vs 20% discount
+    
+    // Regular price calculation
+    const regularPrice = Math.round((numericPrice * discountMultiplier) * 100) / 100;
+    return `£${regularPrice.toFixed(2)}`;
+  };
+  
+  // Get discount percentage based on product ID
+  const getDiscountPercentage = (productId) => {
+    return productId % 2 === 0 ? '40%' : '20%';
+  };
 
   const [zoomVisible, setZoomVisible] = useState(false);
-const [zoomImage, setZoomImage] = useState(null);
+  const [zoomImage, setZoomImage] = useState(null);
 
-const renderCarouselImage = useCallback(
-  ({ item }) => (
+  const renderCarouselImage = useCallback(({ item }) => (
     <MemoCarouselImage
       item={item}
       style={[
         styles.image,
         width < 600
           ? { width: carouselWidth - 32, maxHeight: 230, resizeMode: 'contain', aspectRatio: undefined }
-          : {}
+          : { width: carouselWidth - 32 }
       ]}
       onPress={() => {
         setZoomImage(item);
         setZoomVisible(true);
       }}
     />
-  ),
-  [styles.image, width, carouselWidth]
-);
+  ), [carouselWidth, width, styles.image]);
 
   useEffect(() => {
     let isMounted = true;
@@ -578,8 +600,16 @@ const renderCarouselImage = useCallback(
               <Text style={{ color: '#555', fontSize: 16, marginBottom: 8, width: '100%', flexShrink: 1 }} numberOfLines={2}>{product?.short_description || 'A rare and unique collectable item.'}</Text>
               {/* Price & Shipping Info */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 12, flexWrap: 'wrap', width: '100%' }}>
-                <Text style={[styles.price, { fontSize: 19, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, marginRight: 8, backgroundColor: colors.gold, color: colors.white, borderWidth: 1, borderColor: colors.softGoldBorder, ...desktopPrice }]}>{product?.price}</Text>
-                <Text style={{ fontSize: 14, color: '#4caf50', fontWeight: '600' }}>Free shipping & Free returns</Text>
+                <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={[styles.regularPrice]}>Regular Price: {calculateRegularPrice(product?.price, product?.id)}</Text>
+                    <View style={{ backgroundColor: '#e53935', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>{getDiscountPercentage(product?.id)} OFF</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.salesPrice, { fontSize: 22, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.gold, color: colors.white, borderWidth: 1, borderColor: colors.softGoldBorder, ...desktopPrice }]}>{product?.price}</Text>
+                </View>
+                <Text style={{ fontSize: 14, color: '#4caf50', fontWeight: '600', marginTop: 8 }}>Free shipping & Free returns</Text>
               </View>
             </View>
 
@@ -925,13 +955,6 @@ const renderCarouselImage = useCallback(
   );
 }
 
-// Move this footer JSX inside the ScrollView, just before <ZoomableImage />
-// Find the end of your ScrollView content and add:
-// <View style={{ width: '100%', backgroundColor: '#faf8f3', borderTopWidth: 1, borderTopColor: '#eee', paddingVertical: 24, paddingHorizontal: 0, alignItems: 'center', marginTop: 0 }}>
-//   ...footer links...
-// </View>
-
-
 const styles = StyleSheet.create({
   enhancedCarouselWrapper: {
     position: 'relative',
@@ -1083,16 +1106,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     marginTop: 0,
   },
-  price: {
-    fontSize: 20,
-    color: colors.white,
+  regularPrice: {
+    fontSize: 18,
+    color: colors.gray,
+    fontWeight: '400',
+    textDecorationLine: 'line-through',
+    letterSpacing: 0.5,
+    fontFamily,
+  },
+  salesPrice: {
+    fontSize: 24,
+    color: colors.gold,
     fontWeight: '700',
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.gold,
-    overflow: 'hidden',
+    letterSpacing: 0.5,
     fontFamily,
     letterSpacing: 0.2,
     borderWidth: 1,
