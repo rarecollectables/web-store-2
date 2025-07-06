@@ -313,34 +313,36 @@ return (
           </Pressable>
         </Link>
         
-        {/* Desktop Search Bar */}
-        {isDesktop && (
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search products..."
-              placeholderTextColor={colors.textLight}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-              accessibilityLabel="Search products"
-            />
-            <Pressable 
-              style={styles.searchButton} 
-              onPress={handleSearch}
-              accessibilityRole="button"
-              accessibilityLabel="Submit search"
-            >
-              <FontAwesome name="search" size={18} color={colors.white} />
-            </Pressable>
-          </View>
-        )}
-        
-        {/* Header Icons (Cart & Wishlist) */}
-        <View style={styles.headerIcons}>
+        {/* Right side container for search and icons */}
+        <View style={styles.rightContainer}>
+          {/* Desktop Search Bar */}
+          {isDesktop && (
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search products..."
+                placeholderTextColor={colors.textLight}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+                onSubmitEditing={handleSearch}
+                returnKeyType="search"
+                accessibilityLabel="Search products"
+              />
+              <Pressable 
+                style={styles.searchButton} 
+                onPress={handleSearch}
+                accessibilityRole="button"
+                accessibilityLabel="Submit search"
+              >
+                <FontAwesome name="search" size={18} color={colors.white} />
+              </Pressable>
+            </View>
+          )}
+          
+          {/* Header Icons (Cart & Wishlist) */}
+          <View style={styles.headerIcons}>
           {/* Wishlist Icon */}
           <Pressable
             style={styles.iconButton}
@@ -559,29 +561,37 @@ return (
         />
       )}
 
-    </>
   );
 }
 
 const styles = StyleSheet.create({
-  /* Announcement bar styles removed */
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.l,
-    paddingVertical: spacing.m,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(191, 161, 74, 0.2)',
-    position: 'sticky',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
+    borderBottomColor: colors.borderLight,
+    maxWidth: 1200,
+    width: '100%',
+    alignSelf: 'center',
     ...(Platform.OS === 'web' ? {
-      transition: 'all 0.3s ease',
-    } : {}),
+      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    }),
+  },
+  rightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginLeft: 'auto',
   },
   headerScrolled: {
     paddingVertical: spacing.s,
@@ -599,6 +609,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xs,
+    marginRight: spacing.xl,
+    flex: 0,
   },
   logo: {
     resizeMode: 'contain',
@@ -606,28 +618,40 @@ const styles = StyleSheet.create({
   menuButton: {
     padding: spacing.sm,
     zIndex: 1100,
+    marginRight: spacing.sm,
   },
   categoriesRow: {
     width: '100%',
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(191, 161, 74, 0.2)',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
     zIndex: 99,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.02,
+      shadowRadius: 2,
+      elevation: 1,
+    }),
   },
   desktopNav: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    maxWidth: 1200,
+    marginHorizontal: 'auto',
   },
   categoriesContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     flexWrap: 'wrap',
     marginTop: spacing.s,
-    gap: spacing.m,
+    gap: spacing.l,
   },
   categoryWrapper: {
     position: 'relative',
@@ -635,9 +659,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   navItem: {
-    paddingVertical: spacing.s,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.m,
-    marginHorizontal: 3,
+    marginHorizontal: 4,
     borderRadius: 0,
     position: 'relative',
   },
@@ -662,7 +686,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   categoryText: {
     color: colors.darkGray,
@@ -717,13 +741,13 @@ const styles = StyleSheet.create({
   headerIcons: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     paddingRight: spacing.md,
-    minWidth: 100,
+    marginLeft: 'auto',
   },
   iconButton: {
     padding: spacing.sm,
-    marginLeft: spacing.sm,
+    marginLeft: spacing.md,
     position: 'relative',
   },
   badge: {
@@ -752,7 +776,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: borderRadius.md,
     borderBottomRightRadius: borderRadius.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.xl,
     zIndex: 999,
     maxHeight: '80vh',
     overflow: 'auto',
@@ -836,13 +860,13 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    maxWidth: 400,
-    marginHorizontal: spacing.l,
+    flex: 0,
+    width: 220,
+    marginRight: spacing.md,
   },
   searchInput: {
     flex: 1,
-    height: 40,
+    height: 42,
     borderWidth: 1,
     borderColor: colors.softGoldBorder,
     borderRadius: borderRadius.sm,
@@ -852,26 +876,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     backgroundColor: colors.white,
+    ...(Platform.OS === 'web' ? {
+      ':focus': {
+        borderColor: colors.gold,
+        outline: 'none',
+      }
+    } : {}),
   },
   searchButton: {
     backgroundColor: colors.gold,
-    height: 40,
-    width: 40,
+    height: 42,
+    width: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderTopRightRadius: borderRadius.sm,
     borderBottomRightRadius: borderRadius.sm,
     marginLeft: -1,
+    ...(Platform.OS === 'web' ? {
+      transition: 'background-color 0.2s ease',
+    } : {}),
   },
   mobileSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.m,
-    width: '100%',
+    marginVertical: spacing.md,
+    width: '90%',
+    maxWidth: 280,
+    alignSelf: 'center',
   },
   mobileSearchInput: {
     flex: 1,
-    height: 40,
+    height: 42,
     borderWidth: 1,
     borderColor: colors.softGoldBorder,
     borderRadius: borderRadius.sm,
@@ -884,12 +919,15 @@ const styles = StyleSheet.create({
   },
   mobileSearchButton: {
     backgroundColor: colors.gold,
-    height: 40,
-    width: 40,
+    height: 42,
+    width: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderTopRightRadius: borderRadius.sm,
     borderBottomRightRadius: borderRadius.sm,
     marginLeft: -1,
+    ...(Platform.OS === 'web' ? {
+      transition: 'background-color 0.2s ease',
+    } : {}),
   },
 });

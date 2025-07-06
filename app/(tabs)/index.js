@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, useWindowDimensions, ImageBackground, ScrollView, TextInput, Alert, Linking, Animated } from 'react-native';
+import { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { trackEvent } from '../../lib/trackEvent';
 import { useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -238,17 +239,42 @@ export default function HomeScreen() {
             <ImageBackground
                 source={{ uri: 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils//homepage-herobanner.webp' }}
                 style={[styles.heroContainer, { width: width }]}
-                imageStyle={{ opacity: 0.8 }}
+                imageStyle={{ opacity: 0.9 }}
             >
               <View style={styles.overlay} />
-              <Pressable
-                style={({ pressed }) => [styles.cta, { opacity: pressed ? 0.8 : 1 }]}
-                onPress={() => router.push('/shop')}
-                accessibilityRole="button"
-                accessibilityLabel="Shop Now"
-              >
-                <Text style={styles.ctaText}>Shop Now</Text>
-              </Pressable>
+              <View style={styles.heroContent}>
+                <Animated.View
+                  entering={FadeInDown.duration(800).springify()}
+                  style={styles.heroTextContainer}
+                >
+                  <Text style={styles.heroTagline}>Express Your Love</Text>
+                  <Text style={styles.heroText}>Perfect Gifts For The Special Women In Your Life</Text>
+                  <Text style={styles.heroSubtext}>Personalized, affordable luxury for birthdays, Mother's Day, weddings & more</Text>
+                </Animated.View>
+                
+                <Animated.View
+                  entering={FadeInUp.duration(800).delay(400).springify()}
+                >
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.cta,
+                      { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                    ]}
+                    onPress={() => router.push('/shop')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Find Perfect Gift"
+                  >
+                    <Text style={styles.ctaText}>Find Perfect Gift</Text>
+                    <FontAwesome name="heart" size={16} color={colors.white} style={styles.ctaIcon} />
+                  </Pressable>
+                </Animated.View>
+              </View>
+              
+              {/* Limited time offer badge */}
+              <View style={styles.offerBadge}>
+                <Text style={styles.offerText}>Limited Time</Text>
+                <Text style={styles.offerHighlight}>20% OFF</Text>
+              </View>
             </ImageBackground>
 
             {/* Feature Tiles Section */}
@@ -740,13 +766,13 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   heroContainer: {
-    height: 280,
+    height: 480,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
-    // borderRadius: borderRadius.lg,
     overflow: 'hidden',
     backgroundColor: colors.onyxBlack,
+    position: 'relative',
   },
   overlay: {
     position: 'absolute',
@@ -754,10 +780,30 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(26,26,26,0.30)',
+    backgroundColor: 'rgba(26,26,26,0.40)',
+  },
+  heroContent: {
+    width: '100%',
+    maxWidth: 1000,
+    padding: spacing.xl,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  heroTextContainer: {
+    maxWidth: 600,
+    marginBottom: spacing.xl,
+  },
+  heroTagline: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: colors.white,
+    marginBottom: spacing.xs,
+    fontFamily: fontFamily.sans,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   heroText: {
-    fontSize: 38,
+    fontSize: 42,
     fontWeight: '900',
     color: colors.gold,
     marginBottom: spacing.md,
@@ -766,11 +812,23 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 6,
     letterSpacing: 1.2,
+    lineHeight: 50,
+  },
+  heroSubtext: {
+    fontSize: 18,
+    fontWeight: '400',
+    color: colors.white,
+    fontFamily: fontFamily.sans,
+    opacity: 0.9,
   },
   cta: {
     backgroundColor: colors.gold,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     ...shadows.card,
     elevation: 4,
     shadowColor: colors.gold,
@@ -783,7 +841,40 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
-    fontFamily,
+    fontFamily: fontFamily.sans,
+    marginRight: spacing.sm,
+  },
+  ctaIcon: {
+    marginLeft: spacing.xs,
+  },
+  offerBadge: {
+    position: 'absolute',
+    top: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.full,
+    padding: spacing.md,
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '5deg' }],
+    ...shadows.card,
+  },
+  offerText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    fontFamily: fontFamily.sans,
+  },
+  offerHighlight: {
+    color: colors.gold,
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    fontFamily: fontFamily.serif,
+    marginTop: spacing.xs,
   },
   categoriesContainer: {
     flexDirection: 'row',
