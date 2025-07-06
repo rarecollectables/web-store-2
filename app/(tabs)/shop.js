@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Pressable, Text, ScrollView } from 'react-native';
+import { View, StyleSheet, Pressable, Text, ScrollView, TextInput } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import { colors, fontFamily, spacing, borderRadius, shadows } from '../../theme';
 import { useStore } from '../../context/store';
 import ProductsList from '../(components)/products/ProductsList';
 import SpringPromoModal from '../components/SpringPromoModal';
 import CartAddedModal from '../components/CartAddedModal';
 import { trackEvent } from '../../lib/trackEvent';
-import { useRouter } from 'expo-router';
+import { useRouter, useGlobalSearchParams } from 'expo-router';
 
 export default function ShopScreen() {
   const router = useRouter();
+  const { search: searchParam } = useGlobalSearchParams();
   const { addToCart } = useStore();
   const [showPromo, setShowPromo] = useState(false);
   const [cartModalVisible, setCartModalVisible] = useState(false);
   const [lastAddedProduct, setLastAddedProduct] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     trackEvent({ eventType: 'shop_page_view' });
@@ -25,7 +28,12 @@ export default function ShopScreen() {
         localStorage.setItem('hasSeenSpringPromo', 'true');
       }
     }
-  }, []);
+    
+    // Initialize search query from URL params if present
+    if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+  }, [searchParam]);
 
   // Handler to show modal after add to cart
   const handleShowCartModal = (product) => {
@@ -47,8 +55,50 @@ export default function ShopScreen() {
     setCartModalVisible(false);
   };
 
+  // Handle search submission
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      // Log search event with consistent format and source information
+      trackEvent({ 
+        eventType: 'search', 
+        searchQuery: searchQuery.trim(),
+        searchSource: 'shop_page',
+        deviceType: Platform.OS === 'web' && window.innerWidth >= 768 ? 'desktop' : 'mobile'
+      });
+      
+      router.push({
+        pathname: '/(tabs)/shop',
+        params: { search: searchQuery.trim() }
+      });
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.screen}>
+      {/* Shop Page Search Bar */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search products..."
+          placeholderTextColor={colors.textLight}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onSubmitEditing={handleSearch}
+          returnKeyType="search"
+          accessibilityLabel="Search products"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Pressable 
+          style={styles.searchButton} 
+          onPress={handleSearch}
+          accessibilityRole="button"
+          accessibilityLabel="Submit search"
+        >
+          <FontAwesome name="search" size={18} color={colors.white} />
+        </Pressable>
+      </View>
+      
       <ProductsList onAddToCartSuccess={handleShowCartModal} />
       <SpringPromoModal visible={showPromo} onClose={() => setShowPromo(false)} />
       <CartAddedModal
@@ -80,8 +130,38 @@ export default function ShopScreen() {
 
 
 const styles = StyleSheet.create({
+  screen: {
+    backgroundColor: colors.ivory,
+    paddingBottom: spacing.xl,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    ...shadows.medium,
+  },
+  searchInput: {
+    flex: 1,
+    height: 48,
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.md,
+    fontSize: 16,
+    color: colors.textDark,
+    fontFamily: fontFamily.sans,
+  },
+  searchButton: {
+    backgroundColor: colors.gold,
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   footer: {
-    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center',
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: spacing.md,
     backgroundColor: colors.ivory,

@@ -138,7 +138,11 @@ export default function CartScreen() {
   }, [cart]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView 
+      contentContainerStyle={styles.container} 
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
+    >
       <Pressable
         onPress={() => {
   if (router.canGoBack && router.canGoBack()) {
@@ -163,6 +167,8 @@ export default function CartScreen() {
       <FlatList
         data={cart}
         keyExtractor={item => item.id.toString()}
+        contentContainerStyle={{ width: '100%' }}
+        scrollEnabled={false}
         renderItem={({ item }) => {
           let price = parsePrice(item.price);
           if (!price) {
@@ -218,7 +224,7 @@ export default function CartScreen() {
           );
         }}
         ListEmptyComponent={<Text style={styles.emptyText}>Your cart is empty.</Text>}
-        contentContainerStyle={cart.length === 0 ? { flex: 1, justifyContent: 'center' } : {}}
+        contentContainerStyle={cart.length === 0 ? { flex: 1, justifyContent: 'center' } : { paddingBottom: 10 }}
         showsVerticalScrollIndicator={false}
       />
       <View style={styles.summary}>
@@ -278,17 +284,19 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAF7F0', padding: 16 },
-  header: { fontSize: 28, fontWeight: '900', color: '#BFA054', marginBottom: 18 },
+  container: { flexGrow: 1, backgroundColor: '#FAF7F0', padding: 8, paddingBottom: 24 },
+  header: { fontSize: 24, fontWeight: '900', color: '#BFA054', marginBottom: 12 },
     footer: {
-      flexDirection: 'row', flexWrap: 'wrap',
+      flexDirection: 'row', 
+      flexWrap: 'wrap',
       justifyContent: 'center',
       alignItems: 'center',
       paddingVertical: spacing.md,
       backgroundColor: colors.ivory,
       borderTopWidth: 1,
       borderColor: colors.softGoldBorder,
-      marginTop: spacing.lg,
+      marginTop: spacing.xl,
+      width: '100%',
     },
     footerLink: {
       color: colors.gold,
@@ -302,24 +310,24 @@ const styles = StyleSheet.create({
       fontSize: 16,
       marginHorizontal: 2,
     },
-  itemRow: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 12, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 8, elevation: 4, borderWidth: 1, borderColor: '#E5DCC3', width: 360 },
-  image: { width: 72, height: 90, borderRadius: 12, marginRight: 16, backgroundColor: '#FAF7F0' },
-  itemDetails: { flex: 1, justifyContent: 'center', marginLeft: 16 },
-  title: { fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 },
+  itemRow: { flexDirection: 'row', marginBottom: 16, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 12, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 6, elevation: 3, borderWidth: 1, borderColor: '#E5DCC3', width: '100%' },
+  image: { width: 80, height: 100, borderRadius: 12, marginRight: 12, backgroundColor: '#FAF7F0' },
+  itemDetails: { flex: 1, justifyContent: 'center', marginLeft: 10 },
+  title: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 },
   price: { fontSize: 15, color: '#BFA054', marginBottom: 2 },
   quantityRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 6 },
   qtyBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#BFA054', alignItems: 'center', justifyContent: 'center', marginHorizontal: 6 },
   qtyBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
   qtyText: { fontSize: 16, color: '#1A1A1A', fontWeight: '700', minWidth: 24, textAlign: 'center' },
-  removeBtn: { alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 12, backgroundColor: '#FAF7F0', borderWidth: 1, borderColor: '#BFA054' },
+  removeBtn: { alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: '#FAF7F0', borderWidth: 1, borderColor: '#BFA054' },
   removeBtnText: { color: '#BFA054', fontWeight: '700', fontSize: 14 },
   emptyText: { textAlign: 'center', color: '#7C7C7C', fontSize: 18, marginTop: 60 },
-  summary: { marginTop: 18, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 8, elevation: 4 },
+  summary: { marginTop: 24, marginBottom: 16, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 6, elevation: 3, width: '100%' },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   label: { color: '#1A1A1A', fontSize: 16 },
   value: { color: '#1A1A1A', fontSize: 16 },
   labelTotal: { color: '#BFA054', fontWeight: '900', fontSize: 18 },
   valueTotal: { color: '#BFA054', fontWeight: '900', fontSize: 18 },
-  checkoutBtn: { marginTop: 18, backgroundColor: '#BFA054', borderRadius: 24, paddingVertical: 16, alignItems: 'center', shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 2, opacity: 1 },
+  checkoutBtn: { marginTop: 20, backgroundColor: '#BFA054', borderRadius: 24, paddingVertical: 16, alignItems: 'center', shadowColor: '#BFA054', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 2, opacity: 1, width: '100%' },
   checkoutBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 18 },
 });

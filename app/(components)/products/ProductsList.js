@@ -50,7 +50,7 @@ export default function ProductsList({ onAddToCartSuccess }) {
     CARD_MAX_WIDTH
   );
 
-  const { category } = useGlobalSearchParams();
+  const { category, search: searchParam } = useGlobalSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -84,6 +84,22 @@ export default function ProductsList({ onAddToCartSuccess }) {
       );
     }
   }, [category]);
+  
+  // Sync search with URL param on mount and whenever search param changes
+  useEffect(() => {
+    if (searchParam && searchParam.trim() !== search) {
+      console.log('Setting search from URL param:', searchParam);
+      setSearch(searchParam.trim());
+      
+      // Track search event with consistent format
+      trackEvent({ 
+        eventType: 'search', 
+        searchQuery: searchParam.trim(),
+        searchSource: 'url_parameter',
+        deviceType: width < MOBILE_BREAKPOINT ? 'mobile' : width < TABLET_BREAKPOINT ? 'tablet' : 'desktop'
+      });
+    }
+  }, [searchParam, width]);
 
   // Sort options
   const SORT_OPTIONS = [

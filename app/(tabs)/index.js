@@ -64,7 +64,7 @@ const CATEGORY_IMAGES = {
 };
 
 // Animated Category Card
-function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
+function CategoryCard({ id, title, cardSize, marginRight, onPress, images, cardStyles }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
@@ -79,7 +79,7 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
       accessibilityRole="button"
       accessibilityLabel={`View ${title} category`}
       style={({ pressed }) => [
-        styles.categoryCard,
+        cardStyles.categoryCard,
         { width: cardSize, height: cardSize, marginRight, opacity: pressed ? 0.85 : 1 },
         { borderColor: colors.softGoldBorder, backgroundColor: colors.white },
         { shadowColor: colors.gold, shadowOpacity: 0.18 },
@@ -87,13 +87,13 @@ function CategoryCard({ id, title, cardSize, marginRight, onPress, images }) {
     >
       <ImageBackground
         source={images[currentIndex]}
-        style={styles.categoryImage}
+        style={cardStyles.categoryImage}
         imageStyle={{ borderRadius: borderRadius.md }}
         resizeMode="cover"
         accessibilityIgnoresInvertColors
       >
-        <View style={styles.categoryOverlay} />
-        <Text style={styles.categoryTitle}>{title}</Text>
+        <View style={cardStyles.categoryOverlay} />
+        <Text style={cardStyles.categoryTitle}>{title}</Text>
       </ImageBackground>
     </Pressable>
   );
@@ -104,6 +104,68 @@ export default function HomeScreen() {
   const [lastAddedProduct, setLastAddedProduct] = useState(null);
   // Modal state for feature tiles
   const [featureModal, setFeatureModal] = useState({ open: false });
+  
+  // Use the existing width variable for responsive styling
+  const getResponsiveStyles = (currentWidth) => ({
+    // Mobile-specific styles
+    mobileTextBackground: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: '70%',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    heroContainer: {
+      ...baseStyles.heroContainer,
+      height: currentWidth < 400 ? 400 : 480,
+    },
+    overlay: {
+      ...baseStyles.overlay,
+      backgroundColor: currentWidth < 600 ? 'rgba(26,26,26,0.55)' : 'rgba(26,26,26,0.45)',
+    },
+    ...baseStyles,
+    heroTagline: {
+      ...baseStyles.heroTagline,
+      fontSize: currentWidth < 400 ? 16 : 22,
+      letterSpacing: currentWidth < 400 ? 0.5 : 1,
+    },
+    heroText: {
+      ...baseStyles.heroText,
+      fontSize: currentWidth < 400 ? 28 : currentWidth < 600 ? 34 : 42,
+      letterSpacing: currentWidth < 400 ? 0.8 : 1.2,
+      lineHeight: currentWidth < 400 ? 34 : currentWidth < 600 ? 40 : 50,
+    },
+    heroSubtext: {
+      ...baseStyles.heroSubtext,
+      fontSize: currentWidth < 400 ? 14 : 18,
+    },
+    cta: {
+      ...baseStyles.cta,
+      paddingVertical: currentWidth < 400 ? spacing.sm : spacing.md,
+      paddingHorizontal: currentWidth < 400 ? spacing.md : spacing.lg,
+    },
+    ctaText: {
+      ...baseStyles.ctaText,
+      fontSize: currentWidth < 400 ? 16 : 20,
+    },
+    offerBadge: {
+      ...baseStyles.offerBadge,
+      top: currentWidth < 400 ? spacing.sm : spacing.lg,
+      right: currentWidth < 400 ? spacing.sm : spacing.lg,
+      padding: currentWidth < 400 ? spacing.sm : spacing.md,
+      width: currentWidth < 400 ? 80 : 100,
+      height: currentWidth < 400 ? 80 : 100,
+    },
+    offerText: {
+      ...baseStyles.offerText,
+      fontSize: currentWidth < 400 ? 12 : 14,
+    },
+    offerHighlight: {
+      ...baseStyles.offerHighlight,
+      fontSize: currentWidth < 400 ? 20 : 24,
+    },
+  });
 
   // Handler to show modal when add to cart succeeds from a product card
   const handleShowCartModal = (product) => {
@@ -214,6 +276,9 @@ export default function HomeScreen() {
   const totalGap = gap * (columns - 1);
   const cardSize = ((width > sectionMaxWidth ? sectionMaxWidth : width) - flatListPadding - totalGap) / columns;
 
+  // Get responsive styles using the current width
+  const styles = getResponsiveStyles(width);
+
   return (
     <View style={styles.container}>
       {/* AnnaWelcomePopup appears after delay, opens chat with message if sent */}
@@ -237,11 +302,23 @@ export default function HomeScreen() {
       >
           <View style={styles.content}>
             <ImageBackground
-                source={{ uri: 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils/homepage-herobanner.webp' }}
+                source={{ uri: width < 600 ? 
+                  'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils//homepage-hero-banner-mobile.webp' : 
+                  'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils/homepage-herobanner3.webp' 
+                }}
                 style={[styles.heroContainer, { width: width }]}
                 imageStyle={{ opacity: 1.0 }}
             >
+              {/* Enhanced overlay for better text visibility */}
               <View style={styles.overlay} />
+              {width < 600 && (
+                <View 
+                  style={[styles.mobileTextBackground, { 
+                    height: width < 400 ? '80%' : '70%',
+                    opacity: width < 400 ? 0.9 : 0.8
+                  }]} 
+                />
+              )}
               <View style={styles.heroContent}>
                 <Animated.View
                   entering={FadeInDown.duration(800).springify()}
@@ -296,6 +373,7 @@ export default function HomeScreen() {
                     cardSize={cardSize}
                     marginRight={marginRight}
                     images={images}
+                    cardStyles={styles}
                     onPress={() => {
                       trackEvent({
                         eventType: 'category_click',
@@ -552,7 +630,8 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+// Create styles outside component, but make responsive styles inside component
+const baseStyles = StyleSheet.create({
   discountBubbleContainer: {
     position: 'absolute',
     bottom: spacing.xl + 10,
@@ -780,7 +859,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(26,26,26,0.25)',
+    backgroundColor: 'rgba(26,26,26,0.45)',
   },
   heroContent: {
     width: '100%',

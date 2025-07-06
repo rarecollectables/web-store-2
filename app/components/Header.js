@@ -175,9 +175,25 @@ export default function Header() {
   
   const handleSearch = () => {
     if (searchQuery.trim()) {
-      trackEvent({ eventType: 'search', searchQuery });
-      handleNavigation(`/(tabs)/shop?search=${encodeURIComponent(searchQuery.trim())}`);
+      // Log search event with consistent format and source information
+      trackEvent({ 
+        eventType: 'search', 
+        searchQuery: searchQuery.trim(),
+        searchSource: 'header',
+        deviceType: isDesktop ? 'desktop' : 'mobile'
+      });
+      
+      // Use router.push directly for more reliable navigation with search params
+      router.push({
+        pathname: '/(tabs)/shop',
+        params: { search: searchQuery.trim() }
+      });
       setSearchQuery('');
+      
+      // Close mobile menu if open
+      if (mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
     }
   };
   
@@ -487,6 +503,8 @@ return (
               onSubmitEditing={handleSearch}
               returnKeyType="search"
               accessibilityLabel="Search products"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
             <Pressable 
               style={styles.mobileSearchButton} 
