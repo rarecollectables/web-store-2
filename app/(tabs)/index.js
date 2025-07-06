@@ -237,9 +237,9 @@ export default function HomeScreen() {
       >
           <View style={styles.content}>
             <ImageBackground
-                source={{ uri: 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils//homepage-herobanner.webp' }}
+                source={{ uri: 'https://fhybeyomiivepmlrampr.supabase.co/storage/v1/object/public/utils/homepage-herobanner.webp' }}
                 style={[styles.heroContainer, { width: width }]}
-                imageStyle={{ opacity: 0.9 }}
+                imageStyle={{ opacity: 1.0 }}
             >
               <View style={styles.overlay} />
               <View style={styles.heroContent}>
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(26,26,26,0.40)',
+    backgroundColor: 'rgba(26,26,26,0.25)',
   },
   heroContent: {
     width: '100%',

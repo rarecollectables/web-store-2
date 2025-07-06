@@ -199,8 +199,8 @@ export default function Header() {
   
   const handleCategoryClick = (index, path, isDesktopView) => {
     if (isDesktopView) {
-      // For desktop: toggle dropdown visibility
-      setActiveCategoryIndex(activeCategoryIndex === index ? null : index);
+      // For desktop: navigate directly to the category page
+      handleNavigation(path);
     } else {
       // For mobile: if category has subcategories, toggle them, otherwise navigate
       if (CATEGORIES[index].subcategories && CATEGORIES[index].subcategories.length > 0) {
@@ -239,25 +239,40 @@ export default function Header() {
     if (isDesktop) {
       const timeout = setTimeout(() => {
         setHoveredCategoryIndex(null);
-      }, 300);
+      }, 800);
       setHoverTimeout(timeout);
     }
   };
   
   const handleSubcategoryContainerEnter = () => {
-    if (isDesktop && hoverTimeout) {
+    if (isDesktop) {
       clearTimeout(hoverTimeout);
+      // Ensure the category stays hovered
+      if (hoveredCategoryIndex === null) {
+        // Find which category is showing this dropdown
+        const categoryWithDropdown = CATEGORIES.findIndex(cat => 
+          cat.subcategories && cat.subcategories.length > 0);
+        if (categoryWithDropdown !== -1) {
+          setHoveredCategoryIndex(categoryWithDropdown);
+        }
+      }
     }
   };
   
   const handleSubcategoryContainerLeave = () => {
-  if (isDesktop) {
-    const timeout = setTimeout(() => {
-      setHoveredCategoryIndex(null);
-    }, 300);
-    setHoverTimeout(timeout);
-  }
-};
+    if (isDesktop) {
+      const timeout = setTimeout(() => {
+        setHoveredCategoryIndex(null);
+      }, 800);
+      setHoverTimeout(timeout);
+    }
+  };
+  
+  // Handle subcategory click
+  const handleSubcategoryClick = (path) => {
+    handleNavigation(path);
+    setHoveredCategoryIndex(null);
+  };
 
 // Clean up timeout on unmount
 useEffect(() => {
@@ -320,6 +335,7 @@ return (
               style={styles.searchInput}
               placeholder="Search products..."
               placeholderTextColor={colors.textLight}
+              textAlign="center"
               value={searchQuery}
               onChangeText={setSearchQuery}
               onFocus={() => setIsSearchFocused(true)}
@@ -420,7 +436,7 @@ return (
                   
                   {/* Subcategories Dropdown */}
                   {category.subcategories && category.subcategories.length > 0 && 
-                   (activeCategoryIndex === index || hoveredCategoryIndex === index) && (
+                   (hoveredCategoryIndex === index || activeCategoryIndex === index) && (
                     <View 
                       style={styles.subcategoriesDropdown}
                       onMouseEnter={handleSubcategoryContainerEnter}
@@ -430,7 +446,7 @@ return (
                         <Pressable
                           key={subcategory.name}
                           style={styles.subcategoryItem}
-                          onPress={() => handleNavigation(subcategory.path)}
+                          onPress={() => handleSubcategoryClick(subcategory.path)}
                           accessibilityRole="link"
                           accessibilityLabel={subcategory.name}
                         >
@@ -612,8 +628,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(191, 161, 74, 0.2)',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.m,
+    paddingHorizontal: spacing.xl,
     zIndex: 99,
   },
   desktopNav: {
@@ -626,18 +642,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    marginTop: spacing.s,
-    gap: spacing.m,
+    marginTop: 0,
+    gap: spacing.xl,
   },
   categoryWrapper: {
     position: 'relative',
-    marginHorizontal: spacing.xs,
-    marginBottom: spacing.xs,
+    marginHorizontal: spacing.l,
+    marginBottom: spacing.m,
   },
   navItem: {
-    paddingVertical: spacing.s,
+    paddingVertical: spacing.m,
     paddingHorizontal: spacing.m,
-    marginHorizontal: 3,
+    marginHorizontal: 0,
     borderRadius: 0,
     position: 'relative',
   },
@@ -648,21 +664,21 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   activeNavItem: {
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: colors.gold,
     backgroundColor: 'transparent',
   },
   hoveredCategoryItem: {
     backgroundColor: 'transparent',
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: colors.gold,
   },
   navText: {
     color: colors.darkGray,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   categoryText: {
     color: colors.darkGray,
@@ -684,10 +700,10 @@ const styles = StyleSheet.create({
     left: 0,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: 'rgba(191, 161, 74, 0.2)',
-    borderRadius: 0,
-    padding: spacing.m,
-    minWidth: 250,
+    borderColor: 'rgba(191, 161, 74, 0.3)',
+    borderRadius: borderRadius.sm,
+    padding: 0,
+    minWidth: 280,
     zIndex: 200,
     ...(Platform.OS === 'web' ? {
       boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
@@ -700,19 +716,26 @@ const styles = StyleSheet.create({
     }),
   },
   subcategoryItem: {
-    paddingVertical: spacing.s,
-    paddingHorizontal: spacing.s,
+    paddingVertical: spacing.m,
+    paddingHorizontal: spacing.l,
     borderRadius: 0,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(191, 161, 74, 0.1)',
-    marginBottom: 2,
+    marginBottom: 0,
+    transition: 'all 0.2s ease',
+    ...(Platform.OS === 'web' ? {
+      ':hover': {
+        backgroundColor: 'rgba(191, 161, 74, 0.05)',
+      }
+    } : {}),
   },
   subcategoryText: {
     color: colors.darkGray,
-    fontSize: 13,
-    fontWeight: '400',
-    paddingVertical: 4,
+    fontSize: 14,
+    fontWeight: '500',
+    paddingVertical: spacing.xs,
     fontFamily: fontFamily.sans,
+    letterSpacing: 0.3,
   },
   headerIcons: {
     flexDirection: 'row',
@@ -845,13 +868,15 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1,
     borderColor: colors.softGoldBorder,
-    borderRadius: borderRadius.sm,
+    borderTopLeftRadius: borderRadius.sm,
+    borderBottomLeftRadius: borderRadius.sm,
     paddingHorizontal: spacing.m,
     paddingVertical: spacing.xs,
     fontFamily: fontFamily.sans,
     fontSize: 14,
     color: colors.text,
     backgroundColor: colors.white,
+    textAlign: 'center',
   },
   searchButton: {
     backgroundColor: colors.gold,
