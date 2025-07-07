@@ -60,6 +60,20 @@ export default function RootLayout() {
         `;
         document.head.appendChild(script);
       }
+      // Inject Google Tag Manager
+      if (!document.getElementById('gtm-script')) {
+        const gtmScript = document.createElement('script');
+        gtmScript.id = 'gtm-script';
+        gtmScript.innerHTML = `
+          (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+          new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+          j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+          'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+          })(window,document,'script','dataLayer','GTM-KN8NBVPW');
+        `;
+        document.head.appendChild(gtmScript);
+      }
+      
       // Inject Google Analytics 4 (gtag.js)
       if (!document.getElementById('ga4-gtag-js')) {
         const gaScript = document.createElement('script');
@@ -102,6 +116,18 @@ export default function RootLayout() {
     <PaperProvider>
       <StoreProvider>
         <SafeAreaProvider>
+          {Platform.OS === 'web' && (
+            <div 
+              dangerouslySetInnerHTML={{
+                __html: `
+                  <!-- Google Tag Manager (noscript) -->
+                  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KN8NBVPW"
+                  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+                  <!-- End Google Tag Manager (noscript) -->
+                `
+              }}
+            />
+          )}
           <CookieConsentBanner />
           <HomeBanner />
           <Header />
