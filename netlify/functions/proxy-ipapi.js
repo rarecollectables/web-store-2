@@ -93,38 +93,83 @@ exports.handler = async function(event) {
     
     // Make the request to geojs.io
     try {
-      const response = await httpClient(geoUrl);
+      // Use a direct approach with https module for maximum compatibility
+      const https = require('https');
+      const url = new URL(geoUrl);
       
-      if (!response.ok) {
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
+      const locationData = await new Promise((resolve) => {
+        const req = https.get({
+          hostname: url.hostname,
+          path: url.pathname + url.search,
+          timeout: 5000 // 5 second timeout
+        }, (res) => {
+          let data = '';
+          
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
+          
+          res.on('end', () => {
+            try {
+              if (res.statusCode >= 200 && res.statusCode < 300) {
+                const geoData = JSON.parse(data);
+                resolve({
+                  ip: geoData.ip || ip,
+                  city: geoData.city || null,
+                  country_name: geoData.country || null,
+                  country_code: geoData.country_code || null,
+                  latitude: geoData.latitude || null,
+                  longitude: geoData.longitude || null,
+                  error: false
+                });
+              } else {
+                console.error(`GeoJS API returned status ${res.statusCode}`);
+                resolve({
+                  ...defaultResponse,
+                  message: `API returned status ${res.statusCode}`,
+                  ip
+                });
+              }
+            } catch (parseError) {
+              console.error('Failed to parse GeoJS response:', parseError);
+              resolve({
+                ...defaultResponse,
+                message: 'Failed to parse location data',
+                ip
+              });
+            }
+          });
+        });
+        
+        req.on('error', (error) => {
+          console.error('Error making request to GeoJS:', error);
+          resolve({
             ...defaultResponse,
-            message: `API returned status ${response.status}`,
+            message: `Request error: ${error.message}`,
             ip
-          })
+          });
+        });
+        
+        req.on('timeout', () => {
+          req.destroy();
+          console.error('GeoJS request timed out');
+          resolve({
+            ...defaultResponse,
+            message: 'Request timed out',
+            ip
+          });
+        });
+        
+        req.end();
+      });
+      
+      // Cache the result if it's not an error
+      if (!locationData.error) {
+        locationCache[ip] = {
+          data: locationData,
+          timestamp: now
         };
       }
-      
-      const geoData = await response.json();
-      
-      // Normalize the response
-      const locationData = {
-        ip: geoData.ip || ip,
-        city: geoData.city || null,
-        country_name: geoData.country || null,
-        country_code: geoData.country_code || null,
-        latitude: geoData.latitude || null,
-        longitude: geoData.longitude || null,
-        error: false
-      };
-      
-      // Cache the result
-      locationCache[ip] = {
-        data: locationData,
-        timestamp: now
-      };
       
       return {
         statusCode: 200,
