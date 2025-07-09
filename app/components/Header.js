@@ -117,15 +117,7 @@ export default function Header() {
   const router = useRouter();
   const store = useStore();
   
-  // Debug log to check what's coming from the store
-  useEffect(() => {
-    console.log('Header - Store state:', { 
-      cart: store.cart, 
-      wishlist: store.wishlist,
-      cartIsArray: Array.isArray(store.cart),
-      wishlistIsArray: Array.isArray(store.wishlist)
-    });
-  }, [store.cart, store.wishlist]);
+
   
   const cart = Array.isArray(store.cart) ? store.cart : [];
   const wishlist = Array.isArray(store.wishlist) ? store.wishlist : [];

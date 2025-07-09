@@ -209,8 +209,7 @@ export function StoreProvider({ children }) {
             console.error('[store.js] Error parsing stored data:', parseErr, data);
             parsedData = {};
           }
-          // DEBUG: Log hydrated wishlist
-          console.log('[store.js] Hydrating wishlist:', parsedData.wishlist);
+
           dispatch({ 
             type: 'HYDRATE', 
             payload: {
@@ -233,8 +232,7 @@ export function StoreProvider({ children }) {
           cart: ensureArray(state.cart),
           wishlist: ensureArray(state.wishlist)
         }));
-        // DEBUG: Log persisted wishlist
-        console.log('[store.js] Persisted wishlist:', state.wishlist);
+
       } catch (error) {
         console.error('Error saving store:', error);
       }
