@@ -34,7 +34,7 @@ export default function BestSellersSection({ cardWidth, numColumns, bestSellerId
         if (mounted) setProducts(bestSellers);
         // Log best sellers loaded event
         try {
-          await fetch('/api/logSearch', {
+          await fetch('/.netlify/functions/logSearch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
