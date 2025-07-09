@@ -414,7 +414,7 @@ return (
             accessibilityRole="button"
             accessibilityLabel="Shopping cart"
           >
-            <FontAwesome name="shopping-cart" size={22} color={colors.gold} />
+            <FontAwesome name="shopping-bag" size={22} color={colors.gold} />
             {cartCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{cartCount}</Text>

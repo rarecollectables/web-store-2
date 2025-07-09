@@ -183,7 +183,7 @@ export default function TabsLayout() {
         options={{
           title: 'Cart',
           tabBarIcon: ({ color }) => (
-            <TabBarIconWithBadge name="shopping-cart" color={color} count={cartCount} animate={!!lastAddedToCart} />
+            <TabBarIconWithBadge name="shopping-bag" color={color} count={cartCount} animate={!!lastAddedToCart} />
           ),
           tabBarButton: (props) => (
             <Pressable
