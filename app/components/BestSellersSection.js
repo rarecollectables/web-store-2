@@ -38,8 +38,8 @@ export default function BestSellersSection({ cardWidth, numColumns, bestSellerId
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              event: 'best_sellers_loaded',
-              productIds: bestSellers.map(p => p.id)
+              query: 'best_sellers_loaded',
+              user_id: null
             })
           });
         } catch (logErr) {
