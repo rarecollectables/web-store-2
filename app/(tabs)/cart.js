@@ -187,7 +187,6 @@ export default function CartScreen() {
                 <Text style={styles.title}>{item.title}</Text>
                 <View style={styles.priceContainer}>
                   <Text style={styles.salesPrice}>{`₤${price > 0 ? (price * item.quantity).toFixed(2) : 'N/A'}`}</Text>
-                  <Text style={styles.saleLabel}>{item.id % 2 === 0 ? '40% OFF' : '20% OFF'}</Text>
                 </View>
                 <View style={styles.quantityRow}>
                   <Pressable

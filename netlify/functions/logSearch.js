@@ -16,9 +16,14 @@ exports.handler = async function(event, context) {
 
   try {
     const data = JSON.parse(event.body);
-    const { query, user_id } = data;
+    const { query, user_id, source = 'unknown' } = data;
     const ip_address = event.headers['x-forwarded-for'] || event.headers['client-ip'] || null;
     const user_agent = event.headers['user-agent'] || null;
+    
+    // Track if this is a gift-related search for SEO analysis
+    const isGiftSearch = query.toLowerCase().includes('gift') || 
+                         query.toLowerCase().includes('present') || 
+                         query.toLowerCase().includes('for her');
 
     if (!query || typeof query !== 'string' || query.trim() === '') {
       return {
@@ -32,7 +37,10 @@ exports.handler = async function(event, context) {
         query,
         user_id: user_id || null,
         ip_address,
-        user_agent
+        user_agent,
+        source,
+        is_gift_search: isGiftSearch,
+        search_category: isGiftSearch ? 'gift' : 'general'
       }
     ]);
 

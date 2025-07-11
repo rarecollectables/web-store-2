@@ -603,9 +603,6 @@ export default function ProductDetail() {
                 <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Text style={[styles.regularPrice]}>Regular Price: {calculateRegularPrice(product?.price, product?.id)}</Text>
-                    <View style={{ backgroundColor: '#e53935', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
-                      <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>{getDiscountPercentage(product?.id)} OFF</Text>
-                    </View>
                   </View>
                   <Text style={[styles.salesPrice, { fontSize: 22, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.gold, color: colors.white, borderWidth: 1, borderColor: colors.softGoldBorder, ...desktopPrice }]}>{product?.price}</Text>
                 </View>

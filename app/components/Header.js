@@ -26,6 +26,19 @@ const CATEGORIES = [
     subcategories: [] 
   },
   {
+    name: 'GIFTS FOR HER',
+    path: '/(tabs)/shop?category=GiftsForHer',
+    icon: 'gift',
+    subcategories: [
+      { name: 'Birthday Gifts', path: '/(tabs)/shop?category=GiftsForHer&subcategory=Birthday' },
+      { name: 'Anniversary Gifts', path: '/(tabs)/shop?category=GiftsForHer&subcategory=Anniversary' },
+      { name: 'Romantic Gifts', path: '/(tabs)/shop?category=GiftsForHer&subcategory=Romantic' },
+      { name: 'Luxury Gifts', path: '/(tabs)/shop?category=GiftsForHer&subcategory=Luxury' },
+      { name: 'Special Occasion Gifts', path: '/(tabs)/shop?category=GiftsForHer&subcategory=SpecialOccasion' },
+      { name: 'View All Gifts for Her', path: '/(tabs)/shop?category=GiftsForHer' },
+    ]
+  },
+  {
     name: 'TOP DEALS',
     path: '/(tabs)/shop?category=TopDeals',
     icon: 'tags',
@@ -416,80 +429,8 @@ return (
         </View>
       </View>
       
-      {/* Desktop Navigation - Categories Row */}
-      {isDesktop && (
-        <View style={styles.categoriesRow}>
-          <View style={styles.desktopNav} ref={categoryMenuRef}>
-            {/* Categories Menu */}
-            <View style={styles.categoriesContainer}>
-              {CATEGORIES.map((category, index) => (
-                <View key={category.name} style={styles.categoryWrapper}>
-                  <Pressable
-                    style={[
-                      styles.navItem,
-                      styles.categoryItem,
-                      (pathname === category.path || 
-                       pathname.includes(category.path + '?')) && styles.activeNavItem,
-                      (activeCategoryIndex === index || hoveredCategoryIndex === index) && 
-                        styles.hoveredCategoryItem
-                    ]}
-                    onPress={() => handleCategoryClick(index, category.path, true)}
-                    onHoverIn={() => handleCategoryHover(index)}
-                    onHoverOut={handleCategoryLeave}
-                    accessibilityRole="button"
-                    accessibilityLabel={category.name}
-                    accessibilityHint={`Show ${category.name} subcategories`}
-                  >
-                    <Text style={[
-                      styles.navText,
-                      styles.categoryText,
-                      (pathname === category.path || 
-                       pathname.includes(category.path + '?')) && styles.activeNavText,
-                      (activeCategoryIndex === index || hoveredCategoryIndex === index) && 
-                        styles.hoveredCategoryText
-                    ]}>
-                      {category.name}
-                    </Text>
-                    {category.subcategories && category.subcategories.length > 0 && (
-                      <FontAwesome 
-                        name="angle-down" 
-                        size={14} 
-                        color={(activeCategoryIndex === index || hoveredCategoryIndex === index) ? 
-                          colors.white : colors.gold} 
-                        style={styles.dropdownIcon}
-                      />
-                    )}
-                  </Pressable>
-                  
-                  {/* Subcategories Dropdown */}
-                  {category.subcategories && category.subcategories.length > 0 && 
-                   (hoveredCategoryIndex === index || activeCategoryIndex === index) && (
-                    <View 
-                      style={styles.subcategoriesDropdown}
-                      onMouseEnter={handleSubcategoryContainerEnter}
-                      onMouseLeave={handleSubcategoryContainerLeave}
-                    >
-                      {category.subcategories.map((subcategory) => (
-                        <Pressable
-                          key={subcategory.name}
-                          style={styles.subcategoryItem}
-                          onPress={() => handleSubcategoryClick(subcategory.path)}
-                          accessibilityRole="link"
-                          accessibilityLabel={subcategory.name}
-                        >
-                          <Text style={styles.subcategoryText}>
-                            {subcategory.name}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-      )}
+      {/* Desktop Navigation - Categories Row - TEMPORARILY HIDDEN */}
+      {/* Categories menu navigation has been hidden as requested */}
       
       {/* Mobile Menu Dropdown */}
       {!isDesktop && (
@@ -528,69 +469,8 @@ return (
           </View>
           {/* Main Menu Items removed as requested */}
           
-          {/* Categories Menu */}
-          <View style={styles.mobileCategoriesContainer}>
-            {CATEGORIES.map((category, index) => (
-              <View key={category.name} style={styles.mobileCategoryWrapper}>
-                <Pressable
-                  style={[
-                    styles.mobileNavItem,
-                    pathname === category.path && styles.activeMobileNavItem,
-                    mobileActiveCategoryIndex === index && styles.expandedMobileCategoryItem
-                  ]}
-                  onPress={() => handleCategoryClick(index, category.path, false)}
-                  accessibilityRole="button"
-                  accessibilityLabel={category.name}
-                  accessibilityHint={category.subcategories && category.subcategories.length > 0 ? 
-                    `Show ${category.name} subcategories` : `Navigate to ${category.name}`}
-                >
-                  <FontAwesome 
-                    name={category.icon} 
-                    size={18} 
-                    color={pathname === category.path || mobileActiveCategoryIndex === index ? 
-                      colors.white : colors.gold} 
-                    style={styles.mobileNavIcon}
-                  />
-                  <Text style={[
-                    styles.mobileNavText,
-                    (pathname === category.path || mobileActiveCategoryIndex === index) && 
-                      styles.activeMobileNavText
-                  ]}>
-                    {category.name}
-                  </Text>
-                  {category.subcategories && category.subcategories.length > 0 && (
-                    <FontAwesome 
-                      name={mobileActiveCategoryIndex === index ? "angle-up" : "angle-down"} 
-                      size={18} 
-                      color={mobileActiveCategoryIndex === index ? colors.white : colors.gold} 
-                      style={styles.mobileDropdownIcon}
-                    />
-                  )}
-                </Pressable>
-                
-                {/* Mobile Subcategories */}
-                {category.subcategories && 
-                 category.subcategories.length > 0 && 
-                 mobileActiveCategoryIndex === index && (
-                  <View style={styles.mobileSubcategoriesContainer}>
-                    {category.subcategories.map((subcategory) => (
-                      <Pressable
-                        key={subcategory.name}
-                        style={styles.mobileSubcategoryItem}
-                        onPress={() => handleNavigation(subcategory.path)}
-                        accessibilityRole="link"
-                        accessibilityLabel={subcategory.name}
-                      >
-                        <Text style={styles.mobileSubcategoryText}>
-                          {subcategory.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
+          {/* Mobile Categories - TEMPORARILY HIDDEN */}
+          {/* Mobile categories menu navigation has been hidden as requested */}
         </Animated.View>
       )}
       
@@ -658,26 +538,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(191, 161, 74, 0.2)',
     paddingVertical: spacing.m,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: 0,
     zIndex: 99,
+    display: 'flex',
+    justifyContent: 'center',
   },
   desktopNav: {
     width: '100%',
+    maxWidth: 1200,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   categoriesContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-evenly',
     flexWrap: 'wrap',
     marginTop: 0,
-    gap: spacing.xl,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
+    marginHorizontal: 'auto',
   },
   categoryWrapper: {
     position: 'relative',
-    marginHorizontal: spacing.l,
     marginBottom: spacing.m,
+    paddingHorizontal: spacing.xs,
   },
   navItem: {
     paddingVertical: spacing.m,
@@ -711,7 +597,10 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     color: colors.darkGray,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    letterSpacing: 1.2,
   },
   activeNavText: {
     color: colors.gold,
@@ -730,31 +619,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: 'rgba(191, 161, 74, 0.3)',
-    borderRadius: borderRadius.sm,
-    padding: 0,
-    minWidth: 280,
+    borderRadius: borderRadius.md,
+    padding: spacing.xs,
+    minWidth: 300,
+    maxWidth: 320,
     zIndex: 200,
     ...(Platform.OS === 'web' ? {
-      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+      boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
     } : {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 5,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+      elevation: 6,
     }),
   },
   subcategoryItem: {
-    paddingVertical: spacing.m,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.l,
-    borderRadius: 0,
+    borderRadius: borderRadius.sm,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(191, 161, 74, 0.1)',
-    marginBottom: 0,
+    marginBottom: spacing.xs,
     transition: 'all 0.2s ease',
     ...(Platform.OS === 'web' ? {
       ':hover': {
-        backgroundColor: 'rgba(191, 161, 74, 0.05)',
+        backgroundColor: 'rgba(191, 161, 74, 0.08)',
       }
     } : {}),
   },
@@ -764,7 +654,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     paddingVertical: spacing.xs,
     fontFamily: fontFamily.sans,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
+    lineHeight: 20,
   },
   headerIcons: {
     flexDirection: 'row',
@@ -862,23 +753,30 @@ const styles = StyleSheet.create({
   },
   mobileSubcategoriesContainer: {
     backgroundColor: colors.ivory,
-    borderBottomLeftRadius: borderRadius.sm,
-    borderBottomRightRadius: borderRadius.sm,
-    paddingVertical: spacing.xs,
+    borderBottomLeftRadius: borderRadius.md,
+    borderBottomRightRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(191, 161, 74, 0.2)',
   },
   mobileSubcategoryItem: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.m,
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(191, 161, 74, 0.2)',
+    marginBottom: spacing.xs,
   },
   mobileSubcategoryText: {
     fontFamily: fontFamily.sans,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.onyxBlack,
     paddingLeft: spacing.xl,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   overlay: {
     position: 'absolute',

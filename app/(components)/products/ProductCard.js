@@ -273,9 +273,6 @@ export default function ProductCard({ item, cardWidth, disableImageCycling, onAd
           <View style={styles.priceContainer}>
             <Text style={styles.regularPrice}>{formatPrice(calculateRegularPrice(item.price, item.id))}</Text>
             <Text style={styles.salesPrice}>{formatPrice(item.price)}</Text>
-            <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>{item.id % 2 === 0 ? '40% OFF' : '20% OFF'}</Text>
-            </View>
           </View>
         </View>
         <Animated.View style={[styles.buttonContainer, { transform: [{ scale: scaleAnim }] }]}>

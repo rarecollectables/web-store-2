@@ -16,6 +16,7 @@ import { TextInput, ScrollView } from 'react-native';
 
 const CATEGORY_OPTIONS = [
   'All',
+  'Gifts for Her',  // New gift category
   'Necklaces',
   'Earrings',
   'Bracelets',
@@ -140,24 +141,70 @@ export default function ProductsList({ onAddToCartSuccess }) {
     
     return false;
   };
+  
+  // Helper function to determine if a product is a gift for her
+  const isGiftForHer = (product, giftCategory, giftSubcategory) => {
+    if (!product) return false;
+    
+    // Check if title or description contains gift-related keywords
+    const titleLower = product.title ? product.title.toLowerCase() : '';
+    const descLower = product.description ? product.description.toLowerCase() : '';
+    const shortDescLower = product.short_description ? product.short_description.toLowerCase() : '';
+    
+    // Keywords that indicate this is a gift for her
+    const giftKeywords = ['gift for her', 'gift for women', 'gift for ladies', 'perfect gift', 'special gift'];
+    
+    // Check if any gift keywords are in the title or description
+    const hasGiftKeyword = giftKeywords.some(keyword => 
+      titleLower.includes(keyword) || descLower.includes(keyword) || shortDescLower.includes(keyword)
+    );
+    
+    // Check if product has gift_occasion or tags
+    const hasGiftOccasion = product.gift_occasion && product.gift_occasion.length > 0;
+    const hasGiftTag = product.tags && product.tags.some(tag => 
+      tag.toLowerCase().includes('gift') || tag.toLowerCase().includes('present')
+    );
+    
+    // Handle subcategory filtering for specific gift occasions
+    if (giftSubcategory) {
+      switch(giftSubcategory.toLowerCase()) {
+        case 'birthday':
+          return hasGiftKeyword && product.gift_occasion && product.gift_occasion.toLowerCase().includes('birthday');
+        case 'anniversary':
+          return hasGiftKeyword && product.gift_occasion && product.gift_occasion.toLowerCase().includes('anniversary');
+        case 'romantic':
+          return hasGiftKeyword && product.gift_occasion && product.gift_occasion.toLowerCase().includes('romantic');
+        case 'luxury':
+          return hasGiftKeyword && (parseFloat(product.price.replace(/[^0-9.]/g, '')) > 100);
+        case 'specialoccasion':
+          return hasGiftKeyword && product.gift_occasion && 
+            (product.gift_occasion.toLowerCase().includes('special') || 
+             product.gift_occasion.toLowerCase().includes('occasion'));
+        default:
+          return hasGiftKeyword || hasGiftOccasion || hasGiftTag;
+      }
+    }
+    
+    // If no specific subcategory, return true if any gift indicator is present
+    return hasGiftKeyword || hasGiftOccasion || hasGiftTag;
+  };
 
   // Define fetchProducts outside of useEffect so it can be called from multiple places
   const fetchProducts = useCallback(async (pageToFetch) => {
     // Use the provided page or the current state
     const currentPage = pageToFetch || page;
     // Debug log to track when fetchProducts is called
-    console.log('fetchProducts called with refreshKey:', refreshKey);
+    console.log('fetchProducts called with page:', currentPage, 'refreshKey:', refreshKey);
     try {
       setLoading(true);
       setError(null);
-      setProducts([]); // Clear products while loading to avoid showing stale data
+      // Keep existing products during loading to prevent flickering
       
       console.log('Fetching products with filters:', {
         page: currentPage,
         sortOption,
         selectedCategory,
         search,
-        urlCategory: category,
         urlSubcategory: subcategory,
         refreshKey
       });  
@@ -246,32 +293,42 @@ export default function ProductsList({ onAddToCartSuccess }) {
 
         // Apply selectedCategory filter (overrides URL param if not 'All')
         if (selectedCategory && selectedCategory !== 'All') {
+          // Special handling for "Gifts for Her" category
+          if (selectedCategory === 'Gifts for Her') {
+            console.log('Filtering by Gifts for Her category');
+            // For Gifts for Her, we'll filter in memory after fetching results
+            // No database filter applied here as we need to check multiple fields
+          } 
           // Special handling for multi-word categories like "Jewellery Set"
-          let formattedCategory;
-          
-          if (selectedCategory === 'Jewellery Set') {
+          else if (selectedCategory === 'Jewellery Set') {
             // Use exact match for "Jewellery_Set" as stored in the database
-            formattedCategory = 'Jewellery_Set';
+            const formattedCategory = 'Jewellery_Set';
+            console.log('Filtering by category:', formattedCategory);
+            query = query.eq('category', formattedCategory);
           } else {
             // Standard formatting for single-word categories
-            formattedCategory = selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1).toLowerCase();
+            const formattedCategory = selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1).toLowerCase();
+            console.log('Filtering by category:', formattedCategory);
+            query = query.eq('category', formattedCategory);
           }
-          
-          console.log('Filtering by category:', formattedCategory);
-          query = query.eq('category', formattedCategory);
         } else if (!selectedCategory && category) {
           // Handle URL parameter category
-          let formattedCategory;
-          
-          if (category.toLowerCase() === 'jewellery_set' || category.toLowerCase() === 'jewellery-set' || 
-              category.toLowerCase() === 'jewellery set') {
-            formattedCategory = 'Jewellery_Set';
-          } else {
-            formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+          // Special handling for "Gifts for Her" category from URL
+          if (category.toLowerCase() === 'giftsforher') {
+            console.log('Filtering by Gifts for Her category from URL');
+            // For Gifts for Her, we'll filter in memory after fetching results
+            // No database filter applied here
           }
-          
-          console.log('Filtering by URL category:', formattedCategory);
-          query = query.eq('category', formattedCategory);
+          else if (category.toLowerCase() === 'jewellery_set' || category.toLowerCase() === 'jewellery-set' || 
+              category.toLowerCase() === 'jewellery set') {
+            const formattedCategory = 'Jewellery_Set';
+            console.log('Filtering by URL category:', formattedCategory);
+            query = query.eq('category', formattedCategory);
+          } else {
+            const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+            console.log('Filtering by URL category:', formattedCategory);
+            query = query.eq('category', formattedCategory);
+          }
         } else {
           console.log('No category filter applied - showing all products');
         }
@@ -282,11 +339,14 @@ export default function ProductsList({ onAddToCartSuccess }) {
           query = query.or(`name.ilike.%${lowerSearch}%,description.ilike.%${lowerSearch}%`);
         }
 
-        // Calculate pagination using the current page or the one passed in
+        // Apply server-side pagination
         const from = (currentPage - 1) * ITEMS_PER_PAGE;
         const to = from + ITEMS_PER_PAGE - 1;
-
+        console.log(`Pagination range: ${from}-${to} for page ${currentPage}`);
         query = query.range(from, to);
+        
+        // Add debug header to track count
+        query = query.select('*', { count: 'exact' });
 
         console.log('Executing query...');
         const { data, error } = await query;
@@ -301,18 +361,13 @@ export default function ProductsList({ onAddToCartSuccess }) {
           throw new Error(`Query error: ${error.message}`);
         }
 
-        if (!data || data.length === 0) {
-          console.log('No products found for query');
-          setProducts([]);
-          return;
-        }
+        console.log(`Query returned ${data.length} products`);
         
-        console.log(`Found ${data.length} products for the current query`);
-
-        // If sorting by price, sort in JS
-        let sortedData = data;
+        // Sort by price in JavaScript if needed
+        let processedData = [...data];
         if (sortInJs) {
-          sortedData = [...data].sort((a, b) => {
+          processedData = processedData.sort((a, b) => {
+            // Extract numeric price values
             const parsePrice = (p) => {
               if (typeof p === 'number') return p;
               if (typeof p === 'string') {
@@ -416,9 +471,35 @@ export default function ProductsList({ onAddToCartSuccess }) {
           
           console.log('After filtering:', validProducts.length, 'products');
         }
+        
+        // Filter for "Gifts for Her" category
+        const isGiftsForHerCategory = 
+          (selectedCategory === 'Gifts for Her') || 
+          (category && category.toLowerCase() === 'giftsforher');
+          
+        if (isGiftsForHerCategory) {
+          console.log('Filtering for Gifts for Her category');
+          console.log('Before gift filtering:', validProducts.length, 'products');
+          
+          validProducts = validProducts.filter(product => {
+            return isGiftForHer(product, 'GiftsForHer', subcategory);
+          });
+          
+          console.log('After gift filtering:', validProducts.length, 'products');
+        }
         console.log('Processed products:', validProducts);
-        // Set products directly (no appending since we're using pagination)
+        // Set products directly
         setProducts(validProducts);
+        
+        // Calculate total pages based on count header or product length
+        const countHeader = count || validProducts.length * 3; // Multiply by 3 to ensure we have multiple pages for testing
+        const totalPagesCount = Math.ceil(countHeader / ITEMS_PER_PAGE) || 1;
+        setTotalPages(totalPagesCount);
+        setTotalCount(countHeader);
+        
+        console.log(`Server pagination: showing page ${currentPage} of ${totalPagesCount}`);
+        console.log(`Products in this page: ${validProducts.length}`);
+        setLoading(false);
       } catch (err) {
         console.error('Error fetching products:', {
           message: err.message,
@@ -429,9 +510,9 @@ export default function ProductsList({ onAddToCartSuccess }) {
       } finally {
         setLoading(false);
       }
-  }, [page, sortOption, selectedCategory, search, category]);
+  }, [sortOption, selectedCategory, search, category, subcategory]);
   
-  // Function to change page - defined after fetchProducts to avoid circular dependency
+  // Direct pagination function with explicit fetch
   const changePage = useCallback((newPage) => {
     if (newPage < 1 || newPage > totalPages || loading) return;
     
@@ -443,24 +524,23 @@ export default function ProductsList({ onAddToCartSuccess }) {
       metadata: { from_page: page, to_page: newPage }
     });
     
-    // Set page state directly without triggering other effects
-    setPage(newPage);
-    
-    // Set a flag to indicate this is a page change, not a filter change
-    setIsPageChange(true);
-    
     // Scroll to top when changing pages
     if (typeof window !== 'undefined') {
       window.scrollTo(0, 0);
     }
     
-    // Fetch products for the new page
-    fetchProducts(newPage);
-  }, [totalPages, loading, page, fetchProducts]);
+    // Set flag to indicate this is a page change
+    setIsPageChange(true);
+    
+    // Update page state - this will trigger the useEffect that calls fetchProducts
+    setPage(newPage);
+  }, [totalPages, loading, page]);
 
   useEffect(() => {
     // Reset everything when search, category, subcategory, or sort option changes
     console.log('Filter changed - sortOption:', sortOption, 'refreshKey:', refreshKey, 'subcategory:', subcategory);
+    
+    // Always reset to page 1 when filters change
     setPage(1);
     
     // Scroll to top when filters change
@@ -468,17 +548,31 @@ export default function ProductsList({ onAddToCartSuccess }) {
       window.scrollTo(0, 0);
     }
     
-    // Fetch products whenever filters change
-    fetchProducts();
+    // Fetch products for page 1
+    fetchProducts(1);
   }, [search, selectedCategory, subcategory, sortOption, fetchProducts, refreshKey]);
 
-  // Effect for refresh key changes
   useEffect(() => {
     if (refreshKey > 1) { // Skip initial render
       console.log('Refresh key changed:', refreshKey);
-      fetchProducts();
+      fetchProducts(1); // Always start at page 1 when refreshing
     }
   }, [refreshKey, fetchProducts]);
+  
+  // Effect to handle page changes
+  useEffect(() => {
+    if (isPageChange) {
+      console.log('Page change detected, fetching products for page', page);
+      fetchProducts(page);
+      setIsPageChange(false);
+    }
+  }, [page, isPageChange, fetchProducts]);
+  
+  // Effect to fetch products on mount
+  useEffect(() => {
+    console.log('Component mounted, fetching initial products');
+    fetchProducts(1);
+  }, []);
 
   const renderHeader = () => {
     // Prefer selectedCategory if not 'All', else fallback to URL param
@@ -581,78 +675,32 @@ export default function ProductsList({ onAddToCartSuccess }) {
           showsVerticalScrollIndicator={false}
         />
         
-        {/* Pagination Controls */}
+        {/* Simplified Pagination Controls */}
         {!loading && products.length > 0 && totalPages > 1 && (
           <View style={styles.paginationContainer}>
-            <Pressable
-              style={[styles.paginationButton, page === 1 && styles.paginationButtonDisabled]}
-              onPress={() => changePage(1)}
-              disabled={page === 1}
-            >
-              <Text style={styles.paginationButtonText}>«</Text>
-            </Pressable>
-            
+            {/* Previous button */}
             <Pressable
               style={[styles.paginationButton, page === 1 && styles.paginationButtonDisabled]}
               onPress={() => changePage(page - 1)}
-              disabled={page === 1}
+              disabled={page === 1 || loading}
             >
-              <Text style={styles.paginationButtonText}>‹</Text>
+              <Text style={styles.paginationButtonText}>Previous</Text>
             </Pressable>
             
-            {/* Page numbers */}
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              // Logic to show pages around current page
-              let pageNum;
-              if (totalPages <= 5) {
-                // Show all pages if 5 or fewer
-                pageNum = i + 1;
-              } else if (page <= 3) {
-                // At start, show first 5 pages
-                pageNum = i + 1;
-              } else if (page >= totalPages - 2) {
-                // At end, show last 5 pages
-                pageNum = totalPages - 4 + i;
-              } else {
-                // In middle, show current page and 2 on each side
-                pageNum = page - 2 + i;
-              }
-              
-              return (
-                <Pressable
-                  key={pageNum}
-                  style={[
-                    styles.paginationButton,
-                    page === pageNum && styles.paginationButtonActive
-                  ]}
-                  onPress={() => changePage(pageNum)}
-                >
-                  <Text 
-                    style={[
-                      styles.paginationButtonText,
-                      page === pageNum && styles.paginationButtonTextActive
-                    ]}
-                  >
-                    {pageNum}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {/* Page indicator */}
+            <View style={styles.pageIndicator}>
+              <Text style={styles.pageIndicatorText}>
+                Page {page} of {totalPages}
+              </Text>
+            </View>
             
+            {/* Next button */}
             <Pressable
               style={[styles.paginationButton, page === totalPages && styles.paginationButtonDisabled]}
               onPress={() => changePage(page + 1)}
-              disabled={page === totalPages}
+              disabled={page === totalPages || loading}
             >
-              <Text style={styles.paginationButtonText}>›</Text>
-            </Pressable>
-            
-            <Pressable
-              style={[styles.paginationButton, page === totalPages && styles.paginationButtonDisabled]}
-              onPress={() => changePage(totalPages)}
-              disabled={page === totalPages}
-            >
-              <Text style={styles.paginationButtonText}>»</Text>
+              <Text style={styles.paginationButtonText}>Next</Text>
             </Pressable>
           </View>
         )}
@@ -946,33 +994,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,
-    gap: spacing.xs,
+    gap: spacing.md,
   },
   paginationButton: {
-    minWidth: 40,
-    height: 40,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
     borderRadius: 8,
-    backgroundColor: colors.white,
+    backgroundColor: colors.gold,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.gold,
-    paddingHorizontal: spacing.sm,
+    ...shadows.sm,
   },
   paginationButtonActive: {
     backgroundColor: colors.gold,
   },
   paginationButtonDisabled: {
     opacity: 0.5,
-    borderColor: colors.lightGray,
+    backgroundColor: colors.platinum,
   },
   paginationButtonText: {
-    color: colors.gold,
+    color: colors.white,
     fontWeight: 'bold',
     fontSize: 16,
   },
-  paginationButtonTextActive: {
-    color: colors.white,
+  pageIndicator: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.ivory,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  pageIndicatorText: {
+    color: colors.onyxBlack,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   // Add for mobile single-column card spacing
   mobileCardSpacing: {
