@@ -429,8 +429,65 @@ return (
         </View>
       </View>
       
-      {/* Desktop Navigation - Categories Row - TEMPORARILY HIDDEN */}
-      {/* Categories menu navigation has been hidden as requested */}
+      {/* Desktop Navigation - Categories Row */}
+      {isDesktop && (
+        <View style={styles.categoriesRow} ref={categoryMenuRef}>
+          <View style={styles.categoriesContainer}>
+            {CATEGORIES.map((category, index) => (
+              <View key={`category-${index}`} style={styles.categoryWrapper}>
+                <Pressable
+                  style={[styles.navItem, styles.categoryItem,
+                    pathname.includes(category.path.split('?')[0]) && styles.activeNavItem,
+                    (hoveredCategoryIndex === index) && styles.hoveredCategoryItem
+                  ]}
+                  onPress={() => handleCategoryClick(index, category.path, true)}
+                  onHoverIn={() => handleCategoryHover(index)}
+                  onHoverOut={handleCategoryLeave}
+                  accessibilityRole="button"
+                  accessibilityLabel={category.name}
+                >
+                  <Text style={[
+                    styles.categoryText,
+                    pathname.includes(category.path.split('?')[0]) && styles.activeNavText,
+                    (hoveredCategoryIndex === index) && styles.hoveredCategoryText
+                  ]}>
+                    {category.name}
+                  </Text>
+                  {category.subcategories && category.subcategories.length > 0 && (
+                    <FontAwesome 
+                      name="angle-down" 
+                      size={12} 
+                      color={hoveredCategoryIndex === index ? colors.gold : colors.darkGray} 
+                      style={styles.dropdownIcon} 
+                    />
+                  )}
+                </Pressable>
+                
+                {/* Subcategories Dropdown */}
+                {category.subcategories && category.subcategories.length > 0 && hoveredCategoryIndex === index && (
+                  <View 
+                    style={styles.subcategoriesDropdown}
+                    onHoverIn={handleSubcategoryContainerEnter}
+                    onHoverOut={handleSubcategoryContainerLeave}
+                  >
+                    {category.subcategories.map((subcategory, subIndex) => (
+                      <Pressable
+                        key={`subcategory-${index}-${subIndex}`}
+                        style={styles.subcategoryItem}
+                        onPress={() => handleSubcategoryClick(subcategory.path)}
+                        accessibilityRole="button"
+                        accessibilityLabel={subcategory.name}
+                      >
+                        <Text style={styles.subcategoryText}>{subcategory.name}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
       
       {/* Mobile Menu Dropdown */}
       {!isDesktop && (
@@ -467,10 +524,54 @@ return (
               <FontAwesome name="search" size={16} color={colors.white} />
             </Pressable>
           </View>
-          {/* Main Menu Items removed as requested */}
-          
-          {/* Mobile Categories - TEMPORARILY HIDDEN */}
-          {/* Mobile categories menu navigation has been hidden as requested */}
+          {/* Mobile Categories */}
+          <View style={styles.mobileCategoriesContainer}>
+            {CATEGORIES.map((category, index) => (
+              <View key={`mobile-category-${index}`}>
+                <Pressable
+                  style={[styles.mobileCategoryItem, 
+                    mobileActiveCategoryIndex === index && styles.mobileActiveCategoryItem
+                  ]}
+                  onPress={() => handleCategoryClick(index, category.path, false)}
+                  accessibilityRole="button"
+                  accessibilityLabel={category.name}
+                >
+                  <View style={styles.mobileCategoryContent}>
+                    <FontAwesome name={category.icon} size={16} color={colors.gold} style={styles.mobileCategoryIcon} />
+                    <Text style={[styles.mobileCategoryText, 
+                      mobileActiveCategoryIndex === index && styles.mobileActiveCategoryText
+                    ]}>
+                      {category.name}
+                    </Text>
+                  </View>
+                  {category.subcategories && category.subcategories.length > 0 && (
+                    <FontAwesome 
+                      name={mobileActiveCategoryIndex === index ? "angle-up" : "angle-down"} 
+                      size={16} 
+                      color={colors.darkGray} 
+                    />
+                  )}
+                </Pressable>
+                
+                {/* Mobile Subcategories */}
+                {category.subcategories && category.subcategories.length > 0 && mobileActiveCategoryIndex === index && (
+                  <View style={styles.mobileSubcategoriesContainer}>
+                    {category.subcategories.map((subcategory, subIndex) => (
+                      <Pressable
+                        key={`mobile-subcategory-${index}-${subIndex}`}
+                        style={styles.mobileSubcategoryItem}
+                        onPress={() => handleNavigation(subcategory.path)}
+                        accessibilityRole="button"
+                        accessibilityLabel={subcategory.name}
+                      >
+                        <Text style={styles.mobileSubcategoryText}>{subcategory.name}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
         </Animated.View>
       )}
       
@@ -698,20 +799,106 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderBottomLeftRadius: borderRadius.md,
     borderBottomRightRadius: borderRadius.md,
+    padding: spacing.m,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    zIndex: 999,
+    zIndex: 1000,
     maxHeight: '80vh',
     overflow: 'auto',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+      elevation: 6,
+    }),
+  },
+  overlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 90,
+  },
+  mobileSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.l,
+    borderWidth: 1,
+    borderColor: colors.lightGray,
+    borderRadius: borderRadius.sm,
+    overflow: 'hidden',
+  },
+  mobileSearchInput: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.m,
+    fontSize: 14,
+    color: colors.darkGray,
+    backgroundColor: colors.white,
+  },
+  mobileSearchButton: {
+    backgroundColor: colors.gold,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.m,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mobileCategoriesContainer: {
+    width: '100%',
     marginTop: spacing.md,
     borderTopWidth: 1,
+  },
+  mobileCategoryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.m,
+    paddingHorizontal: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(191, 161, 74, 0.1)',
+  },
+  mobileActiveCategoryItem: {
+    backgroundColor: 'rgba(191, 161, 74, 0.05)',
+  },
+  mobileCategoryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mobileCategoryIcon: {
+    marginRight: spacing.sm,
+    width: 20,
+  },
+  mobileCategoryText: {
+    color: colors.darkGray,
+    fontSize: 16,
+    fontWeight: '500',
+    fontFamily: fontFamily.sans,
+  },
+  mobileActiveCategoryText: {
+    color: colors.gold,
+    fontWeight: '600',
+  },
+  mobileSubcategoriesContainer: {
+    paddingLeft: spacing.xl,
+    backgroundColor: 'rgba(191, 161, 74, 0.03)',
+  },
+  mobileSubcategoryItem: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.m,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(191, 161, 74, 0.05)',
+  },
+  mobileSubcategoryText: {
+    color: colors.darkGray,
+    fontSize: 14,
+    fontFamily: fontFamily.sans,
+  },
+  mobileCategoriesHeader: {
     borderTopColor: 'rgba(191, 161, 74, 0.2)',
     paddingTop: spacing.md,
   },
